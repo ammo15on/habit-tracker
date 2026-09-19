@@ -1,19 +1,22 @@
-# Habit & Study Tracker (Android)
+# Habit & Study Tracker (Android) - v2
 
 A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, time tracking, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APK
+## 📱 Pre-Built APK (v2)
 
-The compiled Android application package is ready in the repository:
-- **Location**: `apk/habit-tracker.apk` (or `app/build/outputs/apk/debug/app-debug.apk`)
+The compiled Android application package with suffix `v2` is ready in the repository:
+- **v2 APK Location**: `apk/habit-tracker-v2.apk`
+- **Standard Link**: `apk/habit-tracker.apk`
+- **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 26+)
 - **Architecture**: Universal APK
+- **Version**: `2.0-v2` (Version Code 2)
 
 ---
 
-## 🚀 Recent Updates & Edits
+## 🚀 Release v2 - New Features & Updates
 
 ### 1. Default Tasks & Quick Presets
 - **Add as Default Task**: Toggle when creating tasks to designate recurring baseline routines.
