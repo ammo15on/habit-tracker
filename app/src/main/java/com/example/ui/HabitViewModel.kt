@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
+import com.example.data.model.NeetTestScore
+import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
 import com.example.data.repository.HabitRepository
 import com.example.util.DateUtils
@@ -33,24 +35,18 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   val runningTimerSessionSeconds = MutableStateFlow(0L)
   private var timerJob: Job? = null
 
-  // All tasks, ratings, and logs from DB
+  // All tasks, ratings, logs, neet scores, planned tasks from DB
   private val allTasksFlow = repository.allTasks
   private val allRatingsFlow = repository.allRatings
   private val allLogsFlow = repository.allLogs
+  val allNeetScores: StateFlow<List<NeetTestScore>> = repository.allNeetScores
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+  val allPlannedTasks: StateFlow<List<PlannedTask>> = repository.allPlannedTasks
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+  val defaultTasks: StateFlow<List<HabitTask>> = repository.defaultTasks
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-  init {
-    viewModelScope.launch {
-      // Check if we need to seed initial default tasks
-      // Wait for initial emission
-      allTasksFlow.collect { list ->
-        if (list.isEmpty()) {
-          repository.seedSampleTasksIfEmpty()
-        }
-      }
-    }
-  }
-
-  // Combined UI State for currently selected date
+  // Combined UI State for currently selected date (Tasks sorted: Incomplete first, Finished at bottom)
   val tasksForSelectedDate: StateFlow<List<TaskItemUiState>> = combine(
     allTasksFlow,
     allLogsFlow,
@@ -62,7 +58,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     val logsForDate = logs.filter { it.date == date }.associateBy { it.taskId }
 
     // Filter tasks that repeat on this day-of-week
-    tasks.filter { it.isRepeatingOn(dayOfWeekIdx) }.map { task ->
+    val list = tasks.filter { it.isRepeatingOn(dayOfWeekIdx) }.map { task ->
       val log = logsForDate[task.id]
       val isRunning = (task.id == runningId)
       val baseSeconds = log?.timeSpentSeconds ?: 0L
@@ -76,6 +72,13 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
         isRunning = isRunning
       )
     }
+
+    // Move finished tasks to the bottom
+    list.sortedWith(
+      compareBy<TaskItemUiState> { it.isCompleted }
+        .thenByDescending { it.isRunning }
+        .thenBy { it.task.id }
+    )
   }.stateIn(
     scope = viewModelScope,
     started = SharingStarted.WhileSubscribed(5000),
@@ -94,7 +97,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     initialValue = null
   )
 
-  // Total time spent today
+  // Total time spent today (includes running timer session)
   val totalTimeTodaySeconds: StateFlow<Long> = tasksForSelectedDate
     .map { tasks -> tasks.sumOf { it.timeSpentSeconds } }
     .stateIn(
@@ -106,17 +109,45 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   // Analytics tab selection
   val selectedAnalyticsTab = MutableStateFlow(AnalyticsTab.WEEK)
 
+  // Effective logs flow including live running session for today
+  private val effectiveLogsFlow = combine(
+    allLogsFlow,
+    runningTaskId,
+    runningTimerSessionSeconds,
+    selectedDate
+  ) { logs, runningId, sessionSecs, curDate ->
+    if (runningId == null || sessionSecs <= 0) {
+      logs
+    } else {
+      val mutable = logs.toMutableList()
+      val idx = mutable.indexOfFirst { it.taskId == runningId && it.date == curDate }
+      if (idx >= 0) {
+        val old = mutable[idx]
+        mutable[idx] = old.copy(timeSpentSeconds = old.timeSpentSeconds + sessionSecs)
+      } else {
+        mutable.add(
+          HabitTaskLog(
+            taskId = runningId,
+            date = curDate,
+            timeSpentSeconds = sessionSecs,
+            isCompleted = false
+          )
+        )
+      }
+      mutable
+    }
+  }
+
   // Analytics: Days Summary (recent 30 days)
   val daysAnalytics: StateFlow<List<DaySummary>> = combine(
     allRatingsFlow,
-    allLogsFlow,
+    effectiveLogsFlow,
     allTasksFlow
   ) { ratings, logs, tasks ->
     val ratingsMap = ratings.associateBy { it.date }
     val logsMap = logs.groupBy { it.date }
     val today = DateUtils.today()
 
-    // Generate past 30 days including today
     val list = mutableListOf<DaySummary>()
     var cur = today
     for (i in 0..29) {
@@ -147,10 +178,10 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     initialValue = emptyList()
   )
 
-  // Analytics: Weeks Summary (current week + previous 7 weeks)
+  // Analytics: Weeks Summary (current week + previous 5 weeks)
   val weeksAnalytics: StateFlow<List<WeekSummary>> = combine(
     allRatingsFlow,
-    allLogsFlow,
+    effectiveLogsFlow,
     allTasksFlow
   ) { ratings, logs, tasks ->
     val ratingsMap = ratings.associateBy { it.date }
@@ -205,7 +236,6 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
         )
       )
 
-      // Move anchorDate to 7 days earlier
       anchorDate = DateUtils.getDaysInWeekForDate(anchorDate).first().let {
         DateUtils.getPreviousDay(it)
       }
@@ -217,10 +247,10 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     initialValue = emptyList()
   )
 
-  // Analytics: Month Summary (current month + past 3 months)
+  // Analytics: Month Summary
   val monthsAnalytics: StateFlow<List<MonthSummary>> = combine(
     allRatingsFlow,
-    allLogsFlow,
+    effectiveLogsFlow,
     allTasksFlow
   ) { ratings, logs, tasks ->
     val ratingsMap = ratings.associateBy { it.date }
@@ -283,7 +313,36 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     initialValue = emptyList()
   )
 
-  // Date Navigation Actions
+  // Tally counter for repeated tasks in Analytics
+  val taskTallyAnalytics: StateFlow<List<TaskTallyItem>> = combine(
+    allTasksFlow,
+    effectiveLogsFlow
+  ) { tasks, logs ->
+    val logsByTask = logs.groupBy { it.taskId }
+    tasks.map { task ->
+      val taskLogs = logsByTask[task.id] ?: emptyList()
+      val completions = taskLogs.count { it.isCompleted }
+      val totalTime = taskLogs.sumOf { it.timeSpentSeconds }
+      TaskTallyItem(
+        taskId = task.id,
+        taskName = task.name,
+        completionCount = completions,
+        totalTimeSeconds = totalTime,
+        totalTargetMinutes = task.targetTimeMinutes
+      )
+    }.sortedByDescending { it.completionCount }
+  }.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.WhileSubscribed(5000),
+    initialValue = emptyList()
+  )
+
+  // Navigation across days
+  fun selectDate(date: String) {
+    flushActiveTimer()
+    selectedDate.value = date
+  }
+
   fun goToPreviousDay() {
     flushActiveTimer()
     selectedDate.value = DateUtils.getPreviousDay(selectedDate.value)
@@ -292,11 +351,6 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   fun goToNextDay() {
     flushActiveTimer()
     selectedDate.value = DateUtils.getNextDay(selectedDate.value)
-  }
-
-  fun selectDate(date: String) {
-    flushActiveTimer()
-    selectedDate.value = date
   }
 
   fun goToToday() {
@@ -312,10 +366,36 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   }
 
   // Task Actions
-  fun addTask(name: String, repeatDaysMask: Int) {
+  fun addTask(
+    name: String,
+    repeatDaysMask: Int,
+    targetMinutes: Int = 0,
+    isDefault: Boolean = false,
+    noteText: String = "",
+    noteImageUri: String? = null
+  ) {
     if (name.isBlank()) return
     viewModelScope.launch {
-      repository.insertTask(name.trim(), repeatDaysMask)
+      repository.insertTask(
+        name = name.trim(),
+        repeatDaysMask = repeatDaysMask,
+        targetTimeMinutes = targetMinutes,
+        isDefault = isDefault,
+        noteText = noteText.trim(),
+        noteImageUri = noteImageUri
+      )
+    }
+  }
+
+  fun updateTask(task: HabitTask) {
+    viewModelScope.launch {
+      repository.updateTask(task)
+    }
+  }
+
+  fun updateTaskTargetTimer(task: HabitTask, newTargetMinutes: Int) {
+    viewModelScope.launch {
+      repository.updateTask(task.copy(targetTimeMinutes = newTargetMinutes))
     }
   }
 
@@ -338,10 +418,8 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   fun toggleTimer(taskId: Long) {
     val currentRunning = runningTaskId.value
     if (currentRunning == taskId) {
-      // Pause
       stopTimer()
     } else {
-      // If another was running, flush it first
       if (currentRunning != null) {
         stopTimer()
       }
@@ -358,7 +436,6 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
       while (isActive) {
         delay(1000)
         runningTimerSessionSeconds.value += 1L
-        // Flush every 30 seconds to DB to prevent lost time if app closes
         if (runningTimerSessionSeconds.value % 30 == 0L) {
           repository.addTimeToTask(taskId, selectedDate.value, 30L)
           runningTimerSessionSeconds.value = 0L
@@ -387,6 +464,60 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     val session = runningTimerSessionSeconds.value
     if (taskId != null && session > 0) {
       stopTimer()
+    }
+  }
+
+  // NEET Test Score actions
+  fun addNeetScore(score: NeetTestScore) {
+    viewModelScope.launch {
+      repository.insertNeetScore(score)
+    }
+  }
+
+  fun deleteNeetScore(score: NeetTestScore) {
+    viewModelScope.launch {
+      repository.deleteNeetScore(score)
+    }
+  }
+
+  // Planned Task actions
+  fun addPlannedTask(task: PlannedTask) {
+    viewModelScope.launch {
+      repository.insertPlannedTask(task)
+    }
+  }
+
+  fun togglePlannedTaskCompleted(task: PlannedTask) {
+    viewModelScope.launch {
+      repository.updatePlannedTask(task.copy(isCompleted = !task.isCompleted))
+    }
+  }
+
+  fun togglePlannedTaskStarred(task: PlannedTask) {
+    viewModelScope.launch {
+      repository.updatePlannedTask(task.copy(isStarred = !task.isStarred))
+    }
+  }
+
+  fun deletePlannedTask(taskId: Long) {
+    viewModelScope.launch {
+      repository.deletePlannedTaskById(taskId)
+    }
+  }
+
+  // Jump directly to a planned task: switches date to planned date, ensures habit exists, and starts tracking
+  fun jumpToPlannedTask(plannedTask: PlannedTask) {
+    selectDate(plannedTask.date)
+    viewModelScope.launch {
+      val existingTasks = allTasksFlow.stateIn(viewModelScope).value
+      val match = existingTasks.find { it.name.equals(plannedTask.title, ignoreCase = true) }
+      if (match == null) {
+        repository.insertTask(
+          name = plannedTask.title,
+          repeatDaysMask = HabitTask.EVERYDAY_MASK,
+          targetTimeMinutes = plannedTask.targetTimeMinutes
+        )
+      }
     }
   }
 

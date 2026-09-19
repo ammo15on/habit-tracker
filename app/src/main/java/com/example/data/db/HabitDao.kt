@@ -9,6 +9,8 @@ import androidx.room.Update
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
+import com.example.data.model.NeetTestScore
+import com.example.data.model.PlannedTask
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -16,6 +18,9 @@ interface HabitDao {
   // Tasks
   @Query("SELECT * FROM habit_tasks WHERE isArchived = 0 ORDER BY id ASC")
   fun getAllTasks(): Flow<List<HabitTask>>
+
+  @Query("SELECT * FROM habit_tasks WHERE isDefault = 1 AND isArchived = 0 ORDER BY id ASC")
+  fun getDefaultTasks(): Flow<List<HabitTask>>
 
   @Query("SELECT * FROM habit_tasks WHERE id = :id LIMIT 1")
   suspend fun getTaskById(id: Long): HabitTask?
@@ -66,4 +71,33 @@ interface HabitDao {
 
   @Query("DELETE FROM day_ratings WHERE date = :date")
   suspend fun deleteRating(date: String)
+
+  // NEET Test Scores
+  @Query("SELECT * FROM neet_test_scores ORDER BY date DESC, id DESC")
+  fun getAllNeetScores(): Flow<List<NeetTestScore>>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertNeetScore(score: NeetTestScore): Long
+
+  @Delete
+  suspend fun deleteNeetScore(score: NeetTestScore)
+
+  // Planned Tasks
+  @Query("SELECT * FROM planned_tasks ORDER BY date ASC, id ASC")
+  fun getAllPlannedTasks(): Flow<List<PlannedTask>>
+
+  @Query("SELECT * FROM planned_tasks WHERE date >= :fromDate ORDER BY date ASC, id ASC")
+  fun getUpcomingPlannedTasks(fromDate: String): Flow<List<PlannedTask>>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertPlannedTask(task: PlannedTask): Long
+
+  @Update
+  suspend fun updatePlannedTask(task: PlannedTask)
+
+  @Delete
+  suspend fun deletePlannedTask(task: PlannedTask)
+
+  @Query("DELETE FROM planned_tasks WHERE id = :id")
+  suspend fun deletePlannedTaskById(id: Long)
 }

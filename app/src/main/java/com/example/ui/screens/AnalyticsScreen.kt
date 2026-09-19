@@ -24,22 +24,36 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.ViewWeek
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,12 +65,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.model.NeetTestScore
 import com.example.data.model.RatingType
 import com.example.ui.AnalyticsTab
 import com.example.ui.DaySummary
 import com.example.ui.HabitViewModel
 import com.example.ui.MonthSummary
+import com.example.ui.TaskTallyItem
 import com.example.ui.WeekSummary
+import com.example.ui.components.AddNeetScoreDialog
 import com.example.ui.theme.RatingAverageGrey
 import com.example.ui.theme.RatingBestGreen
 import com.example.ui.theme.RatingWorstBlack
@@ -72,6 +89,10 @@ fun AnalyticsScreen(
   val weeksAnalytics by viewModel.weeksAnalytics.collectAsStateWithLifecycle()
   val monthsAnalytics by viewModel.monthsAnalytics.collectAsStateWithLifecycle()
   val daysAnalytics by viewModel.daysAnalytics.collectAsStateWithLifecycle()
+  val tallyAnalytics by viewModel.taskTallyAnalytics.collectAsStateWithLifecycle()
+  val neetScores by viewModel.allNeetScores.collectAsStateWithLifecycle()
+
+  var showAddNeetDialog by remember { mutableStateOf(false) }
 
   Column(
     modifier = modifier
@@ -82,7 +103,7 @@ fun AnalyticsScreen(
 
     // Header Title
     Text(
-      text = "Habit Analytics",
+      text = "Habit & Exam Analytics",
       style = MaterialTheme.typography.headlineMedium.copy(
         fontWeight = FontWeight.Bold,
         fontSize = 24.sp
@@ -92,14 +113,15 @@ fun AnalyticsScreen(
 
     Spacer(modifier = Modifier.height(10.dp))
 
-    // 1) Week, 2) Month, 3) Days Tab Bar as requested
-    TabRow(
+    // Scrollable Tab Row: Week, Month, Days, Tally Counter, NEET Marks
+    ScrollableTabRow(
       selectedTabIndex = selectedTab.ordinal,
       modifier = Modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(12.dp))
         .testTag("analytics_tab_row"),
-      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+      edgePadding = 8.dp
     ) {
       Tab(
         selected = selectedTab == AnalyticsTab.WEEK,
@@ -137,103 +159,125 @@ fun AnalyticsScreen(
         },
         modifier = Modifier.testTag("tab_days")
       )
+      Tab(
+        selected = selectedTab == AnalyticsTab.TALLY,
+        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.TALLY },
+        text = {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.FormatListNumbered, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Tally Counter", fontWeight = FontWeight.Bold)
+          }
+        },
+        modifier = Modifier.testTag("tab_tally")
+      )
+      Tab(
+        selected = selectedTab == AnalyticsTab.NEET_MARKS,
+        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.NEET_MARKS },
+        text = {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("NEET Marks", fontWeight = FontWeight.Bold)
+          }
+        },
+        modifier = Modifier.testTag("tab_neet")
+      )
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(14.dp))
 
-    // Visual Color Legend matching user notes
-    ColorLegendCard()
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    // Content based on selected tab
     when (selectedTab) {
-      AnalyticsTab.WEEK -> WeekAnalyticsView(
-        weeks = weeksAnalytics,
-        onDayClick = onNavigateToDate
-      )
-      AnalyticsTab.MONTH -> MonthAnalyticsView(
-        months = monthsAnalytics,
-        onDayClick = onNavigateToDate
-      )
-      AnalyticsTab.DAYS -> DaysAnalyticsView(
-        days = daysAnalytics,
-        onDayClick = onNavigateToDate
-      )
+      AnalyticsTab.WEEK -> {
+        WeeksAnalyticsView(
+          weeks = weeksAnalytics,
+          onDayClick = onNavigateToDate
+        )
+      }
+      AnalyticsTab.MONTH -> {
+        MonthsAnalyticsView(
+          months = monthsAnalytics,
+          onDayClick = onNavigateToDate
+        )
+      }
+      AnalyticsTab.DAYS -> {
+        DaysAnalyticsView(
+          days = daysAnalytics,
+          onDayClick = onNavigateToDate
+        )
+      }
+      AnalyticsTab.TALLY -> {
+        TaskTallyView(
+          tallyList = tallyAnalytics
+        )
+      }
+      AnalyticsTab.NEET_MARKS -> {
+        NeetMarksTrackingView(
+          scores = neetScores,
+          onAddScoreClick = { showAddNeetDialog = true },
+          onDeleteScore = { viewModel.deleteNeetScore(it) }
+        )
+      }
     }
   }
-}
 
-@Composable
-private fun ColorLegendCard() {
-  Card(
-    shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-    ),
-    modifier = Modifier.fillMaxWidth()
-  ) {
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 12.dp, vertical = 8.dp),
-      horizontalArrangement = Arrangement.SpaceAround,
-      verticalAlignment = Alignment.CenterVertically
-    ) {
-      LegendItem(color = RatingBestGreen, label = "Best [A]", textColor = Color.White)
-      LegendItem(color = RatingAverageGrey, label = "Average [B]", textColor = Color(0xFF1E293B))
-      LegendItem(color = RatingWorstBlack, label = "Worst [C]", textColor = Color.White)
-    }
-  }
-}
-
-@Composable
-private fun LegendItem(color: Color, label: String, textColor: Color) {
-  Row(verticalAlignment = Alignment.CenterVertically) {
-    Box(
-      modifier = Modifier
-        .size(14.dp)
-        .clip(RoundedCornerShape(4.dp))
-        .background(color)
-        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-    )
-    Spacer(modifier = Modifier.width(6.dp))
-    Text(
-      text = label,
-      style = MaterialTheme.typography.labelSmall.copy(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 11.sp
-      ),
-      color = MaterialTheme.colorScheme.onSurface
+  if (showAddNeetDialog) {
+    AddNeetScoreDialog(
+      onDismiss = { showAddNeetDialog = false },
+      onConfirm = { newScore ->
+        viewModel.addNeetScore(newScore)
+        showAddNeetDialog = false
+      }
     )
   }
 }
 
 // -------------------------------------------------------------
-// 1) WEEK ANALYTICS VIEW
+// 1. WEEKS VIEW
 // -------------------------------------------------------------
 @Composable
-private fun WeekAnalyticsView(
+private fun WeeksAnalyticsView(
   weeks: List<WeekSummary>,
   onDayClick: (String) -> Unit
 ) {
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(bottom = 80.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp)
+    verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
-    item(key = "week_rule_hint") {
-      Text(
-        text = "Rule: If 4 or more days in a week are rated Best, the entire week becomes Green!",
-        style = MaterialTheme.typography.bodySmall.copy(
-          color = MaterialTheme.colorScheme.primary,
-          fontWeight = FontWeight.Medium
-        ),
-        modifier = Modifier.padding(horizontal = 4.dp)
-      )
+    item {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+          containerColor = RatingBestGreen.copy(alpha = 0.12f)
+        )
+      ) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            tint = RatingBestGreen,
+            modifier = Modifier.size(20.dp)
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = "Week Rule: If 4 or more days in a week are rated Best (😊), the entire week turns Green.",
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontWeight = FontWeight.Medium,
+              color = MaterialTheme.colorScheme.onSurface
+            )
+          )
+        }
+      }
     }
 
-    items(weeks, key = { it.startDate }) { week ->
+    items(weeks) { week ->
       WeekSummaryCard(week = week, onDayClick = onDayClick)
     }
   }
@@ -244,142 +288,108 @@ private fun WeekSummaryCard(
   week: WeekSummary,
   onDayClick: (String) -> Unit
 ) {
-  // Color based on user's sketch rule:
-  // "on marking 4 or more days best that week becomes green on average clicking a day light grey and on worst black and similar analogy for week and month"
-  val weekHeaderBgColor = when {
-    week.isGreen -> RatingBestGreen
-    week.overallRating == RatingType.AVERAGE -> RatingAverageGrey
-    week.overallRating == RatingType.WORST -> RatingWorstBlack
-    else -> MaterialTheme.colorScheme.surfaceVariant
-  }
-
-  val weekHeaderTextColor = when {
-    week.isGreen || week.overallRating == RatingType.WORST -> Color.White
-    else -> Color(0xFF1E293B)
-  }
+  val isGreen = week.isGreenWeek
+  val cardBg = if (isGreen) RatingBestGreen.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+  val borderColor = if (isGreen) RatingBestGreen else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
 
   Card(
-    shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surface
-    ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    modifier = Modifier
-      .fillMaxWidth()
-      .testTag("week_card_${week.startDate}")
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(16.dp),
+    colors = CardDefaults.cardColors(containerColor = cardBg),
+    elevation = CardDefaults.cardElevation(defaultElevation = if (isGreen) 2.dp else 1.dp)
   ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-      // Header banner indicating whether week turned Green, Average, or Worst
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .background(weekHeaderBgColor)
-          .padding(horizontal = 14.dp, vertical = 10.dp)
-      ) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Column {
-            Text(
-              text = week.weekLabel,
-              style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = weekHeaderTextColor
-              )
-            )
-            Text(
-              text = if (week.isGreen) "★ Target Reached! Week is Green (4+ Best Days)"
-              else when (week.overallRating) {
-                RatingType.BEST -> "Week Status: Best"
-                RatingType.AVERAGE -> "Week Status: Average"
-                RatingType.WORST -> "Week Status: Needs Attention"
-                null -> "No ratings recorded yet"
-              },
-              style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Medium,
-                color = weekHeaderTextColor.copy(alpha = 0.9f)
-              )
-            )
-          }
-
-          // Best days counter pill
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(Color.White.copy(alpha = 0.25f))
-              .padding(horizontal = 8.dp, vertical = 4.dp)
-          ) {
-            Text(
-              text = "${week.bestCount}/7 Best",
-              style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = weekHeaderTextColor
-              )
-            )
-          }
-        }
-      }
-
-      // Week Details
-      Column(modifier = Modifier.padding(14.dp)) {
-        // 7 Day Rating Boxes: [M] [T] [W] [T] [F] [S] [S]
-        Text(
-          text = "Days Breakdown (Click to view day):",
-          style = MaterialTheme.typography.labelMedium.copy(
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .border(
+          width = if (isGreen) 2.dp else 1.dp,
+          color = borderColor,
+          shape = RoundedCornerShape(16.dp)
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-          val dayLetters = listOf("M", "T", "W", "T", "F", "S", "S")
-          week.days.forEachIndexed { idx, day ->
-            DayColorBoxMini(
-              letter = dayLetters.getOrElse(idx) { day.dayOfWeekAbbr.take(1) },
-              rating = day.rating,
-              date = day.date,
-              onClick = { onDayClick(day.date) }
-            )
-          }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Metrics row: Total Time & Ratings tally
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
+        .padding(16.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Column {
+          Text(
+            text = week.weekLabel,
+            style = MaterialTheme.typography.titleMedium.copy(
+              fontWeight = FontWeight.Bold,
+              fontSize = 16.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Spacer(modifier = Modifier.height(2.dp))
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
               imageVector = Icons.Default.Schedule,
               contentDescription = null,
-              modifier = Modifier.size(16.dp),
+              modifier = Modifier.size(13.dp),
               tint = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
-              text = "Time: ${DateUtils.formatTimeWords(week.totalTimeSeconds)}",
-              style = MaterialTheme.typography.bodyMedium.copy(
+              text = "Total: ${DateUtils.formatTime(week.totalTimeSeconds)}",
+              style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold
+              ),
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+
+        if (isGreen) {
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(RatingBestGreen)
+              .padding(horizontal = 10.dp, vertical = 4.dp)
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text(
+                text = "GREEN WEEK",
+                style = MaterialTheme.typography.labelSmall.copy(
+                  fontWeight = FontWeight.Bold,
+                  color = Color.White
+                )
+              )
+            }
+          }
+        } else {
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(MaterialTheme.colorScheme.surfaceVariant)
+              .padding(horizontal = 8.dp, vertical = 4.dp)
+          ) {
+            Text(
+              text = "${week.bestCount}/4 Best Days",
+              style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurfaceVariant
               )
             )
           }
+        }
+      }
 
-          Text(
-            text = "${week.bestCount} Best • ${week.averageCount} Avg • ${week.worstCount} Worst",
-            style = MaterialTheme.typography.bodySmall.copy(
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+      Spacer(modifier = Modifier.height(14.dp))
+
+      // 7 Days row (Mon..Sun)
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+      ) {
+        week.days.forEach { day ->
+          DayRatingBadge(
+            day = day,
+            onClick = { onDayClick(day.date) }
           )
         }
       }
@@ -387,67 +397,11 @@ private fun WeekSummaryCard(
   }
 }
 
-@Composable
-private fun DayColorBoxMini(
-  letter: String,
-  rating: RatingType?,
-  date: String,
-  onClick: () -> Unit
-) {
-  val boxBg = when (rating) {
-    RatingType.BEST -> RatingBestGreen
-    RatingType.AVERAGE -> RatingAverageGrey
-    RatingType.WORST -> RatingWorstBlack
-    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-  }
-
-  val textColor = when (rating) {
-    RatingType.BEST, RatingType.WORST -> Color.White
-    RatingType.AVERAGE -> Color(0xFF1E293B)
-    null -> MaterialTheme.colorScheme.onSurfaceVariant
-  }
-
-  Column(
-    horizontalAlignment = Alignment.CenterHorizontally,
-    modifier = Modifier.clickable { onClick() }
-  ) {
-    Box(
-      modifier = Modifier
-        .size(38.dp)
-        .clip(RoundedCornerShape(8.dp))
-        .background(boxBg)
-        .border(
-          width = 1.dp,
-          color = if (rating != null) boxBg else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-          shape = RoundedCornerShape(8.dp)
-        ),
-      contentAlignment = Alignment.Center
-    ) {
-      Text(
-        text = letter,
-        style = MaterialTheme.typography.labelMedium.copy(
-          fontWeight = FontWeight.Black,
-          fontSize = 14.sp
-        ),
-        color = textColor
-      )
-    }
-    Spacer(modifier = Modifier.height(2.dp))
-    Text(
-      text = DateUtils.formatShortDate(date).split(" ").lastOrNull() ?: "",
-      style = MaterialTheme.typography.labelSmall.copy(
-        fontSize = 9.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-      )
-    )
-  }
-}
-
 // -------------------------------------------------------------
-// 2) MONTH ANALYTICS VIEW
+// 2. MONTHS VIEW
 // -------------------------------------------------------------
 @Composable
-private fun MonthAnalyticsView(
+private fun MonthsAnalyticsView(
   months: List<MonthSummary>,
   onDayClick: (String) -> Unit
 ) {
@@ -456,18 +410,37 @@ private fun MonthAnalyticsView(
     contentPadding = PaddingValues(bottom = 80.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
-    item(key = "month_rule_hint") {
-      Text(
-        text = "Rule: If >= 50% or 15+ rated days are Best, the Month becomes Green (Average = Light Grey, Worst = Black).",
-        style = MaterialTheme.typography.bodySmall.copy(
-          color = MaterialTheme.colorScheme.primary,
-          fontWeight = FontWeight.Medium
-        ),
-        modifier = Modifier.padding(horizontal = 4.dp)
-      )
+    item {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = RatingBestGreen.copy(alpha = 0.12f))
+      ) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            tint = RatingBestGreen,
+            modifier = Modifier.size(20.dp)
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = "Month Rule: If ≥ 50% or 15+ rated days are Best (😊), Month turns Green. (Average = Light Grey, Worst = Black)",
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontWeight = FontWeight.Medium,
+              color = MaterialTheme.colorScheme.onSurface
+            )
+          )
+        }
+      }
     }
 
-    items(months, key = { it.yearMonth }) { month ->
+    items(months) { month ->
       MonthSummaryCard(month = month, onDayClick = onDayClick)
     }
   }
@@ -478,172 +451,301 @@ private fun MonthSummaryCard(
   month: MonthSummary,
   onDayClick: (String) -> Unit
 ) {
-  val monthBgColor = when {
-    month.isGreen -> RatingBestGreen
-    month.overallRating == RatingType.AVERAGE -> RatingAverageGrey
-    month.overallRating == RatingType.WORST -> RatingWorstBlack
-    else -> MaterialTheme.colorScheme.surfaceVariant
-  }
-
-  val monthTextColor = when {
-    month.isGreen || month.overallRating == RatingType.WORST -> Color.White
-    else -> Color(0xFF1E293B)
-  }
+  val isGreen = month.isGreenMonth
+  val cardBg = if (isGreen) RatingBestGreen.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
+  val borderColor = if (isGreen) RatingBestGreen else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
 
   Card(
-    shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    modifier = Modifier
-      .fillMaxWidth()
-      .testTag("month_card_${month.yearMonth}")
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(16.dp),
+    colors = CardDefaults.cardColors(containerColor = cardBg)
   ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-      // Month Header
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .background(monthBgColor)
-          .padding(horizontal = 14.dp, vertical = 12.dp)
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .border(
+          width = if (isGreen) 2.dp else 1.dp,
+          color = borderColor,
+          shape = RoundedCornerShape(16.dp)
+        )
+        .padding(16.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Column {
-            Text(
-              text = month.monthLabel,
-              style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = monthTextColor
-              )
+        Column {
+          Text(
+            text = month.monthLabel,
+            style = MaterialTheme.typography.titleMedium.copy(
+              fontWeight = FontWeight.Bold,
+              fontSize = 17.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Spacer(modifier = Modifier.height(2.dp))
+          Text(
+            text = "Total Active: ${DateUtils.formatTime(month.totalTimeSeconds)}",
+            style = MaterialTheme.typography.labelSmall.copy(
+              fontFamily = FontFamily.Monospace,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-              text = if (month.isGreen) "★ Month Status: Green (Consistent High Performance!)"
-              else when (month.overallRating) {
-                RatingType.BEST -> "Month Status: High Performance"
-                RatingType.AVERAGE -> "Month Status: Average Performance"
-                RatingType.WORST -> "Month Status: Needs Improvement"
-                null -> "No ratings logged this month"
-              },
-              style = MaterialTheme.typography.labelSmall.copy(
-                color = monthTextColor.copy(alpha = 0.9f)
-              )
-            )
-          }
+          )
+        }
 
+        if (isGreen) {
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(Color.White.copy(alpha = 0.25f))
-              .padding(horizontal = 8.dp, vertical = 4.dp)
+              .background(RatingBestGreen)
+              .padding(horizontal = 10.dp, vertical = 4.dp)
           ) {
-            Text(
-              text = "${month.bestCount} Best",
-              style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = monthTextColor
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text(
+                text = "GREEN MONTH",
+                style = MaterialTheme.typography.labelSmall.copy(
+                  fontWeight = FontWeight.Bold,
+                  color = Color.White
+                )
               )
+            }
+          }
+        } else {
+          val percent = if (month.ratedDaysCount > 0) (month.bestCount.toFloat() / month.ratedDaysCount * 100).toInt() else 0
+          Text(
+            text = "${month.bestCount} Best ($percent%)",
+            style = MaterialTheme.typography.labelMedium.copy(
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.height(14.dp))
+
+      // Month Grid of Days (7 columns)
+      LazyVerticalGrid(
+        columns = GridCells.Fixed(7),
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(190.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+      ) {
+        items(month.days) { day ->
+          MiniDayGridCell(
+            day = day,
+            onClick = { onDayClick(day.date) }
+          )
+        }
+      }
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// 3. DAYS VIEW
+// -------------------------------------------------------------
+@Composable
+private fun DaysAnalyticsView(
+  days: List<DaySummary>,
+  onDayClick: (String) -> Unit
+) {
+  LazyColumn(
+    modifier = Modifier.fillMaxSize(),
+    contentPadding = PaddingValues(bottom = 80.dp),
+    verticalArrangement = Arrangement.spacedBy(10.dp)
+  ) {
+    items(days) { day ->
+      DayAnalyticsRow(day = day, onClick = { onDayClick(day.date) })
+    }
+  }
+}
+
+@Composable
+private fun DayAnalyticsRow(
+  day: DaySummary,
+  onClick: () -> Unit
+) {
+  val rating = day.rating
+  val ratingBg = when (rating) {
+    RatingType.BEST -> RatingBestGreen
+    RatingType.AVERAGE -> RatingAverageGrey
+    RatingType.WORST -> RatingWorstBlack
+    null -> MaterialTheme.colorScheme.surfaceVariant
+  }
+  val textColor = when (rating) {
+    RatingType.BEST, RatingType.WORST -> Color.White
+    RatingType.AVERAGE -> Color(0xFF1E293B)
+    null -> MaterialTheme.colorScheme.onSurfaceVariant
+  }
+
+  Card(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clickable { onClick() },
+    shape = RoundedCornerShape(14.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+  ) {
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 14.dp, vertical = 10.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+          modifier = Modifier
+            .size(42.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(ratingBg),
+          contentAlignment = Alignment.Center
+        ) {
+          Text(
+            text = when (rating) {
+              RatingType.BEST -> "😊"
+              RatingType.AVERAGE -> "😐"
+              RatingType.WORST -> "😢"
+              null -> day.dayOfWeekAbbr
+            },
+            fontSize = if (rating != null) 18.sp else 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor
+          )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column {
+          Text(
+            text = DateUtils.formatFullDate(day.date),
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Spacer(modifier = Modifier.height(2.dp))
+          Text(
+            text = "Rating: ${rating?.label ?: "Unrated"}  •  Tasks: ${day.completedTasksCount}/${day.totalTasksCount}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
+      }
+
+      Text(
+        text = DateUtils.formatTime(day.totalTimeSeconds),
+        style = MaterialTheme.typography.labelMedium.copy(
+          fontWeight = FontWeight.Bold,
+          fontFamily = FontFamily.Monospace
+        ),
+        color = MaterialTheme.colorScheme.primary
+      )
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// 4. TASK TALLY VIEW
+// -------------------------------------------------------------
+@Composable
+private fun TaskTallyView(
+  tallyList: List<TaskTallyItem>
+) {
+  if (tallyList.isEmpty()) {
+    Box(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(32.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Text(
+        text = "No habits created yet. Add habits to view their completion tally!",
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
+    }
+  } else {
+    LazyColumn(
+      modifier = Modifier.fillMaxSize(),
+      contentPadding = PaddingValues(bottom = 80.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+      item {
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(12.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Icon(Icons.Default.TrendingUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+              text = "Repetition Tally: Total number of days you marked each habit completed.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurface
             )
           }
         }
       }
 
-      Column(modifier = Modifier.padding(14.dp)) {
-        // Month stats
-        Row(
+      items(tallyList) { item ->
+        Card(
           modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-          Text(
-            text = "Total Logged: ${DateUtils.formatTimeWords(month.totalTimeSeconds)}",
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-          )
-          Text(
-            text = "Rated Days: ${month.bestCount + month.averageCount + month.worstCount} / ${month.days.size}",
-            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-          )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Weekday header labels: M, T, W, T, F, S, S
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-          listOf("M", "T", "W", "T", "F", "S", "S").forEach {
-            Text(
-              text = it,
-              style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-              ),
-              modifier = Modifier.width(32.dp),
-              textAlign = TextAlign.Center
-            )
-          }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Days Grid for Month
-        val firstDayOffset = month.days.firstOrNull()?.dayOfWeekIndex ?: 0
-        val totalCells = firstDayOffset + month.days.size
-
-        // Render rows of 7
-        val rows = (totalCells + 6) / 7
-        for (r in 0 until rows) {
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(vertical = 2.dp),
+              .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
           ) {
-            for (c in 0..6) {
-              val cellIdx = r * 7 + c
-              if (cellIdx < firstDayOffset || (cellIdx - firstDayOffset) >= month.days.size) {
-                Spacer(modifier = Modifier.size(32.dp))
-              } else {
-                val day = month.days[cellIdx - firstDayOffset]
-                val dayNumber = day.date.split("-").lastOrNull()?.toIntOrNull() ?: 1
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                text = item.taskName,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+              )
+              Spacer(modifier = Modifier.height(4.dp))
+              Text(
+                text = "Total Time Logged: ${DateUtils.formatTime(item.totalTimeSeconds)}",
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            }
 
-                val cellBg = when (day.rating) {
-                  RatingType.BEST -> RatingBestGreen
-                  RatingType.AVERAGE -> RatingAverageGrey
-                  RatingType.WORST -> RatingWorstBlack
-                  null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                }
-
-                val cellText = when (day.rating) {
-                  RatingType.BEST, RatingType.WORST -> Color.White
-                  RatingType.AVERAGE -> Color(0xFF1E293B)
-                  null -> MaterialTheme.colorScheme.onSurface
-                }
-
-                Box(
-                  modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(cellBg)
-                    .border(
-                      width = 1.dp,
-                      color = if (day.rating != null) cellBg else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                      shape = RoundedCornerShape(6.dp)
-                    )
-                    .clickable { onDayClick(day.date) },
-                  contentAlignment = Alignment.Center
-                ) {
-                  Text(
-                    text = "$dayNumber",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                      fontWeight = FontWeight.SemiBold,
-                      fontSize = 11.sp
-                    ),
-                    color = cellText
+            Box(
+              modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(RatingBestGreen.copy(alpha = 0.15f))
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+              contentAlignment = Alignment.Center
+            ) {
+              Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                  text = "${item.completionCount}",
+                  style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = RatingBestGreen
                   )
-                }
+                )
+                Text(
+                  text = "times done",
+                  style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    color = RatingBestGreen
+                  )
+                )
               }
             }
           }
@@ -654,136 +756,340 @@ private fun MonthSummaryCard(
 }
 
 // -------------------------------------------------------------
-// 3) DAYS ANALYTICS VIEW
+// 5. NEET TEST MARKS TRACKING VIEW
 // -------------------------------------------------------------
 @Composable
-private fun DaysAnalyticsView(
-  days: List<DaySummary>,
-  onDayClick: (String) -> Unit
+private fun NeetMarksTrackingView(
+  scores: List<NeetTestScore>,
+  onAddScoreClick: () -> Unit,
+  onDeleteScore: (NeetTestScore) -> Unit
 ) {
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(bottom = 80.dp),
-    verticalArrangement = Arrangement.spacedBy(8.dp)
+    verticalArrangement = Arrangement.spacedBy(12.dp)
   ) {
-    items(days, key = { it.date }) { day ->
-      DayAnalyticsRowItem(day = day, onClick = { onDayClick(day.date) })
+    item {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Column {
+          Text(
+            text = "NEET Exam Test Tracker",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Text(
+            text = "Track Physics, Chemistry, Botany & Zoology",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
+
+        Button(
+          onClick = onAddScoreClick,
+          shape = RoundedCornerShape(12.dp),
+          colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen)
+        ) {
+          Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+          Spacer(modifier = Modifier.width(4.dp))
+          Text("Log Marks")
+        }
+      }
+    }
+
+    if (scores.isEmpty()) {
+      item {
+        Card(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp),
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+        ) {
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+          ) {
+            Icon(Icons.Default.Assignment, contentDescription = null, modifier = Modifier.size(48.dp), tint = RatingBestGreen)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+              text = "No NEET test scores logged yet",
+              style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+              text = "Log marks of Physics, Chem, Botany and Zoology tests to track your improvement curve.",
+              style = MaterialTheme.typography.bodySmall,
+              textAlign = TextAlign.Center,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+      }
+    } else {
+      // Recent average banner
+      item {
+        val avgTotal = scores.map { it.totalScore }.average().toInt()
+        val highest = scores.maxOfOrNull { it.totalScore } ?: 0
+
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceAround
+          ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+              Text("Average Score", style = MaterialTheme.typography.labelSmall)
+              Text(
+                text = "$avgTotal / 720",
+                style = MaterialTheme.typography.titleLarge.copy(
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.primary
+                )
+              )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+              Text("Highest Score", style = MaterialTheme.typography.labelSmall)
+              Text(
+                text = "$highest / 720",
+                style = MaterialTheme.typography.titleLarge.copy(
+                  fontWeight = FontWeight.Bold,
+                  color = RatingBestGreen
+                )
+              )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+              Text("Tests Given", style = MaterialTheme.typography.labelSmall)
+              Text(
+                text = "${scores.size}",
+                style = MaterialTheme.typography.titleLarge.copy(
+                  fontWeight = FontWeight.Bold
+                )
+              )
+            }
+          }
+        }
+      }
+
+      items(scores) { score ->
+        NeetScoreCard(score = score, onDelete = { onDeleteScore(score) })
+      }
     }
   }
 }
 
 @Composable
-private fun DayAnalyticsRowItem(
+private fun NeetScoreCard(
+  score: NeetTestScore,
+  onDelete: () -> Unit
+) {
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(16.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+  ) {
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(14.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Column {
+          Text(
+            text = score.testName,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Text(
+            text = DateUtils.formatFullDate(score.date),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(RatingBestGreen.copy(alpha = 0.15f))
+              .padding(horizontal = 10.dp, vertical = 4.dp)
+          ) {
+            Text(
+              text = "${score.totalScore} / 720 (%.1f%%)".format(score.percentage),
+              style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = RatingBestGreen
+              )
+            )
+          }
+
+          IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+          }
+        }
+      }
+
+      Spacer(modifier = Modifier.height(10.dp))
+
+      // 4 Subject breakdown chips
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        SubjectScoreBadge("Physics", score.physicsScore, modifier = Modifier.weight(1f))
+        SubjectScoreBadge("Chemistry", score.chemistryScore, modifier = Modifier.weight(1f))
+        SubjectScoreBadge("Botany", score.botanyScore, modifier = Modifier.weight(1f))
+        SubjectScoreBadge("Zoology", score.zoologyScore, modifier = Modifier.weight(1f))
+      }
+    }
+  }
+}
+
+@Composable
+private fun SubjectScoreBadge(
+  name: String,
+  score: Int,
+  modifier: Modifier = Modifier
+) {
+  Box(
+    modifier = modifier
+      .clip(RoundedCornerShape(8.dp))
+      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+      .padding(vertical = 6.dp, horizontal = 4.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+      Text(
+        text = name,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
+      Text(
+        text = "$score",
+        style = MaterialTheme.typography.labelMedium.copy(
+          fontWeight = FontWeight.Bold,
+          fontSize = 13.sp
+        ),
+        color = if (score >= 140) RatingBestGreen else MaterialTheme.colorScheme.onSurface
+      )
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// Small UI helpers
+// -------------------------------------------------------------
+@Composable
+private fun DayRatingBadge(
   day: DaySummary,
   onClick: () -> Unit
 ) {
-  val ratingColor = when (day.rating) {
+  val rating = day.rating
+  val bg = when (rating) {
     RatingType.BEST -> RatingBestGreen
     RatingType.AVERAGE -> RatingAverageGrey
     RatingType.WORST -> RatingWorstBlack
     null -> MaterialTheme.colorScheme.surfaceVariant
   }
-
-  val textColor = when (day.rating) {
+  val textCol = when (rating) {
     RatingType.BEST, RatingType.WORST -> Color.White
     RatingType.AVERAGE -> Color(0xFF1E293B)
     null -> MaterialTheme.colorScheme.onSurfaceVariant
   }
 
-  Card(
-    shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surface
-    ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+  Column(
+    horizontalAlignment = Alignment.CenterHorizontally,
     modifier = Modifier
-      .fillMaxWidth()
       .clickable { onClick() }
-      .testTag("day_row_${day.date}")
+      .padding(2.dp)
   ) {
-    Row(
+    Text(
+      text = day.dayOfWeekAbbr,
+      style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+      color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(3.dp))
+    Box(
       modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 14.dp, vertical = 12.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.SpaceBetween
+        .size(34.dp)
+        .clip(RoundedCornerShape(8.dp))
+        .background(bg),
+      contentAlignment = Alignment.Center
     ) {
-      // Left: Date info & time
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        // Rating box indicator
-        Box(
-          modifier = Modifier
-            .size(42.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(ratingColor)
-            .border(
-              1.dp,
-              if (day.rating != null) ratingColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-              RoundedCornerShape(10.dp)
-            ),
-          contentAlignment = Alignment.Center
-        ) {
-          Text(
-            text = when (day.rating) {
-              RatingType.BEST -> "[A]"
-              RatingType.AVERAGE -> "[B]"
-              RatingType.WORST -> "[C]"
-              null -> "-"
-            },
-            style = MaterialTheme.typography.titleSmall.copy(
-              fontWeight = FontWeight.Bold
-            ),
-            color = textColor
-          )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column {
-          Text(
-            text = DateUtils.formatFullDate(day.date),
-            style = MaterialTheme.typography.titleMedium.copy(
-              fontWeight = FontWeight.SemiBold,
-              fontSize = 15.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface
-          )
-          Text(
-            text = when (day.rating) {
-              RatingType.BEST -> "★ Rated Best Day"
-              RatingType.AVERAGE -> "• Rated Average Day"
-              RatingType.WORST -> "▲ Rated Worst Day"
-              null -> "Not rated"
-            },
-            style = MaterialTheme.typography.labelSmall.copy(
-              fontWeight = FontWeight.Medium,
-              color = when (day.rating) {
-                RatingType.BEST -> RatingBestGreen
-                RatingType.AVERAGE -> MaterialTheme.colorScheme.onSurfaceVariant
-                RatingType.WORST -> MaterialTheme.colorScheme.onSurface
-                null -> MaterialTheme.colorScheme.onSurfaceVariant
-              }
-            )
-          )
-        }
-      }
-
-      // Right: Time Spent on that day
-      Column(horizontalAlignment = Alignment.End) {
-        Text(
-          text = DateUtils.formatTime(day.totalTimeSeconds),
-          style = MaterialTheme.typography.bodyMedium.copy(
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace
-          ),
-          color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-          text = "${day.completedTasksCount} done",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-      }
+      Text(
+        text = when (rating) {
+          RatingType.BEST -> "😊"
+          RatingType.AVERAGE -> "😐"
+          RatingType.WORST -> "😢"
+          null -> "-"
+        },
+        fontSize = if (rating != null) 14.sp else 12.sp,
+        fontWeight = FontWeight.Bold,
+        color = textCol
+      )
     }
+  }
+}
+
+@Composable
+private fun MiniDayGridCell(
+  day: DaySummary,
+  onClick: () -> Unit
+) {
+  val rating = day.rating
+  val bg = when (rating) {
+    RatingType.BEST -> RatingBestGreen
+    RatingType.AVERAGE -> RatingAverageGrey
+    RatingType.WORST -> RatingWorstBlack
+    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+  }
+  val textCol = when (rating) {
+    RatingType.BEST, RatingType.WORST -> Color.White
+    RatingType.AVERAGE -> Color(0xFF1E293B)
+    null -> MaterialTheme.colorScheme.onSurfaceVariant
+  }
+
+  val dayNum = try {
+    day.date.split("-").last().toInt().toString()
+  } catch (e: Exception) {
+    ""
+  }
+
+  Box(
+    modifier = Modifier
+      .aspectRatio(1f)
+      .clip(RoundedCornerShape(6.dp))
+      .background(bg)
+      .clickable { onClick() },
+    contentAlignment = Alignment.Center
+  ) {
+    Text(
+      text = when (rating) {
+        RatingType.BEST -> "😊"
+        RatingType.AVERAGE -> "😐"
+        RatingType.WORST -> "😢"
+        null -> dayNum
+      },
+      fontSize = if (rating != null) 12.sp else 10.sp,
+      fontWeight = FontWeight.Bold,
+      color = textCol
+    )
   }
 }

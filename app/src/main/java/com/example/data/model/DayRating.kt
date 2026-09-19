@@ -3,10 +3,10 @@ package com.example.data.model
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-enum class RatingType(val code: String, val label: String) {
-  BEST("A", "Best"),
-  AVERAGE("B", "Average"),
-  WORST("C", "Worst");
+enum class RatingType(val code: String, val label: String, val emoji: String) {
+  BEST("A", "Best", "😊"),
+  AVERAGE("B", "Average", "😐"),
+  WORST("C", "Worst", "😢");
 
   companion object {
     fun fromString(value: String?): RatingType? {

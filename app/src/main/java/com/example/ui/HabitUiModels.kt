@@ -6,7 +6,9 @@ import com.example.data.model.RatingType
 enum class AnalyticsTab {
   WEEK,
   MONTH,
-  DAYS
+  DAYS,
+  TALLY,
+  NEET_MARKS
 }
 
 data class TaskItemUiState(
@@ -42,16 +44,7 @@ data class WeekSummary(
   val completedTasksCount: Int,
   val totalTasksCount: Int
 ) {
-  // Rule from sketch: "on marking 4 or more days best that week becomes green"
-  val isGreen: Boolean get() = bestCount >= 4
-
-  val overallRating: RatingType?
-    get() = when {
-      bestCount >= 4 -> RatingType.BEST
-      averageCount >= worstCount && (averageCount > 0 || bestCount > 0) -> RatingType.AVERAGE
-      worstCount > averageCount -> RatingType.WORST
-      else -> null
-    }
+  val isGreenWeek: Boolean get() = bestCount >= 4
 }
 
 data class MonthSummary(
@@ -65,22 +58,17 @@ data class MonthSummary(
   val completedTasksCount: Int,
   val totalTasksCount: Int
 ) {
-  // Similar analogy for month: 50% or >= 15 best days is green
-  val isGreen: Boolean
-    get() {
-      val totalRated = bestCount + averageCount + worstCount
-      return if (totalRated >= 4) {
-        bestCount >= 15 || (totalRated > 0 && bestCount.toDouble() / totalRated >= 0.5)
-      } else {
-        bestCount >= 4
-      }
-    }
+  val ratedDaysCount: Int
+    get() = bestCount + averageCount + worstCount
 
-  val overallRating: RatingType?
-    get() = when {
-      isGreen -> RatingType.BEST
-      averageCount >= worstCount && (averageCount > 0 || bestCount > 0) -> RatingType.AVERAGE
-      worstCount > averageCount -> RatingType.WORST
-      else -> null
-    }
+  val isGreenMonth: Boolean
+    get() = (ratedDaysCount > 0 && bestCount.toFloat() / ratedDaysCount >= 0.5f) || bestCount >= 15
 }
+
+data class TaskTallyItem(
+  val taskId: Long,
+  val taskName: String,
+  val completionCount: Int,
+  val totalTimeSeconds: Long,
+  val totalTargetMinutes: Int
+)

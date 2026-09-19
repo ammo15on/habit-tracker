@@ -1,7 +1,7 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,22 +22,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedButton
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,10 +52,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.model.HabitTask
 import com.example.data.model.RatingType
 import com.example.ui.HabitViewModel
 import com.example.ui.components.AddTaskDialog
 import com.example.ui.components.DayRatingSection
+import com.example.ui.components.DefaultTasksDialog
+import com.example.ui.components.EditTaskDialog
 import com.example.ui.components.TaskRowItem
 import com.example.ui.theme.RatingBestGreen
 import com.example.util.DateUtils
@@ -71,10 +70,13 @@ fun TrackerScreen(
 ) {
   val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
   val tasks by viewModel.tasksForSelectedDate.collectAsStateWithLifecycle()
+  val defaultTasks by viewModel.defaultTasks.collectAsStateWithLifecycle()
   val currentRating by viewModel.currentDayRating.collectAsStateWithLifecycle()
   val totalTimeSeconds by viewModel.totalTimeTodaySeconds.collectAsStateWithLifecycle()
 
   var showAddDialog by remember { mutableStateOf(false) }
+  var showDefaultTasksDialog by remember { mutableStateOf(false) }
+  var taskToEdit by remember { mutableStateOf<HabitTask?>(null) }
 
   val isToday = (selectedDate == DateUtils.today())
   val prevDay = DateUtils.getPreviousDay(selectedDate)
@@ -85,135 +87,212 @@ fun TrackerScreen(
   val dayAbbr = DateUtils.formatDayOfWeekAbbr(selectedDate)
   val fullDate = DateUtils.formatFullDate(selectedDate)
 
-  Box(modifier = modifier.fillMaxSize()) {
-    LazyColumn(
+  Column(modifier = modifier.fillMaxSize()) {
+    // Upper scrolling area with day header, task counter, habits list, and FAB
+    Box(
       modifier = Modifier
-        .fillMaxSize()
-        .padding(horizontal = 16.dp),
-      contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp)
+        .weight(1f)
+        .fillMaxWidth()
     ) {
-      // 1. Top Bar Header matching sketch: (X) Previous Day  |  (Total Time)  |  (Y) Next Day
-      item(key = "top_day_nav") {
-        DayNavigationHeader(
-          selectedDate = selectedDate,
-          prevDayText = prevDayFormatted,
-          nextDayText = nextDayFormatted,
-          totalTimeSeconds = totalTimeSeconds,
-          isToday = isToday,
-          onPreviousClick = { viewModel.goToPreviousDay() },
-          onNextClick = { viewModel.goToNextDay() },
-          onTodayClick = { viewModel.goToToday() }
-        )
-      }
+      LazyColumn(
+        modifier = Modifier
+          .fillMaxSize()
+          .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+      ) {
+        // 1. Top Bar Header: (X) Previous Day  |  (Total Time)  |  (Y) Next Day
+        item(key = "top_day_nav") {
+          DayNavigationHeader(
+            selectedDate = selectedDate,
+            prevDayText = prevDayFormatted,
+            nextDayText = nextDayFormatted,
+            totalTimeSeconds = totalTimeSeconds,
+            isToday = isToday,
+            onPreviousClick = { viewModel.goToPreviousDay() },
+            onNextClick = { viewModel.goToNextDay() },
+            onTodayClick = { viewModel.goToToday() }
+          )
+        }
 
-      // 2. Day Rating Section: Box [A] Best, Box [B] Average, Box [C] Worst, with "Mo" (Day Abbr)
-      item(key = "day_rating_section") {
-        DayRatingSection(
-          selectedRating = currentRating,
-          dayAbbreviation = dayAbbr,
-          fullDateLabel = fullDate,
-          onRatingSelected = { rating ->
-            viewModel.setDayRating(rating)
-          }
-        )
-      }
-
-      // 3. Tasks List Header
-      item(key = "tasks_header") {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-              text = "Habits & Tasks",
-              style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-              ),
-              color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Box(
-              modifier = Modifier
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .padding(horizontal = 8.dp, vertical = 2.dp)
-            ) {
-              val completedCount = tasks.count { it.isCompleted }
+        // 2. Tasks List Header with counter and Default Tasks manager
+        item(key = "tasks_header") {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
               Text(
-                text = "$completedCount / ${tasks.size}",
-                style = MaterialTheme.typography.labelSmall.copy(
+                text = "My Habits & Tasks",
+                style = MaterialTheme.typography.titleLarge.copy(
                   fontWeight = FontWeight.Bold,
-                  color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                  fontSize = 18.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
               )
+              Spacer(modifier = Modifier.width(8.dp))
+              Box(
+                modifier = Modifier
+                  .clip(CircleShape)
+                  .background(MaterialTheme.colorScheme.primaryContainer)
+                  .padding(horizontal = 8.dp, vertical = 2.dp)
+              ) {
+                val completedCount = tasks.count { it.isCompleted }
+                Text(
+                  text = "$completedCount / ${tasks.size}",
+                  style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                  )
+                )
+              }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              // Edit Default Tasks button
+              TextButton(
+                onClick = { showDefaultTasksDialog = true },
+                modifier = Modifier.testTag("btn_manage_defaults")
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Star,
+                  contentDescription = null,
+                  tint = Color(0xFFF59E0B),
+                  modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                  text = "Defaults (${defaultTasks.size})",
+                  style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
+                )
+              }
+
+              TextButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier.testTag("add_task_text_button")
+              ) {
+                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Add", fontWeight = FontWeight.Bold)
+              }
             }
           }
+        }
 
-          TextButton(
-            onClick = { showAddDialog = true },
-            modifier = Modifier.testTag("add_task_text_button")
-          ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Add Habit")
+        // 3. Tasks List Items (Finished tasks placed at the bottom automatically)
+        if (tasks.isEmpty()) {
+          item(key = "empty_tasks") {
+            EmptyTasksPlaceholder(
+              onAddTaskClick = { showAddDialog = true }
+            )
+          }
+        } else {
+          items(
+            items = tasks,
+            key = { it.task.id }
+          ) { taskState ->
+            TaskRowItem(
+              taskUiState = taskState,
+              onToggleTimer = { viewModel.toggleTimer(taskState.task.id) },
+              onToggleComplete = { viewModel.toggleTaskComplete(taskState.task.id) },
+              onEditTask = { taskToEdit = taskState.task },
+              onDeleteTask = { viewModel.deleteTask(taskState.task.id) }
+            )
           }
         }
       }
 
-      // 4. Tasks List Items (Task-1 time spent, pause/resume, complete check)
-      if (tasks.isEmpty()) {
-        item(key = "empty_tasks") {
-          EmptyTasksPlaceholder(
-            onAddTaskClick = { showAddDialog = true }
-          )
-        }
-      } else {
-        items(
-          items = tasks,
-          key = { it.task.id }
-        ) { taskState ->
-          TaskRowItem(
-            taskUiState = taskState,
-            onToggleTimer = { viewModel.toggleTimer(taskState.task.id) },
-            onToggleComplete = { viewModel.toggleTaskComplete(taskState.task.id) },
-            onDeleteTask = { viewModel.deleteTask(taskState.task.id) }
-          )
-        }
+      // Floating Add Task (+) Button
+      FloatingActionButton(
+        onClick = { showAddDialog = true },
+        modifier = Modifier
+          .align(Alignment.BottomEnd)
+          .padding(end = 20.dp, bottom = 16.dp)
+          .testTag("fab_add_task"),
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = CircleShape
+      ) {
+        Icon(
+          imageVector = Icons.Default.Add,
+          contentDescription = "Add Task",
+          modifier = Modifier.size(28.dp)
+        )
       }
     }
 
-    // 5. Sketched Add Task (+) Button
-    FloatingActionButton(
-      onClick = { showAddDialog = true },
-      modifier = Modifier
-        .align(Alignment.BottomEnd)
-        .padding(end = 20.dp, bottom = 20.dp)
-        .testTag("fab_add_task"),
-      containerColor = MaterialTheme.colorScheme.primary,
-      contentColor = MaterialTheme.colorScheme.onPrimary,
-      shape = CircleShape
-    ) {
-      Icon(
-        imageVector = Icons.Default.Add,
-        contentDescription = "Add Task",
-        modifier = Modifier.size(28.dp)
-      )
-    }
+    // 4. Rate this day: small and bottom of UI without background box, just above tracker, plan, and analytics
+    DayRatingSection(
+      selectedRating = currentRating,
+      dayAbbreviation = dayAbbr,
+      fullDateLabel = fullDate,
+      onRatingSelected = { rating ->
+        viewModel.setDayRating(rating)
+      }
+    )
+  }
 
-    // Add Task Dialog Sheet
-    if (showAddDialog) {
-      AddTaskDialog(
-        onDismiss = { showAddDialog = false },
-        onConfirm = { name, repeatMask ->
-          viewModel.addTask(name, repeatMask)
-          showAddDialog = false
-        }
-      )
-    }
+  // Add Task Dialog Sheet
+  if (showAddDialog) {
+    AddTaskDialog(
+      defaultTasks = defaultTasks,
+      onDismiss = { showAddDialog = false },
+      onOpenEditDefaultTasks = {
+        showAddDialog = false
+        showDefaultTasksDialog = true
+      },
+      onConfirm = { name, repeatMask, targetMinutes, isDefault, noteText, noteImageUri ->
+        viewModel.addTask(
+          name = name,
+          repeatDaysMask = repeatMask,
+          targetMinutes = targetMinutes,
+          isDefault = isDefault,
+          noteText = noteText,
+          noteImageUri = noteImageUri
+        )
+        showAddDialog = false
+      }
+    )
+  }
+
+  // Edit Task Dialog (Change Name, Frequency of Days, Target Timer, Default status, Text/Image notes)
+  taskToEdit?.let { task ->
+    EditTaskDialog(
+      task = task,
+      onDismiss = { taskToEdit = null },
+      onConfirm = { updatedTask ->
+        viewModel.updateTask(updatedTask)
+        taskToEdit = null
+      },
+      onDelete = {
+        viewModel.deleteTask(task.id)
+        taskToEdit = null
+      }
+    )
+  }
+
+  // Edit Default Tasks Dialog
+  if (showDefaultTasksDialog) {
+    DefaultTasksDialog(
+      defaultTasks = defaultTasks,
+      onDismiss = { showDefaultTasksDialog = false },
+      onEditTask = { task ->
+        showDefaultTasksDialog = false
+        taskToEdit = task
+      },
+      onDeleteTask = { id ->
+        viewModel.deleteTask(id)
+      },
+      onAddPresetAsDefault = { presetName ->
+        viewModel.addTask(
+          name = presetName,
+          repeatDaysMask = HabitTask.EVERYDAY_MASK,
+          targetMinutes = 45,
+          isDefault = true
+        )
+      }
+    )
   }
 }
 
@@ -243,18 +322,17 @@ private fun DayNavigationHeader(
         .fillMaxWidth()
         .padding(horizontal = 10.dp, vertical = 10.dp)
     ) {
-      // Row with (X) Previous Day  |  (Total Time)  |  (Y) Next Day
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
       ) {
-        // (X) Button: Previous Day with that day date
-        FilledTonalButton(
+        // Previous Day Button
+        OutlinedButton(
           onClick = onPreviousClick,
           shape = RoundedCornerShape(12.dp),
-          contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-          modifier = Modifier.testTag("button_prev_day")
+          contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+          modifier = Modifier.testTag("btn_prev_day")
         ) {
           Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -264,56 +342,54 @@ private fun DayNavigationHeader(
           Spacer(modifier = Modifier.width(4.dp))
           Text(
             text = prevDayText,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
           )
         }
 
-        // Center: (Total time) spent
+        // Center: Total Active Time Ticker
         Column(
           horizontalAlignment = Alignment.CenterHorizontally,
-          modifier = Modifier.testTag("total_time_display")
+          modifier = Modifier.padding(horizontal = 4.dp)
         ) {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-          ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
               imageVector = Icons.Default.Schedule,
               contentDescription = null,
               modifier = Modifier.size(14.dp),
-              tint = MaterialTheme.colorScheme.primary
+              tint = RatingBestGreen
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
               text = "Total Time",
               style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
             )
           }
+
           Text(
             text = DateUtils.formatTime(totalTimeSeconds),
-            style = MaterialTheme.typography.titleMedium.copy(
-              fontWeight = FontWeight.Black,
+            style = MaterialTheme.typography.titleLarge.copy(
+              fontWeight = FontWeight.Bold,
               fontFamily = FontFamily.Monospace,
-              fontSize = 17.sp,
-              color = MaterialTheme.colorScheme.onSurface
-            )
+              fontSize = 20.sp
+            ),
+            color = MaterialTheme.colorScheme.primary
           )
         }
 
-        // (Y) Button: Next Day with that day date
-        FilledTonalButton(
+        // Next Day Button
+        OutlinedButton(
           onClick = onNextClick,
           shape = RoundedCornerShape(12.dp),
-          contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-          modifier = Modifier.testTag("button_next_day")
+          contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+          modifier = Modifier.testTag("btn_next_day")
         ) {
           Text(
             text = nextDayText,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
           )
           Spacer(modifier = Modifier.width(4.dp))
           Icon(
@@ -324,51 +400,35 @@ private fun DayNavigationHeader(
         }
       }
 
-      // Date subtitle bar with "Today" indicator
-      Spacer(modifier = Modifier.height(6.dp))
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        Text(
-          text = DateUtils.formatFullDate(selectedDate),
-          style = MaterialTheme.typography.bodySmall.copy(
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        )
-
-        if (!isToday) {
-          TextButton(
-            onClick = onTodayClick,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-            modifier = Modifier.testTag("button_return_today")
-          ) {
-            Icon(
-              imageVector = Icons.Default.Today,
-              contentDescription = null,
-              modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Go to Today", style = MaterialTheme.typography.labelSmall)
-          }
-        } else {
+      if (!isToday) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.Center
+        ) {
           Box(
             modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(RatingBestGreen.copy(alpha = 0.15f))
-              .padding(horizontal = 8.dp, vertical = 2.dp)
+              .clip(RoundedCornerShape(8.dp))
+              .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+              .clickable { onTodayClick() }
+              .padding(horizontal = 12.dp, vertical = 4.dp)
           ) {
-            Text(
-              text = "Today",
-              style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = RatingBestGreen
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.Today,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
               )
-            )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text(
+                text = "Jump to Today",
+                style = MaterialTheme.typography.labelSmall.copy(
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+              )
+            }
           }
         }
       }
@@ -393,36 +453,36 @@ private fun EmptyTasksPlaceholder(
       modifier = Modifier
         .fillMaxWidth()
         .padding(24.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.Center
+      horizontalAlignment = Alignment.CenterHorizontally
     ) {
       Icon(
-        imageVector = Icons.Default.Schedule,
+        imageVector = Icons.Default.EventNote,
         contentDescription = null,
-        modifier = Modifier.size(44.dp),
-        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+        modifier = Modifier.size(48.dp),
+        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
       )
-      Spacer(modifier = Modifier.height(10.dp))
+      Spacer(modifier = Modifier.height(12.dp))
       Text(
-        text = "No habits scheduled for this day",
-        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        text = "No tasks created yet",
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onSurface
       )
-      Spacer(modifier = Modifier.height(4.dp))
+      Spacer(modifier = Modifier.height(6.dp))
       Text(
-        text = "Add tasks that repeat everyday or on this specific day of the week.",
+        text = "Create your own habits and study goals with custom timers (or choose NEET presets).",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
       )
-      Spacer(modifier = Modifier.height(14.dp))
-      ElevatedButton(
+      Spacer(modifier = Modifier.height(16.dp))
+      Button(
         onClick = onAddTaskClick,
-        modifier = Modifier.testTag("empty_add_task_button")
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
       ) {
-        Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+        Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(6.dp))
-        Text("Create First Task")
+        Text("Add First Task")
       }
     }
   }

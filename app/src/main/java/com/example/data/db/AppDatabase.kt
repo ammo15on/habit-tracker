@@ -7,10 +7,18 @@ import androidx.room.RoomDatabase
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
+import com.example.data.model.NeetTestScore
+import com.example.data.model.PlannedTask
 
 @Database(
-  entities = [HabitTask::class, HabitTaskLog::class, DayRating::class],
-  version = 1,
+  entities = [
+    HabitTask::class,
+    HabitTaskLog::class,
+    DayRating::class,
+    NeetTestScore::class,
+    PlannedTask::class
+  ],
+  version = 3,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

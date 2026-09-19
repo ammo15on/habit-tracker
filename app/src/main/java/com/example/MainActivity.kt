@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -29,11 +31,13 @@ import com.example.data.db.AppDatabase
 import com.example.data.repository.HabitRepository
 import com.example.ui.HabitViewModel
 import com.example.ui.screens.AnalyticsScreen
+import com.example.ui.screens.PlanScreen
 import com.example.ui.screens.TrackerScreen
 import com.example.ui.theme.MyApplicationTheme
 
 enum class MainNavigationTab {
   TRACKER,
+  PLAN,
   ANALYTICS
 }
 
@@ -67,6 +71,7 @@ fun MainAppContent(viewModel: HabitViewModel) {
       NavigationBar(
         modifier = Modifier.testTag("main_bottom_nav")
       ) {
+        // Tracker Tab
         NavigationBarItem(
           selected = currentTab == MainNavigationTab.TRACKER,
           onClick = { currentTab = MainNavigationTab.TRACKER },
@@ -81,6 +86,22 @@ fun MainAppContent(viewModel: HabitViewModel) {
           modifier = Modifier.testTag("nav_item_tracker")
         )
 
+        // Plan Tab
+        NavigationBarItem(
+          selected = currentTab == MainNavigationTab.PLAN,
+          onClick = { currentTab = MainNavigationTab.PLAN },
+          icon = {
+            Icon(
+              imageVector = if (currentTab == MainNavigationTab.PLAN) Icons.Filled.CalendarMonth
+              else Icons.Outlined.CalendarMonth,
+              contentDescription = "Plan"
+            )
+          },
+          label = { Text("Plan", fontWeight = FontWeight.SemiBold) },
+          modifier = Modifier.testTag("nav_item_plan")
+        )
+
+        // Analytics Tab
         NavigationBarItem(
           selected = currentTab == MainNavigationTab.ANALYTICS,
           onClick = { currentTab = MainNavigationTab.ANALYTICS },
@@ -101,6 +122,16 @@ fun MainAppContent(viewModel: HabitViewModel) {
       MainNavigationTab.TRACKER -> {
         TrackerScreen(
           viewModel = viewModel,
+          modifier = Modifier.padding(innerPadding)
+        )
+      }
+      MainNavigationTab.PLAN -> {
+        PlanScreen(
+          viewModel = viewModel,
+          onJumpToTask = { plannedTask ->
+            viewModel.jumpToPlannedTask(plannedTask)
+            currentTab = MainNavigationTab.TRACKER
+          },
           modifier = Modifier.padding(innerPadding)
         )
       }
