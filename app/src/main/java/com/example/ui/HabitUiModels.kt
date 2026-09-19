@@ -4,11 +4,10 @@ import com.example.data.model.HabitTask
 import com.example.data.model.RatingType
 
 enum class AnalyticsTab {
+  DAY,
   WEEK,
   MONTH,
-  DAYS,
-  TALLY,
-  NEET_MARKS
+  NEET
 }
 
 data class TaskItemUiState(

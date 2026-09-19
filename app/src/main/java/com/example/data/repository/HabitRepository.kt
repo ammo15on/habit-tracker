@@ -4,6 +4,8 @@ import com.example.data.db.HabitDao
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
+import com.example.data.model.NeetChapter
+import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
 import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
@@ -17,6 +19,8 @@ class HabitRepository(private val dao: HabitDao) {
   val allLogs: Flow<List<HabitTaskLog>> = dao.getAllLogs()
   val allNeetScores: Flow<List<NeetTestScore>> = dao.getAllNeetScores()
   val allPlannedTasks: Flow<List<PlannedTask>> = dao.getAllPlannedTasks()
+  val allNeetChapters: Flow<List<NeetChapter>> = dao.getAllNeetChapters()
+  val allNeetTallyCounters: Flow<List<NeetTallyCounter>> = dao.getAllNeetTallyCounters()
 
   fun getLogsForDate(date: String): Flow<List<HabitTaskLog>> = dao.getLogsForDate(date)
 
@@ -111,4 +115,26 @@ class HabitRepository(private val dao: HabitDao) {
   suspend fun deletePlannedTask(task: PlannedTask) = dao.deletePlannedTask(task)
 
   suspend fun deletePlannedTaskById(id: Long) = dao.deletePlannedTaskById(id)
+
+  // NEET Chapter operations
+  suspend fun insertNeetChapter(chapter: NeetChapter): Long = dao.insertNeetChapter(chapter)
+
+  suspend fun insertAllNeetChapters(chapters: List<NeetChapter>) = dao.insertAllNeetChapters(chapters)
+
+  suspend fun updateNeetChapter(chapter: NeetChapter) = dao.updateNeetChapter(chapter)
+
+  suspend fun deleteNeetChapter(chapter: NeetChapter) = dao.deleteNeetChapter(chapter)
+
+  suspend fun deleteNeetChapterById(id: Long) = dao.deleteNeetChapterById(id)
+
+  // NEET Tally Counter operations
+  suspend fun insertNeetTallyCounter(counter: NeetTallyCounter): Long = dao.insertNeetTallyCounter(counter)
+
+  suspend fun insertAllNeetTallyCounters(counters: List<NeetTallyCounter>) = dao.insertAllNeetTallyCounters(counters)
+
+  suspend fun updateNeetTallyCounter(counter: NeetTallyCounter) = dao.updateNeetTallyCounter(counter)
+
+  suspend fun deleteNeetTallyCounter(counter: NeetTallyCounter) = dao.deleteNeetTallyCounter(counter)
+
+  suspend fun deleteNeetTallyCounterById(id: Long) = dao.deleteNeetTallyCounterById(id)
 }

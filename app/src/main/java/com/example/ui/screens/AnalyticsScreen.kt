@@ -65,6 +65,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.model.NeetChapter
+import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
 import com.example.data.model.RatingType
 import com.example.ui.AnalyticsTab
@@ -73,6 +75,8 @@ import com.example.ui.HabitViewModel
 import com.example.ui.MonthSummary
 import com.example.ui.TaskTallyItem
 import com.example.ui.WeekSummary
+import com.example.ui.components.AddEditChapterDialog
+import com.example.ui.components.AddEditTallyDialog
 import com.example.ui.components.AddNeetScoreDialog
 import com.example.ui.theme.RatingAverageGrey
 import com.example.ui.theme.RatingBestGreen
@@ -91,8 +95,14 @@ fun AnalyticsScreen(
   val daysAnalytics by viewModel.daysAnalytics.collectAsStateWithLifecycle()
   val tallyAnalytics by viewModel.taskTallyAnalytics.collectAsStateWithLifecycle()
   val neetScores by viewModel.allNeetScores.collectAsStateWithLifecycle()
+  val neetChapters by viewModel.allNeetChapters.collectAsStateWithLifecycle()
+  val neetTallyCounters by viewModel.allNeetTallyCounters.collectAsStateWithLifecycle()
 
   var showAddNeetDialog by remember { mutableStateOf(false) }
+  var showAddChapterDialog by remember { mutableStateOf(false) }
+  var chapterToEdit by remember { mutableStateOf<NeetChapter?>(null) }
+  var showAddTallyDialog by remember { mutableStateOf(false) }
+  var tallyToEdit by remember { mutableStateOf<NeetTallyCounter?>(null) }
 
   Column(
     modifier = modifier
@@ -113,7 +123,7 @@ fun AnalyticsScreen(
 
     Spacer(modifier = Modifier.height(10.dp))
 
-    // Scrollable Tab Row: Week, Month, Days, Tally Counter, NEET Marks
+    // Scrollable Tab Row: Day, Week, Month, NEET (Strictly arranged in order)
     ScrollableTabRow(
       selectedTabIndex = selectedTab.ordinal,
       modifier = Modifier
@@ -123,6 +133,18 @@ fun AnalyticsScreen(
       containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
       edgePadding = 8.dp
     ) {
+      Tab(
+        selected = selectedTab == AnalyticsTab.DAY,
+        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.DAY },
+        text = {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Day", fontWeight = FontWeight.Bold)
+          }
+        },
+        modifier = Modifier.testTag("tab_day")
+      )
       Tab(
         selected = selectedTab == AnalyticsTab.WEEK,
         onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.WEEK },
@@ -148,37 +170,13 @@ fun AnalyticsScreen(
         modifier = Modifier.testTag("tab_month")
       )
       Tab(
-        selected = selectedTab == AnalyticsTab.DAYS,
-        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.DAYS },
-        text = {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Days", fontWeight = FontWeight.Bold)
-          }
-        },
-        modifier = Modifier.testTag("tab_days")
-      )
-      Tab(
-        selected = selectedTab == AnalyticsTab.TALLY,
-        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.TALLY },
-        text = {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.FormatListNumbered, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Tally Counter", fontWeight = FontWeight.Bold)
-          }
-        },
-        modifier = Modifier.testTag("tab_tally")
-      )
-      Tab(
-        selected = selectedTab == AnalyticsTab.NEET_MARKS,
-        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.NEET_MARKS },
+        selected = selectedTab == AnalyticsTab.NEET,
+        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.NEET },
         text = {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("NEET Marks", fontWeight = FontWeight.Bold)
+            Text("NEET", fontWeight = FontWeight.Bold)
           }
         },
         modifier = Modifier.testTag("tab_neet")
@@ -188,6 +186,12 @@ fun AnalyticsScreen(
     Spacer(modifier = Modifier.height(14.dp))
 
     when (selectedTab) {
+      AnalyticsTab.DAY -> {
+        DaysAnalyticsView(
+          days = daysAnalytics,
+          onDayClick = onNavigateToDate
+        )
+      }
       AnalyticsTab.WEEK -> {
         WeeksAnalyticsView(
           weeks = weeksAnalytics,
@@ -200,33 +204,126 @@ fun AnalyticsScreen(
           onDayClick = onNavigateToDate
         )
       }
-      AnalyticsTab.DAYS -> {
-        DaysAnalyticsView(
-          days = daysAnalytics,
-          onDayClick = onNavigateToDate
-        )
-      }
-      AnalyticsTab.TALLY -> {
-        TaskTallyView(
-          tallyList = tallyAnalytics
-        )
-      }
-      AnalyticsTab.NEET_MARKS -> {
-        NeetMarksTrackingView(
-          scores = neetScores,
+      AnalyticsTab.NEET -> {
+        NeetSectionView(
+          chapters = neetChapters,
+          tallyCounters = neetTallyCounters,
+          habitTallyList = tallyAnalytics,
+          testScores = neetScores,
+          onToggleChapterCompleted = { viewModel.toggleChapterCompleted(it) },
+          onToggleChapterPyq = { viewModel.toggleChapterPyq(it) },
+          onToggleChapterRevision = { viewModel.toggleChapterRevision(it) },
+          onAddChapterClick = { showAddChapterDialog = true },
+          onEditChapterClick = { chapterToEdit = it },
+          onDeleteChapterClick = { viewModel.deleteNeetChapter(it) },
+          onAddTallyClick = { showAddTallyDialog = true },
+          onEditTallyClick = { tallyToEdit = it },
+          onIncrementTally = { counter, delta -> viewModel.incrementNeetTally(counter, delta) },
+          onDecrementTally = { counter, delta -> viewModel.decrementNeetTally(counter, delta) },
+          onResetTally = { viewModel.resetNeetTally(it) },
+          onDeleteTally = { viewModel.deleteNeetTallyCounter(it) },
           onAddScoreClick = { showAddNeetDialog = true },
-          onDeleteScore = { viewModel.deleteNeetScore(it) }
+          onDeleteScoreClick = { viewModel.deleteNeetScore(it) }
         )
       }
     }
   }
 
+  // Add NEET Test Score Dialog
   if (showAddNeetDialog) {
     AddNeetScoreDialog(
       onDismiss = { showAddNeetDialog = false },
       onConfirm = { newScore ->
         viewModel.addNeetScore(newScore)
         showAddNeetDialog = false
+      }
+    )
+  }
+
+  // Add Chapter Dialog
+  if (showAddChapterDialog) {
+    AddEditChapterDialog(
+      chapter = null,
+      onDismiss = { showAddChapterDialog = false },
+      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, notes ->
+        viewModel.addNeetChapter(
+          name = name,
+          subject = subject,
+          isCompleted = isCompleted,
+          isPyqDone = isPyqDone,
+          isRevisionDone = isRevisionDone,
+          notes = notes
+        )
+        showAddChapterDialog = false
+      }
+    )
+  }
+
+  // Edit Chapter Dialog
+  chapterToEdit?.let { chapter ->
+    AddEditChapterDialog(
+      chapter = chapter,
+      onDismiss = { chapterToEdit = null },
+      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, notes ->
+        viewModel.updateNeetChapter(
+          chapter.copy(
+            name = name,
+            subject = subject,
+            isCompleted = isCompleted,
+            isPyqDone = isPyqDone,
+            isRevisionDone = isRevisionDone,
+            notes = notes
+          )
+        )
+        chapterToEdit = null
+      },
+      onDelete = {
+        viewModel.deleteNeetChapter(chapter)
+        chapterToEdit = null
+      }
+    )
+  }
+
+  // Add Tally Counter Dialog
+  if (showAddTallyDialog) {
+    AddEditTallyDialog(
+      counter = null,
+      onDismiss = { showAddTallyDialog = false },
+      onSave = { title, initialCount, target, unit ->
+        viewModel.addNeetTallyCounter(
+          title = title,
+          initialCount = initialCount,
+          target = target,
+          unit = unit
+        )
+        showAddTallyDialog = false
+      }
+    )
+  }
+
+  // Edit Tally Counter Dialog
+  tallyToEdit?.let { counter ->
+    AddEditTallyDialog(
+      counter = counter,
+      onDismiss = { tallyToEdit = null },
+      onSave = { title, count, target, unit ->
+        viewModel.updateNeetTallyCounter(
+          counter.copy(
+            title = title,
+            count = count,
+            target = target,
+            unit = unit
+          )
+        )
+        tallyToEdit = null
+      },
+      onDelete = {
+        viewModel.deleteNeetTallyCounter(counter)
+        tallyToEdit = null
+      },
+      onReset = {
+        viewModel.resetNeetTally(counter)
+        tallyToEdit = null
       }
     )
   }

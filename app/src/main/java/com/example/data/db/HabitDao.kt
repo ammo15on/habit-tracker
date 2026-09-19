@@ -9,6 +9,8 @@ import androidx.room.Update
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
+import com.example.data.model.NeetChapter
+import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
 import com.example.data.model.PlannedTask
 import kotlinx.coroutines.flow.Flow
@@ -100,4 +102,42 @@ interface HabitDao {
 
   @Query("DELETE FROM planned_tasks WHERE id = :id")
   suspend fun deletePlannedTaskById(id: Long)
+
+  // NEET Chapters
+  @Query("SELECT * FROM neet_chapters ORDER BY id ASC")
+  fun getAllNeetChapters(): Flow<List<NeetChapter>>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertNeetChapter(chapter: NeetChapter): Long
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllNeetChapters(chapters: List<NeetChapter>)
+
+  @Update
+  suspend fun updateNeetChapter(chapter: NeetChapter)
+
+  @Delete
+  suspend fun deleteNeetChapter(chapter: NeetChapter)
+
+  @Query("DELETE FROM neet_chapters WHERE id = :id")
+  suspend fun deleteNeetChapterById(id: Long)
+
+  // NEET Tally Counters
+  @Query("SELECT * FROM neet_tally_counters ORDER BY id ASC")
+  fun getAllNeetTallyCounters(): Flow<List<NeetTallyCounter>>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertNeetTallyCounter(counter: NeetTallyCounter): Long
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllNeetTallyCounters(counters: List<NeetTallyCounter>)
+
+  @Update
+  suspend fun updateNeetTallyCounter(counter: NeetTallyCounter)
+
+  @Delete
+  suspend fun deleteNeetTallyCounter(counter: NeetTallyCounter)
+
+  @Query("DELETE FROM neet_tally_counters WHERE id = :id")
+  suspend fun deleteNeetTallyCounterById(id: Long)
 }

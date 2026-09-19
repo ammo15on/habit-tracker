@@ -74,6 +74,8 @@ fun AddTaskDialog(
   defaultTasks: List<HabitTask> = emptyList(),
   onDismiss: () -> Unit,
   onOpenEditDefaultTasks: () -> Unit = {},
+  onAddPresetAsDefault: ((String) -> Unit)? = null,
+  onDeleteDefaultTask: ((Long) -> Unit)? = null,
   onConfirm: (
     name: String,
     repeatMask: Int,
@@ -180,9 +182,9 @@ fun AddTaskDialog(
 
         FlowRow(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
-          verticalArrangement = Arrangement.spacedBy(4.dp)
+          verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-          // Show user defaults first
+          // Show user defaults first with quick tap to use and delete icon
           defaultTasks.forEach { defTask ->
             SuggestionChip(
               onClick = {
@@ -194,13 +196,26 @@ fun AddTaskDialog(
                 isDefault = true
               },
               label = {
-                Text(
-                  text = "⭐ ${defTask.name}",
-                  style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Text(
+                    text = "⭐ ${defTask.name}",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                      fontSize = 11.sp,
+                      fontWeight = FontWeight.Bold
+                    )
                   )
-                )
+                  if (onDeleteDefaultTask != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                      imageVector = Icons.Default.Close,
+                      contentDescription = "Remove default",
+                      tint = MaterialTheme.colorScheme.error,
+                      modifier = Modifier
+                        .size(14.dp)
+                        .clickable { onDeleteDefaultTask(defTask.id) }
+                    )
+                  }
+                }
               },
               colors = SuggestionChipDefaults.suggestionChipColors(
                 containerColor = Color(0xFFFEF3C7)
@@ -210,13 +225,26 @@ fun AddTaskDialog(
 
           // Then show built-in NEET Presets
           HabitTask.DEFAULT_NEET_PRESETS.forEach { preset ->
+            val isAlreadyDef = defaultTasks.any { it.name.equals(preset, ignoreCase = true) }
             SuggestionChip(
               onClick = { taskName = preset },
               label = {
-                Text(
-                  text = preset,
-                  style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Text(
+                    text = preset,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
+                  )
+                  if (!isAlreadyDef && onAddPresetAsDefault != null) {
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                      text = "+★",
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.colorScheme.primary,
+                      modifier = Modifier.clickable { onAddPresetAsDefault(preset) }
+                    )
+                  }
+                }
               },
               colors = SuggestionChipDefaults.suggestionChipColors(
                 containerColor = if (taskName.equals(preset, ignoreCase = true)) {
@@ -226,6 +254,18 @@ fun AddTaskDialog(
                 }
               )
             )
+          }
+        }
+
+        if (taskName.isNotBlank() && onAddPresetAsDefault != null && !defaultTasks.any { it.name.equals(taskName.trim(), ignoreCase = true) }) {
+          Spacer(modifier = Modifier.height(4.dp))
+          TextButton(
+            onClick = { onAddPresetAsDefault(taskName.trim()) },
+            modifier = Modifier.align(Alignment.End)
+          ) {
+            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Save '$taskName' as Default", fontSize = 11.sp)
           }
         }
 

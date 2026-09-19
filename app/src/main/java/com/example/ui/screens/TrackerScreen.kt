@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -122,25 +123,28 @@ fun TrackerScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
           ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              modifier = Modifier.weight(1f, fill = false)
+            ) {
               Text(
-                text = "My Habits & Tasks",
-                style = MaterialTheme.typography.titleLarge.copy(
+                text = "Habits & Tasks",
+                style = MaterialTheme.typography.titleMedium.copy(
                   fontWeight = FontWeight.Bold,
-                  fontSize = 18.sp
+                  fontSize = 17.sp
                 ),
                 color = MaterialTheme.colorScheme.onSurface
               )
-              Spacer(modifier = Modifier.width(8.dp))
+              Spacer(modifier = Modifier.width(6.dp))
               Box(
                 modifier = Modifier
                   .clip(CircleShape)
                   .background(MaterialTheme.colorScheme.primaryContainer)
-                  .padding(horizontal = 8.dp, vertical = 2.dp)
+                  .padding(horizontal = 7.dp, vertical = 2.dp)
               ) {
                 val completedCount = tasks.count { it.isCompleted }
                 Text(
-                  text = "$completedCount / ${tasks.size}",
+                  text = "$completedCount/${tasks.size}",
                   style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -149,32 +153,47 @@ fun TrackerScreen(
               }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
               // Edit Default Tasks button
-              TextButton(
+              OutlinedButton(
                 onClick = { showDefaultTasksDialog = true },
-                modifier = Modifier.testTag("btn_manage_defaults")
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                  .defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
+                  .testTag("btn_manage_defaults")
               ) {
                 Icon(
                   imageVector = Icons.Default.Star,
                   contentDescription = null,
                   tint = Color(0xFFF59E0B),
-                  modifier = Modifier.size(16.dp)
+                  modifier = Modifier.size(14.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                   text = "Defaults (${defaultTasks.size})",
-                  style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
+                  style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                  )
                 )
               }
 
-              TextButton(
+              Button(
                 onClick = { showAddDialog = true },
-                modifier = Modifier.testTag("add_task_text_button")
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
+                modifier = Modifier
+                  .defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
+                  .testTag("add_task_text_button")
               ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Add", fontWeight = FontWeight.Bold)
+                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(3.dp))
+                Text("Add", fontSize = 12.sp, fontWeight = FontWeight.Bold)
               }
             }
           }
@@ -242,6 +261,12 @@ fun TrackerScreen(
         showAddDialog = false
         showDefaultTasksDialog = true
       },
+      onAddPresetAsDefault = { presetName ->
+        viewModel.addPresetAsDefaultTask(presetName)
+      },
+      onDeleteDefaultTask = { id ->
+        viewModel.removeDefaultStatus(id)
+      },
       onConfirm = { name, repeatMask, targetMinutes, isDefault, noteText, noteImageUri ->
         viewModel.addTask(
           name = name,
@@ -282,15 +307,13 @@ fun TrackerScreen(
         taskToEdit = task
       },
       onDeleteTask = { id ->
-        viewModel.deleteTask(id)
+        viewModel.removeDefaultStatus(id)
       },
       onAddPresetAsDefault = { presetName ->
-        viewModel.addTask(
-          name = presetName,
-          repeatDaysMask = HabitTask.EVERYDAY_MASK,
-          targetMinutes = 45,
-          isDefault = true
-        )
+        viewModel.addPresetAsDefaultTask(presetName)
+      },
+      onRemovePresetFromDefault = { presetName ->
+        viewModel.removeDefaultStatusByName(presetName)
       }
     )
   }

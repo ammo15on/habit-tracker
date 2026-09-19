@@ -7,6 +7,8 @@ import androidx.room.RoomDatabase
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
+import com.example.data.model.NeetChapter
+import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
 import com.example.data.model.PlannedTask
 
@@ -16,9 +18,11 @@ import com.example.data.model.PlannedTask
     HabitTaskLog::class,
     DayRating::class,
     NeetTestScore::class,
-    PlannedTask::class
+    PlannedTask::class,
+    NeetChapter::class,
+    NeetTallyCounter::class
   ],
-  version = 3,
+  version = 4,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

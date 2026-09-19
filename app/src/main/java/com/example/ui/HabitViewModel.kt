@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
+import com.example.data.model.NeetChapter
+import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
 import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
@@ -45,6 +47,24 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val defaultTasks: StateFlow<List<HabitTask>> = repository.defaultTasks
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+  val allNeetChapters: StateFlow<List<NeetChapter>> = repository.allNeetChapters
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+  val allNeetTallyCounters: StateFlow<List<NeetTallyCounter>> = repository.allNeetTallyCounters
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+  init {
+    // Populate default NEET chapters and Tally counters if first launch
+    viewModelScope.launch {
+      val existingChapters = repository.allNeetChapters.stateIn(viewModelScope).value
+      if (existingChapters.isEmpty()) {
+        repository.insertAllNeetChapters(NeetChapter.DEFAULT_CHAPTERS)
+      }
+      val existingCounters = repository.allNeetTallyCounters.stateIn(viewModelScope).value
+      if (existingCounters.isEmpty()) {
+        repository.insertAllNeetTallyCounters(NeetTallyCounter.DEFAULT_COUNTERS)
+      }
+    }
+  }
 
   // Combined UI State for currently selected date (Tasks sorted: Incomplete first, Finished at bottom)
   val tasksForSelectedDate: StateFlow<List<TaskItemUiState>> = combine(
@@ -107,7 +127,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     )
 
   // Analytics tab selection
-  val selectedAnalyticsTab = MutableStateFlow(AnalyticsTab.WEEK)
+  val selectedAnalyticsTab = MutableStateFlow(AnalyticsTab.DAY)
 
   // Effective logs flow including live running session for today
   private val effectiveLogsFlow = combine(
@@ -517,6 +537,147 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
           repeatDaysMask = HabitTask.EVERYDAY_MASK,
           targetTimeMinutes = plannedTask.targetTimeMinutes
         )
+      }
+    }
+  }
+
+  // NEET Chapters Operations
+  fun addNeetChapter(
+    name: String,
+    subject: String,
+    isCompleted: Boolean = false,
+    isPyqDone: Boolean = false,
+    isRevisionDone: Boolean = false,
+    notes: String = ""
+  ) {
+    if (name.isBlank()) return
+    viewModelScope.launch {
+      val chapter = NeetChapter(
+        name = name.trim(),
+        subject = subject,
+        isCompleted = isCompleted,
+        isPyqDone = isPyqDone,
+        isRevisionDone = isRevisionDone,
+        notes = notes.trim()
+      )
+      repository.insertNeetChapter(chapter)
+    }
+  }
+
+  fun updateNeetChapter(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.updateNeetChapter(chapter)
+    }
+  }
+
+  fun toggleChapterCompleted(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.updateNeetChapter(chapter.copy(isCompleted = !chapter.isCompleted))
+    }
+  }
+
+  fun toggleChapterPyq(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.updateNeetChapter(chapter.copy(isPyqDone = !chapter.isPyqDone))
+    }
+  }
+
+  fun toggleChapterRevision(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.updateNeetChapter(chapter.copy(isRevisionDone = !chapter.isRevisionDone))
+    }
+  }
+
+  fun deleteNeetChapter(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.deleteNeetChapter(chapter)
+    }
+  }
+
+  // NEET Tally Counters Operations
+  fun addNeetTallyCounter(
+    title: String,
+    initialCount: Int = 0,
+    target: Int = 0,
+    unit: String = "times"
+  ) {
+    if (title.isBlank()) return
+    viewModelScope.launch {
+      val counter = NeetTallyCounter(
+        title = title.trim(),
+        count = initialCount.coerceAtLeast(0),
+        target = target.coerceAtLeast(0),
+        unit = unit.trim().ifBlank { "times" }
+      )
+      repository.insertNeetTallyCounter(counter)
+    }
+  }
+
+  fun updateNeetTallyCounter(counter: NeetTallyCounter) {
+    viewModelScope.launch {
+      repository.updateNeetTallyCounter(counter)
+    }
+  }
+
+  fun incrementNeetTally(counter: NeetTallyCounter, delta: Int = 1) {
+    viewModelScope.launch {
+      val newCount = (counter.count + delta).coerceAtLeast(0)
+      repository.updateNeetTallyCounter(counter.copy(count = newCount))
+    }
+  }
+
+  fun decrementNeetTally(counter: NeetTallyCounter, delta: Int = 1) {
+    viewModelScope.launch {
+      val newCount = (counter.count - delta).coerceAtLeast(0)
+      repository.updateNeetTallyCounter(counter.copy(count = newCount))
+    }
+  }
+
+  fun resetNeetTally(counter: NeetTallyCounter) {
+    viewModelScope.launch {
+      repository.updateNeetTallyCounter(counter.copy(count = 0))
+    }
+  }
+
+  fun deleteNeetTallyCounter(counter: NeetTallyCounter) {
+    viewModelScope.launch {
+      repository.deleteNeetTallyCounter(counter)
+    }
+  }
+
+  // Default Tasks Quick Management
+  fun addPresetAsDefaultTask(presetName: String) {
+    if (presetName.isBlank()) return
+    viewModelScope.launch {
+      val allTasks = allTasksFlow.stateIn(viewModelScope).value
+      val existing = allTasks.find { it.name.equals(presetName.trim(), ignoreCase = true) }
+      if (existing != null) {
+        repository.updateTask(existing.copy(isDefault = true))
+      } else {
+        repository.insertTask(
+          name = presetName.trim(),
+          repeatDaysMask = HabitTask.EVERYDAY_MASK,
+          targetTimeMinutes = 0,
+          isDefault = true
+        )
+      }
+    }
+  }
+
+  fun removeDefaultStatus(taskId: Long) {
+    viewModelScope.launch {
+      val task = repository.allTasks.stateIn(viewModelScope).value.find { it.id == taskId }
+      if (task != null) {
+        repository.updateTask(task.copy(isDefault = false))
+      }
+    }
+  }
+
+  fun removeDefaultStatusByName(taskName: String) {
+    viewModelScope.launch {
+      val task = repository.allTasks.stateIn(viewModelScope).value.find { it.name.equals(taskName.trim(), ignoreCase = true) }
+      if (task != null) {
+        repository.updateTask(task.copy(isDefault = false))
       }
     }
   }
