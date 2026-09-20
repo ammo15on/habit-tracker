@@ -28,17 +28,21 @@ class HabitRepository(private val dao: HabitDao) {
 
   suspend fun insertTask(
     name: String,
-    repeatDaysMask: Int,
+    targetDate: String? = null,
+    repeatDaysMask: Int = 0,
     targetTimeMinutes: Int = 0,
     isDefault: Boolean = false,
+    isStarred: Boolean = false,
     noteText: String = "",
     noteImageUri: String? = null
   ): Long {
     val task = HabitTask(
       name = name,
+      targetDate = targetDate,
       repeatDaysMask = repeatDaysMask,
       targetTimeMinutes = targetTimeMinutes,
       isDefault = isDefault,
+      isStarred = isStarred,
       noteText = noteText,
       noteImageUri = noteImageUri
     )

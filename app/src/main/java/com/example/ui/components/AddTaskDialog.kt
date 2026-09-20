@@ -57,7 +57,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,11 +68,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.HabitTask
 import com.example.ui.theme.RatingBestGreen
+import com.example.util.DateUtils
 import com.example.util.ImageStorageUtils
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AddTaskDialog(
+  selectedDate: String = "",
   defaultTasks: List<HabitTask> = emptyList(),
   onDismiss: () -> Unit,
   onOpenEditDefaultTasks: () -> Unit = {},
@@ -86,9 +90,24 @@ fun AddTaskDialog(
   ) -> Unit
 ) {
   val context = LocalContext.current
+  val haptic = LocalHapticFeedback.current
+
+  val effectiveDate = if (selectedDate.isNotBlank()) selectedDate else DateUtils.today()
+  val dayOfWeekIndex = DateUtils.getDayOfWeekIndex(effectiveDate)
+  val dayName = when (dayOfWeekIndex) {
+    0 -> "Monday"
+    1 -> "Tuesday"
+    2 -> "Wednesday"
+    3 -> "Thursday"
+    4 -> "Friday"
+    5 -> "Saturday"
+    else -> "Sunday"
+  }
 
   var taskName by remember { mutableStateOf("") }
-  var repeatMask by remember { mutableIntStateOf(HabitTask.EVERYDAY_MASK) }
+  // Default to 0: "This day only", not everyday!
+  var repeatMask by remember { mutableIntStateOf(0) }
+  var isSpecificDayOnly by remember { mutableStateOf(true) }
   var targetMinutesStr by remember { mutableStateOf("") }
   var isDefault by remember { mutableStateOf(false) }
   var noteText by remember { mutableStateOf("") }
@@ -218,7 +237,8 @@ fun AddTaskDialog(
                 }
               },
               colors = SuggestionChipDefaults.suggestionChipColors(
-                containerColor = Color(0xFFFEF3C7)
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                labelColor = MaterialTheme.colorScheme.onSurface
               )
             )
           }
@@ -300,79 +320,108 @@ fun AddTaskDialog(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Repeat Schedule / Frequency of Days
+        Text(
+          text = "Schedule for:",
+          style = MaterialTheme.typography.labelMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
         Row(
           modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
+          horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-          Text(
-            text = "Repeat Schedule",
-            style = MaterialTheme.typography.labelMedium.copy(
-              fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          )
-
           FilterChip(
-            selected = isEveryday,
+            selected = isSpecificDayOnly,
             onClick = {
-              repeatMask = if (isEveryday) 0 else HabitTask.EVERYDAY_MASK
+              isSpecificDayOnly = true
+              repeatMask = 0
             },
             label = {
               Text(
-                if (isEveryday) "Everyday" else "Custom",
+                "This Day Only",
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
               )
+            }
+          )
+
+          FilterChip(
+            selected = !isSpecificDayOnly && isEveryday,
+            onClick = {
+              isSpecificDayOnly = false
+              repeatMask = HabitTask.EVERYDAY_MASK
             },
-            leadingIcon = {
-              Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(14.dp))
+            label = {
+              Text(
+                "Everyday",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+              )
+            }
+          )
+
+          FilterChip(
+            selected = !isSpecificDayOnly && !isEveryday,
+            onClick = {
+              isSpecificDayOnly = false
+              if (repeatMask == 0) {
+                repeatMask = 1 shl dayOfWeekIndex
+              }
+            },
+            label = {
+              Text(
+                "Custom Days",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+              )
             }
           )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        if (!isSpecificDayOnly) {
+          Spacer(modifier = Modifier.height(8.dp))
+          // Day selection circles
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+          ) {
+            dayLabels.forEachIndexed { index, letter ->
+              val bit = 1 shl index
+              val isSelected = (repeatMask and bit) != 0
 
-        // Day selection circles
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-          dayLabels.forEachIndexed { index, letter ->
-            val bit = 1 shl index
-            val isSelected = (repeatMask and bit) != 0
-
-            Box(
-              modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(
-                  if (isSelected) MaterialTheme.colorScheme.primary
-                  else MaterialTheme.colorScheme.surfaceVariant
+              Box(
+                modifier = Modifier
+                  .size(36.dp)
+                  .clip(CircleShape)
+                  .background(
+                    if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surfaceVariant
+                  )
+                  .border(
+                    width = 1.dp,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    shape = CircleShape
+                  )
+                  .clickable {
+                    repeatMask = if (isSelected) {
+                      repeatMask and bit.inv()
+                    } else {
+                      repeatMask or bit
+                    }
+                  },
+                contentAlignment = Alignment.Center
+              ) {
+                Text(
+                  text = letter,
+                  style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp
+                  ),
+                  color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                  else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                .border(
-                  width = 1.dp,
-                  color = if (isSelected) MaterialTheme.colorScheme.primary
-                  else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                  shape = CircleShape
-                )
-                .clickable {
-                  repeatMask = if (isSelected) {
-                    repeatMask and bit.inv()
-                  } else {
-                    repeatMask or bit
-                  }
-                },
-              contentAlignment = Alignment.Center
-            ) {
-              Text(
-                text = letter,
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 11.sp
-                ),
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                else MaterialTheme.colorScheme.onSurfaceVariant
-              )
+              }
             }
           }
         }
@@ -502,7 +551,8 @@ fun AddTaskDialog(
       Button(
         onClick = {
           if (taskName.isNotBlank()) {
-            val mask = if (repeatMask == 0) HabitTask.EVERYDAY_MASK else repeatMask
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            val mask = if (isSpecificDayOnly) 0 else repeatMask
             val target = targetMinutesStr.toIntOrNull() ?: 0
             onConfirm(taskName.trim(), mask, target, isDefault, noteText.trim(), noteImageUri)
           }

@@ -47,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +71,7 @@ fun TaskRowItem(
   onDeleteTask: () -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val haptic = LocalHapticFeedback.current
   val task = taskUiState.task
   val isRunning = taskUiState.isRunning
   val isCompleted = taskUiState.isCompleted
@@ -252,7 +255,10 @@ fun TaskRowItem(
           ) {
             // Pause / Resume Timer Button
             FilledIconButton(
-              onClick = onToggleTimer,
+              onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onToggleTimer()
+              },
               modifier = Modifier
                 .size(42.dp)
                 .testTag("toggle_timer_${task.id}"),
@@ -274,7 +280,10 @@ fun TaskRowItem(
 
             // Complete Checkmark Button
             FilledIconButton(
-              onClick = onToggleComplete,
+              onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onToggleComplete()
+              },
               modifier = Modifier
                 .size(42.dp)
                 .testTag("toggle_complete_${task.id}"),

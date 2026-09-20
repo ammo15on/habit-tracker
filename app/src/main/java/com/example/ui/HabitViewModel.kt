@@ -12,7 +12,9 @@ import com.example.data.model.NeetTestScore
 import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
 import com.example.data.repository.HabitRepository
+import com.example.ui.theme.AppThemeColor
 import com.example.util.DateUtils
+import com.example.util.ThemePreferences
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -21,16 +23,43 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
+data class DayCompletedTaskItem(
+  val taskName: String,
+  val timeSpentSeconds: Long,
+  val isCompleted: Boolean,
+  val targetMinutes: Int
+)
+
+typealias CompletedDayTaskInfo = DayCompletedTaskItem
+
+class HabitViewModel(
+  private val repository: HabitRepository,
+  private val themePreferences: ThemePreferences? = null
+) : ViewModel() {
 
   // Current selected date for tracker screen
   val selectedDate = MutableStateFlow(DateUtils.today())
+
+  // App Theme Selection State (Yellow, Golden, Black, Grey, Emerald, Blue, Purple)
+  private val _fallbackThemeColor = MutableStateFlow(AppThemeColor.EMERALD)
+  val selectedThemeColor: StateFlow<AppThemeColor> =
+    themePreferences?.themeColor ?: _fallbackThemeColor.asStateFlow()
+
+  fun setThemeColor(color: AppThemeColor) {
+    if (themePreferences != null) {
+      themePreferences.setThemeColor(color)
+    } else {
+      _fallbackThemeColor.value = color
+    }
+  }
 
   // Active running timer state
   val runningTaskId = MutableStateFlow<Long?>(null)
@@ -41,6 +70,10 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   private val allTasksFlow = repository.allTasks
   private val allRatingsFlow = repository.allRatings
   private val allLogsFlow = repository.allLogs
+  val allTasksState: StateFlow<List<HabitTask>> = repository.allTasks
+    .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+  val allLogsState: StateFlow<List<HabitTaskLog>> = repository.allLogs
+    .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
   val allNeetScores: StateFlow<List<NeetTestScore>> = repository.allNeetScores
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val allPlannedTasks: StateFlow<List<PlannedTask>> = repository.allPlannedTasks
@@ -53,13 +86,22 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   init {
-    // Populate default NEET chapters and Tally counters if first launch
+    // Populate default NEET chapters (including Class 11 and Class 12) and Tally counters
     viewModelScope.launch {
-      val existingChapters = repository.allNeetChapters.stateIn(viewModelScope).value
+      val existingChapters = repository.allNeetChapters.first()
       if (existingChapters.isEmpty()) {
         repository.insertAllNeetChapters(NeetChapter.DEFAULT_CHAPTERS)
+      } else {
+        // Automatically insert any missing Class 12 or new default chapters
+        val existingNames = existingChapters.map { it.name.trim().lowercase() }.toSet()
+        val missingChapters = NeetChapter.DEFAULT_CHAPTERS.filter {
+          !existingNames.contains(it.name.trim().lowercase())
+        }
+        if (missingChapters.isNotEmpty()) {
+          repository.insertAllNeetChapters(missingChapters)
+        }
       }
-      val existingCounters = repository.allNeetTallyCounters.stateIn(viewModelScope).value
+      val existingCounters = repository.allNeetTallyCounters.first()
       if (existingCounters.isEmpty()) {
         repository.insertAllNeetTallyCounters(NeetTallyCounter.DEFAULT_COUNTERS)
       }
@@ -77,8 +119,10 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     val dayOfWeekIdx = DateUtils.getDayOfWeekIndex(date)
     val logsForDate = logs.filter { it.date == date }.associateBy { it.taskId }
 
-    // Filter tasks that repeat on this day-of-week
-    val list = tasks.filter { it.isRepeatingOn(dayOfWeekIdx) }.map { task ->
+    // Filter tasks scheduled specifically for this date or recurring on this day
+    val matchedHabitTasks = tasks.filter { it.isScheduledFor(date, dayOfWeekIdx) }
+
+    val list = matchedHabitTasks.map { task ->
       val log = logsForDate[task.id]
       val isRunning = (task.id == runningId)
       val baseSeconds = log?.timeSpentSeconds ?: 0L
@@ -174,7 +218,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
       val dayRatings = ratingsMap[cur]?.ratingType
       val dayLogs = logsMap[cur] ?: emptyList()
       val dayOfWeekIdx = DateUtils.getDayOfWeekIndex(cur)
-      val scheduledTasks = tasks.filter { it.isRepeatingOn(dayOfWeekIdx) }
+      val scheduledTasks = tasks.filter { it.isScheduledFor(cur, dayOfWeekIdx) }
       val totalTime = dayLogs.sumOf { it.timeSpentSeconds }
       val completedCount = dayLogs.count { it.isCompleted }
 
@@ -217,7 +261,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
         val dayRating = ratingsMap[dayDate]?.ratingType
         val dayLogs = logsMap[dayDate] ?: emptyList()
         val dayOfWeekIdx = DateUtils.getDayOfWeekIndex(dayDate)
-        val scheduledTasks = tasks.filter { it.isRepeatingOn(dayOfWeekIdx) }
+        val scheduledTasks = tasks.filter { it.isScheduledFor(dayDate, dayOfWeekIdx) }
 
         DaySummary(
           date = dayDate,
@@ -290,7 +334,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
         val dayRating = ratingsMap[dayDate]?.ratingType
         val dayLogs = logsMap[dayDate] ?: emptyList()
         val dayOfWeekIdx = DateUtils.getDayOfWeekIndex(dayDate)
-        val scheduledTasks = tasks.filter { it.isRepeatingOn(dayOfWeekIdx) }
+        val scheduledTasks = tasks.filter { it.isScheduledFor(dayDate, dayOfWeekIdx) }
 
         DaySummary(
           date = dayDate,
@@ -388,22 +432,48 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   // Task Actions
   fun addTask(
     name: String,
-    repeatDaysMask: Int,
+    repeatDaysMask: Int = 0,
     targetMinutes: Int = 0,
     isDefault: Boolean = false,
+    isStarred: Boolean = false,
     noteText: String = "",
     noteImageUri: String? = null
   ) {
     if (name.isBlank()) return
     viewModelScope.launch {
+      val curDate = selectedDate.value
+      // If no repeat days mask is specified and not marked as recurring default,
+      // the task is specific to this selected date!
+      val specificDate = if (!isDefault && repeatDaysMask == 0) curDate else null
+
       repository.insertTask(
         name = name.trim(),
+        targetDate = specificDate,
         repeatDaysMask = repeatDaysMask,
         targetTimeMinutes = targetMinutes,
         isDefault = isDefault,
+        isStarred = isStarred,
         noteText = noteText.trim(),
         noteImageUri = noteImageUri
       )
+
+      // Sync: task added in tracker should also appear in plan for that date!
+      val allPlans = repository.allPlannedTasks.stateIn(viewModelScope).value
+      val existsInPlan = allPlans.any {
+        it.title.equals(name.trim(), ignoreCase = true) && it.date == curDate
+      }
+      if (!existsInPlan) {
+        repository.insertPlannedTask(
+          PlannedTask(
+            title = name.trim(),
+            date = curDate,
+            targetTimeMinutes = targetMinutes,
+            notes = noteText.trim(),
+            isStarred = isStarred,
+            isCompleted = false
+          )
+        )
+      }
     }
   }
 
@@ -424,13 +494,42 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
       stopTimer()
     }
     viewModelScope.launch {
+      val allTasks = allTasksFlow.stateIn(viewModelScope).value
+      val task = allTasks.find { it.id == taskId }
       repository.deleteTaskById(taskId)
+
+      // If task was for a specific date, also delete any corresponding planned task
+      if (task != null && task.targetDate != null) {
+        val plans = repository.allPlannedTasks.stateIn(viewModelScope).value
+        val matchedPlan = plans.find {
+          it.title.equals(task.name, ignoreCase = true) && it.date == task.targetDate
+        }
+        if (matchedPlan != null) {
+          repository.deletePlannedTaskById(matchedPlan.id)
+        }
+      }
     }
   }
 
   fun toggleTaskComplete(taskId: Long) {
+    val curDate = selectedDate.value
     viewModelScope.launch {
-      repository.toggleTaskComplete(taskId, selectedDate.value)
+      repository.toggleTaskComplete(taskId, curDate)
+
+      // Sync completion with PlannedTask if one exists for curDate
+      val allTasks = allTasksFlow.stateIn(viewModelScope).value
+      val task = allTasks.find { it.id == taskId }
+      if (task != null) {
+        val plans = repository.allPlannedTasks.stateIn(viewModelScope).value
+        val matchedPlan = plans.find {
+          it.title.equals(task.name, ignoreCase = true) && it.date == curDate
+        }
+        if (matchedPlan != null) {
+          val logs = repository.getLogsForDate(curDate).stateIn(viewModelScope).value
+          val isDone = logs.find { it.taskId == taskId }?.isCompleted ?: true
+          repository.updatePlannedTask(matchedPlan.copy(isCompleted = isDone))
+        }
+      }
     }
   }
 
@@ -500,28 +599,86 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     }
   }
 
-  // Planned Task actions
+  // Planned Task actions (Sync with Tracker!)
   fun addPlannedTask(task: PlannedTask) {
     viewModelScope.launch {
       repository.insertPlannedTask(task)
+
+      // Also create a HabitTask for that specific date so it appears in Tracker on that date!
+      val allTasks = allTasksFlow.stateIn(viewModelScope).value
+      val existing = allTasks.find {
+        it.name.equals(task.title.trim(), ignoreCase = true) &&
+          (it.targetDate == task.date || it.isDefault)
+      }
+      if (existing == null) {
+        repository.insertTask(
+          name = task.title.trim(),
+          targetDate = task.date, // Specific to this date only!
+          repeatDaysMask = 0,
+          targetTimeMinutes = task.targetTimeMinutes,
+          isDefault = false,
+          isStarred = task.isStarred,
+          noteText = task.notes
+        )
+      }
     }
   }
 
   fun togglePlannedTaskCompleted(task: PlannedTask) {
     viewModelScope.launch {
-      repository.updatePlannedTask(task.copy(isCompleted = !task.isCompleted))
+      val newCompleted = !task.isCompleted
+      repository.updatePlannedTask(task.copy(isCompleted = newCompleted))
+
+      // Sync with HabitTaskLog in Tracker for that date
+      val allTasks = allTasksFlow.stateIn(viewModelScope).value
+      val matched = allTasks.find {
+        it.name.equals(task.title.trim(), ignoreCase = true) &&
+          (it.targetDate == task.date || it.isDefault || it.isScheduledFor(task.date, DateUtils.getDayOfWeekIndex(task.date)))
+      }
+      if (matched != null) {
+        val logs = repository.getLogsForDate(task.date).stateIn(viewModelScope).value
+        val log = logs.find { it.taskId == matched.id }
+        if (log != null && log.isCompleted != newCompleted) {
+          repository.toggleTaskComplete(matched.id, task.date)
+        } else if (log == null && newCompleted) {
+          repository.toggleTaskComplete(matched.id, task.date)
+        }
+      }
     }
   }
 
   fun togglePlannedTaskStarred(task: PlannedTask) {
     viewModelScope.launch {
-      repository.updatePlannedTask(task.copy(isStarred = !task.isStarred))
+      val newStarred = !task.isStarred
+      repository.updatePlannedTask(task.copy(isStarred = newStarred))
+
+      // Sync starred status with HabitTask if exists
+      val allTasks = allTasksFlow.stateIn(viewModelScope).value
+      val matched = allTasks.find {
+        it.name.equals(task.title.trim(), ignoreCase = true) && it.targetDate == task.date
+      }
+      if (matched != null) {
+        repository.updateTask(matched.copy(isStarred = newStarred))
+      }
     }
   }
 
   fun deletePlannedTask(taskId: Long) {
     viewModelScope.launch {
+      val plans = repository.allPlannedTasks.stateIn(viewModelScope).value
+      val plan = plans.find { it.id == taskId }
       repository.deletePlannedTaskById(taskId)
+
+      // Also clean up matching HabitTask if it was single-day for that date
+      if (plan != null) {
+        val allTasks = allTasksFlow.stateIn(viewModelScope).value
+        val matched = allTasks.find {
+          it.name.equals(plan.title, ignoreCase = true) && it.targetDate == plan.date
+        }
+        if (matched != null) {
+          repository.deleteTaskById(matched.id)
+        }
+      }
     }
   }
 
@@ -530,14 +687,37 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
     selectDate(plannedTask.date)
     viewModelScope.launch {
       val existingTasks = allTasksFlow.stateIn(viewModelScope).value
-      val match = existingTasks.find { it.name.equals(plannedTask.title, ignoreCase = true) }
+      val match = existingTasks.find {
+        it.name.equals(plannedTask.title, ignoreCase = true) &&
+          (it.targetDate == plannedTask.date || it.isDefault)
+      }
       if (match == null) {
         repository.insertTask(
           name = plannedTask.title,
-          repeatDaysMask = HabitTask.EVERYDAY_MASK,
-          targetTimeMinutes = plannedTask.targetTimeMinutes
+          targetDate = plannedTask.date,
+          repeatDaysMask = 0,
+          targetTimeMinutes = plannedTask.targetTimeMinutes,
+          isStarred = plannedTask.isStarred,
+          noteText = plannedTask.notes
         )
       }
+    }
+  }
+
+  // Query completed tasks on a specific date for Analytics Day Popup
+  fun getDayCompletedTasks(date: String): List<DayCompletedTaskItem> {
+    val dayOfWeekIdx = DateUtils.getDayOfWeekIndex(date)
+    val tasks = allTasksState.value
+    val logs = allLogsState.value.filter { it.date == date }.associateBy { it.taskId }
+    val scheduled = tasks.filter { it.isScheduledFor(date, dayOfWeekIdx) }
+    return scheduled.map { task ->
+      val log = logs[task.id]
+      DayCompletedTaskItem(
+        taskName = task.name,
+        timeSpentSeconds = log?.timeSpentSeconds ?: 0L,
+        isCompleted = log?.isCompleted ?: false,
+        targetMinutes = task.targetTimeMinutes
+      )
     }
   }
 
@@ -649,7 +829,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   fun addPresetAsDefaultTask(presetName: String) {
     if (presetName.isBlank()) return
     viewModelScope.launch {
-      val allTasks = allTasksFlow.stateIn(viewModelScope).value
+      val allTasks = repository.allTasks.first()
       val existing = allTasks.find { it.name.equals(presetName.trim(), ignoreCase = true) }
       if (existing != null) {
         repository.updateTask(existing.copy(isDefault = true))
@@ -666,7 +846,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
 
   fun removeDefaultStatus(taskId: Long) {
     viewModelScope.launch {
-      val task = repository.allTasks.stateIn(viewModelScope).value.find { it.id == taskId }
+      val task = repository.allTasks.first().find { it.id == taskId }
       if (task != null) {
         repository.updateTask(task.copy(isDefault = false))
       }
@@ -675,7 +855,7 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
 
   fun removeDefaultStatusByName(taskName: String) {
     viewModelScope.launch {
-      val task = repository.allTasks.stateIn(viewModelScope).value.find { it.name.equals(taskName.trim(), ignoreCase = true) }
+      val task = repository.allTasks.first().find { it.name.equals(taskName.trim(), ignoreCase = true) }
       if (task != null) {
         repository.updateTask(task.copy(isDefault = false))
       }
@@ -688,11 +868,14 @@ class HabitViewModel(private val repository: HabitRepository) : ViewModel() {
   }
 
   companion object {
-    fun provideFactory(repository: HabitRepository): ViewModelProvider.Factory =
+    fun provideFactory(
+      repository: HabitRepository,
+      themePreferences: ThemePreferences? = null
+    ): ViewModelProvider.Factory =
       object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-          return HabitViewModel(repository) as T
+          return HabitViewModel(repository, themePreferences) as T
         }
       }
   }

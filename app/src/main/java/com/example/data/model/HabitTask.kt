@@ -8,14 +8,30 @@ data class HabitTask(
   @PrimaryKey(autoGenerate = true)
   val id: Long = 0,
   val name: String,
-  val repeatDaysMask: Int = EVERYDAY_MASK, // Default everyday
+  val targetDate: String? = null, // Specific date (yyyy-MM-dd) if task is for a single day, null if recurring habit
+  val repeatDaysMask: Int = 0, // Days of week bitmask (1 shl dayIdx)
   val targetTimeMinutes: Int = 0, // 0 = no target set, >0 = target timer in minutes
-  val isDefault: Boolean = false, // option to add as default task and edit default tasks
-  val noteText: String = "", // text note
-  val noteImageUri: String? = null, // image note URI/path
+  val isDefault: Boolean = false, // Option to add as default task and edit default tasks
+  val isStarred: Boolean = false, // Starred / high priority task
+  val noteText: String = "", // Text note
+  val noteImageUri: String? = null, // Image note URI/path
   val createdAt: Long = System.currentTimeMillis(),
   val isArchived: Boolean = false
 ) {
+  fun isScheduledFor(date: String, dayOfWeekIndex: Int): Boolean {
+    // 1. If assigned to a specific target date (e.g. one-off task or planned task)
+    if (targetDate != null) {
+      return targetDate == date
+    }
+    // 2. If it's a default task or has recurring day mask configured
+    if (repeatDaysMask != 0) {
+      val bit = 1 shl dayOfWeekIndex
+      return (repeatDaysMask and bit) != 0
+    }
+    // 3. Fallback for default recurring tasks
+    return isDefault
+  }
+
   fun isRepeatingOn(dayOfWeekIndex: Int): Boolean {
     // dayOfWeekIndex: 0 = Mon, 1 = Tue, 2 = Wed, 3 = Thu, 4 = Fri, 5 = Sat, 6 = Sun
     val bit = 1 shl dayOfWeekIndex

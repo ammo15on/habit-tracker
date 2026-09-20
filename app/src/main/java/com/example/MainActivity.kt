@@ -19,6 +19,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,13 +49,15 @@ class MainActivity : ComponentActivity() {
 
     val database = AppDatabase.getDatabase(applicationContext)
     val repository = HabitRepository(database.habitDao())
+    val themePreferences = com.example.util.ThemePreferences(applicationContext)
 
     setContent {
-      MyApplicationTheme {
-        val viewModel: HabitViewModel = viewModel(
-          factory = HabitViewModel.provideFactory(repository)
-        )
+      val viewModel: HabitViewModel = viewModel(
+        factory = HabitViewModel.provideFactory(repository, themePreferences)
+      )
+      val currentThemeColor by viewModel.selectedThemeColor.collectAsState()
 
+      MyApplicationTheme(themeColor = currentThemeColor) {
         MainAppContent(viewModel = viewModel)
       }
     }

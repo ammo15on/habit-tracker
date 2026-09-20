@@ -8,6 +8,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme =
@@ -32,21 +33,36 @@ private val LightColorScheme =
 
 @Composable
 fun MyApplicationTheme(
+  themeColor: AppThemeColor = AppThemeColor.EMERALD,
   darkTheme: Boolean = isSystemInDarkTheme(),
-  // Dynamic color is available on Android 12+
-  dynamicColor: Boolean = true,
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
-    when {
-      dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-        val context = LocalContext.current
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-      }
-
-      darkTheme -> DarkColorScheme
-      else -> LightColorScheme
-    }
+  val colorScheme = if (darkTheme) {
+    darkColorScheme(
+      primary = themeColor.primaryDark,
+      onPrimary = Color.Black,
+      primaryContainer = themeColor.containerDark,
+      onPrimaryContainer = Color.White,
+      secondary = themeColor.secondaryDark,
+      background = if (themeColor == AppThemeColor.BLACK) Color(0xFF000000) else Color(0xFF121212),
+      surface = if (themeColor == AppThemeColor.BLACK) Color(0xFF10141C) else Color(0xFF1E1E1E),
+      onBackground = Color.White,
+      onSurface = Color.White
+    )
+  } else {
+    lightColorScheme(
+      primary = themeColor.primaryLight,
+      onPrimary = Color.White,
+      primaryContainer = themeColor.containerLight,
+      onPrimaryContainer = Color(0xFF0F172A),
+      secondary = themeColor.secondaryLight,
+      background = Color(0xFFF8FAFC),
+      surface = Color(0xFFFFFFFF),
+      onBackground = Color(0xFF0F172A),
+      onSurface = Color(0xFF0F172A)
+    )
+  }
 
   MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }
+

@@ -47,6 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -77,6 +79,7 @@ fun PlanScreen(
   val upcomingStarredDaysCount = upcomingStarredTasks.map { it.date }.distinct().size
 
   val displayedUpcoming = if (filterStarredOnly) upcomingStarredTasks else upcomingTasks
+  val haptic = LocalHapticFeedback.current
 
   Box(modifier = modifier.fillMaxSize()) {
     LazyColumn(
@@ -153,19 +156,19 @@ fun PlanScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Starred tasks banner indicator
+            // Starred tasks banner indicator - clean neutral container with star
             Row(
               modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFFEF3C7))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
               Icon(
                 imageVector = Icons.Default.Star,
                 contentDescription = null,
-                tint = Color(0xFFD97706),
+                tint = Color(0xFFF59E0B),
                 modifier = Modifier.size(20.dp)
               )
               Spacer(modifier = Modifier.width(8.dp))
@@ -174,7 +177,7 @@ fun PlanScreen(
                   text = "⭐ ${upcomingStarredTasks.size} Starred Task${if (upcomingStarredTasks.size == 1) "" else "s"}",
                   style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF92400E)
+                    color = MaterialTheme.colorScheme.onSurface
                   )
                 )
                 Text(
@@ -183,7 +186,9 @@ fun PlanScreen(
                   } else {
                     "Scheduled across $upcomingStarredDaysCount upcoming day${if (upcomingStarredDaysCount == 1) "" else "s"}"
                   },
-                  style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFB45309))
+                  style = MaterialTheme.typography.labelSmall.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                  )
                 )
               }
             }
@@ -211,15 +216,11 @@ fun PlanScreen(
               Icon(
                 Icons.Default.Star,
                 contentDescription = null,
-                tint = Color(0xFFD97706),
+                tint = Color(0xFFF59E0B),
                 modifier = Modifier.size(16.dp)
               )
             },
-            label = { Text("Starred Only (${upcomingStarredTasks.size})") },
-            colors = FilterChipDefaults.filterChipColors(
-              selectedContainerColor = Color(0xFFFEF3C7),
-              selectedLabelColor = Color(0xFF92400E)
-            )
+            label = { Text("Starred (${upcomingStarredTasks.size})") }
           )
         }
       }
@@ -287,8 +288,14 @@ fun PlanScreen(
           items(displayedUpcoming, key = { it.id }) { task ->
             PlannedTaskCard(
               plannedTask = task,
-              onToggleComplete = { viewModel.togglePlannedTaskCompleted(task) },
-              onToggleStarred = { viewModel.togglePlannedTaskStarred(task) },
+              onToggleComplete = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.togglePlannedTaskCompleted(task)
+              },
+              onToggleStarred = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.togglePlannedTaskStarred(task)
+              },
               onJumpToTask = { onJumpToTask(task) },
               onDelete = { viewModel.deletePlannedTask(task.id) }
             )
@@ -311,8 +318,14 @@ fun PlanScreen(
           items(pastTasks, key = { it.id }) { task ->
             PlannedTaskCard(
               plannedTask = task,
-              onToggleComplete = { viewModel.togglePlannedTaskCompleted(task) },
-              onToggleStarred = { viewModel.togglePlannedTaskStarred(task) },
+              onToggleComplete = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.togglePlannedTaskCompleted(task)
+              },
+              onToggleStarred = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.togglePlannedTaskStarred(task)
+              },
               onJumpToTask = { onJumpToTask(task) },
               onDelete = { viewModel.deletePlannedTask(task.id) }
             )
@@ -339,6 +352,7 @@ fun PlanScreen(
       AddPlannedTaskDialog(
         onDismiss = { showAddDialog = false },
         onConfirm = { newPlan ->
+          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
           viewModel.addPlannedTask(newPlan)
           showAddDialog = false
         }
@@ -375,11 +389,10 @@ private fun PlannedTaskCard(
       modifier = Modifier
         .fillMaxWidth()
         .border(
-          width = if (isStarred) 1.5.dp else 1.dp,
+          width = 1.dp,
           color = when {
-            isStarred -> Color(0xFFF59E0B)
-            isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
           },
           shape = RoundedCornerShape(16.dp)
         )

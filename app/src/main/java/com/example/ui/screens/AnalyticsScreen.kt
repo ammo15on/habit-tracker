@@ -62,6 +62,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,6 +81,7 @@ import com.example.ui.WeekSummary
 import com.example.ui.components.AddEditChapterDialog
 import com.example.ui.components.AddEditTallyDialog
 import com.example.ui.components.AddNeetScoreDialog
+import com.example.ui.components.CompletedDayTasksDialog
 import com.example.ui.theme.RatingAverageGrey
 import com.example.ui.theme.RatingBestGreen
 import com.example.ui.theme.RatingWorstBlack
@@ -89,6 +93,7 @@ fun AnalyticsScreen(
   onNavigateToDate: (String) -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val haptic = LocalHapticFeedback.current
   val selectedTab by viewModel.selectedAnalyticsTab.collectAsStateWithLifecycle()
   val weeksAnalytics by viewModel.weeksAnalytics.collectAsStateWithLifecycle()
   val monthsAnalytics by viewModel.monthsAnalytics.collectAsStateWithLifecycle()
@@ -97,6 +102,13 @@ fun AnalyticsScreen(
   val neetScores by viewModel.allNeetScores.collectAsStateWithLifecycle()
   val neetChapters by viewModel.allNeetChapters.collectAsStateWithLifecycle()
   val neetTallyCounters by viewModel.allNeetTallyCounters.collectAsStateWithLifecycle()
+
+  var selectedDateForTasks by remember { mutableStateOf<String?>(null) }
+  val dayTasks by remember(selectedDateForTasks, daysAnalytics) {
+    derivedStateOf {
+      selectedDateForTasks?.let { viewModel.getDayCompletedTasks(it) } ?: emptyList()
+    }
+  }
 
   var showAddNeetDialog by remember { mutableStateOf(false) }
   var showAddChapterDialog by remember { mutableStateOf(false) }
@@ -189,19 +201,28 @@ fun AnalyticsScreen(
       AnalyticsTab.DAY -> {
         DaysAnalyticsView(
           days = daysAnalytics,
-          onDayClick = onNavigateToDate
+          onDayClick = { date ->
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            selectedDateForTasks = date
+          }
         )
       }
       AnalyticsTab.WEEK -> {
         WeeksAnalyticsView(
           weeks = weeksAnalytics,
-          onDayClick = onNavigateToDate
+          onDayClick = { date ->
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            selectedDateForTasks = date
+          }
         )
       }
       AnalyticsTab.MONTH -> {
         MonthsAnalyticsView(
           months = monthsAnalytics,
-          onDayClick = onNavigateToDate
+          onDayClick = { date ->
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            selectedDateForTasks = date
+          }
         )
       }
       AnalyticsTab.NEET -> {
@@ -210,16 +231,31 @@ fun AnalyticsScreen(
           tallyCounters = neetTallyCounters,
           habitTallyList = tallyAnalytics,
           testScores = neetScores,
-          onToggleChapterCompleted = { viewModel.toggleChapterCompleted(it) },
-          onToggleChapterPyq = { viewModel.toggleChapterPyq(it) },
-          onToggleChapterRevision = { viewModel.toggleChapterRevision(it) },
+          onToggleChapterCompleted = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.toggleChapterCompleted(it)
+          },
+          onToggleChapterPyq = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.toggleChapterPyq(it)
+          },
+          onToggleChapterRevision = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.toggleChapterRevision(it)
+          },
           onAddChapterClick = { showAddChapterDialog = true },
           onEditChapterClick = { chapterToEdit = it },
           onDeleteChapterClick = { viewModel.deleteNeetChapter(it) },
           onAddTallyClick = { showAddTallyDialog = true },
           onEditTallyClick = { tallyToEdit = it },
-          onIncrementTally = { counter, delta -> viewModel.incrementNeetTally(counter, delta) },
-          onDecrementTally = { counter, delta -> viewModel.decrementNeetTally(counter, delta) },
+          onIncrementTally = { counter, delta ->
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.incrementNeetTally(counter, delta)
+          },
+          onDecrementTally = { counter, delta ->
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.decrementNeetTally(counter, delta)
+          },
           onResetTally = { viewModel.resetNeetTally(it) },
           onDeleteTally = { viewModel.deleteNeetTallyCounter(it) },
           onAddScoreClick = { showAddNeetDialog = true },
@@ -227,6 +263,19 @@ fun AnalyticsScreen(
         )
       }
     }
+  }
+
+  // Completed Tasks for Selected Day Dialog
+  selectedDateForTasks?.let { date ->
+    CompletedDayTasksDialog(
+      date = date,
+      tasks = dayTasks,
+      onDismiss = { selectedDateForTasks = null },
+      onNavigateToTracker = { targetDate ->
+        selectedDateForTasks = null
+        onNavigateToDate(targetDate)
+      }
+    )
   }
 
   // Add NEET Test Score Dialog

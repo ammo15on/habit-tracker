@@ -22,7 +22,7 @@ import com.example.data.model.PlannedTask
     NeetChapter::class,
     NeetTallyCounter::class
   ],
-  version = 4,
+  version = 5,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

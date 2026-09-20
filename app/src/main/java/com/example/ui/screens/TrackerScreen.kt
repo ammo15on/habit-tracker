@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Today
@@ -35,10 +37,12 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,6 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +68,7 @@ import com.example.ui.components.DayRatingSection
 import com.example.ui.components.DefaultTasksDialog
 import com.example.ui.components.EditTaskDialog
 import com.example.ui.components.TaskRowItem
+import com.example.ui.components.ThemePickerDialog
 import com.example.ui.theme.RatingBestGreen
 import com.example.util.DateUtils
 
@@ -69,15 +77,19 @@ fun TrackerScreen(
   viewModel: HabitViewModel,
   modifier: Modifier = Modifier
 ) {
+  val haptic = LocalHapticFeedback.current
   val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
   val tasks by viewModel.tasksForSelectedDate.collectAsStateWithLifecycle()
   val defaultTasks by viewModel.defaultTasks.collectAsStateWithLifecycle()
   val currentRating by viewModel.currentDayRating.collectAsStateWithLifecycle()
   val totalTimeSeconds by viewModel.totalTimeTodaySeconds.collectAsStateWithLifecycle()
+  val currentTheme by viewModel.selectedThemeColor.collectAsStateWithLifecycle()
 
   var showAddDialog by remember { mutableStateOf(false) }
   var showDefaultTasksDialog by remember { mutableStateOf(false) }
+  var showThemeDialog by remember { mutableStateOf(false) }
   var taskToEdit by remember { mutableStateOf<HabitTask?>(null) }
+  var totalDragX by remember { mutableFloatStateOf(0f) }
 
   val isToday = (selectedDate == DateUtils.today())
   val prevDay = DateUtils.getPreviousDay(selectedDate)
@@ -94,6 +106,25 @@ fun TrackerScreen(
       modifier = Modifier
         .weight(1f)
         .fillMaxWidth()
+        .pointerInput(selectedDate) {
+          detectHorizontalDragGestures(
+            onDragStart = { totalDragX = 0f },
+            onDragEnd = {
+              if (totalDragX < -60f) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.goToNextDay()
+              } else if (totalDragX > 60f) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.goToPreviousDay()
+              }
+              totalDragX = 0f
+            },
+            onDragCancel = { totalDragX = 0f },
+            onHorizontalDrag = { _, dragAmount ->
+              totalDragX += dragAmount
+            }
+          )
+        }
     ) {
       LazyColumn(
         modifier = Modifier
@@ -110,9 +141,18 @@ fun TrackerScreen(
             nextDayText = nextDayFormatted,
             totalTimeSeconds = totalTimeSeconds,
             isToday = isToday,
-            onPreviousClick = { viewModel.goToPreviousDay() },
-            onNextClick = { viewModel.goToNextDay() },
-            onTodayClick = { viewModel.goToToday() }
+            onPreviousClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.goToPreviousDay()
+            },
+            onNextClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.goToNextDay()
+            },
+            onTodayClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.goToToday()
+            }
           )
         }
 
@@ -222,22 +262,50 @@ fun TrackerScreen(
         }
       }
 
-      // Floating Add Task (+) Button
-      FloatingActionButton(
-        onClick = { showAddDialog = true },
+      // Floating Actions: Hamburger Theme Menu + Add Task (+) Button
+      Column(
+        horizontalAlignment = Alignment.End,
         modifier = Modifier
           .align(Alignment.BottomEnd)
           .padding(end = 20.dp, bottom = 16.dp)
-          .testTag("fab_add_task"),
-        containerColor = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shape = CircleShape
       ) {
-        Icon(
-          imageVector = Icons.Default.Add,
-          contentDescription = "Add Task",
-          modifier = Modifier.size(28.dp)
-        )
+        // Small hamburger icon just above plus icon for App Theme Colors
+        SmallFloatingActionButton(
+          onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            showThemeDialog = true
+          },
+          modifier = Modifier
+            .padding(bottom = 12.dp)
+            .testTag("fab_theme_menu"),
+          containerColor = MaterialTheme.colorScheme.surfaceVariant,
+          contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+          shape = CircleShape
+        ) {
+          Icon(
+            imageVector = Icons.Default.Menu,
+            contentDescription = "Theme Color Options",
+            modifier = Modifier.size(20.dp)
+          )
+        }
+
+        // Floating Add Task (+) Button
+        FloatingActionButton(
+          onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            showAddDialog = true
+          },
+          modifier = Modifier.testTag("fab_add_task"),
+          containerColor = MaterialTheme.colorScheme.primary,
+          contentColor = MaterialTheme.colorScheme.onPrimary,
+          shape = CircleShape
+        ) {
+          Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = "Add Task",
+            modifier = Modifier.size(28.dp)
+          )
+        }
       }
     }
 
@@ -247,6 +315,7 @@ fun TrackerScreen(
       dayAbbreviation = dayAbbr,
       fullDateLabel = fullDate,
       onRatingSelected = { rating ->
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         viewModel.setDayRating(rating)
       }
     )
@@ -255,6 +324,7 @@ fun TrackerScreen(
   // Add Task Dialog Sheet
   if (showAddDialog) {
     AddTaskDialog(
+      selectedDate = selectedDate,
       defaultTasks = defaultTasks,
       onDismiss = { showAddDialog = false },
       onOpenEditDefaultTasks = {
@@ -278,6 +348,18 @@ fun TrackerScreen(
         )
         showAddDialog = false
       }
+    )
+  }
+
+  // App Theme Color Picker Dialog (Yellow, Golden, Black, Grey, Emerald, Blue, Purple)
+  if (showThemeDialog) {
+    ThemePickerDialog(
+      currentTheme = currentTheme,
+      onThemeSelected = { color ->
+        viewModel.setThemeColor(color)
+        showThemeDialog = false
+      },
+      onDismiss = { showThemeDialog = false }
     )
   }
 

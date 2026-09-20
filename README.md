@@ -1,62 +1,58 @@
-# Habit & Study Tracker (Android) - v2
+# Habit & Study Tracker (Android) - v3
 
-A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, time tracking, and productivity analytics.
+A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, time tracking, syllabus completion, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APK (v2)
+## 📱 Pre-Built APK (v3)
 
-The compiled Android application package with suffix `v2` is ready in the repository:
-- **v2 APK Location**: `apk/habit-tracker-v2.apk`
+The compiled Android application package with suffix `v3` is ready in the repository:
+- **v3 APK Location**: `apk/habit-tracker-v3.apk`
 - **Standard Link**: `apk/habit-tracker.apk`
 - **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 26+)
 - **Architecture**: Universal APK
-- **Version**: `2.0-v2` (Version Code 2)
+- **Version**: `3.0-v3` (Version Code 3)
 
 ---
 
-## 🚀 Release v2 - New Features & Updates
+## 🚀 Release v3 - Major Updates & Improvements
 
-### 1. Default Tasks & Quick Presets
-- **Add as Default Task**: Toggle when creating tasks to designate recurring baseline routines.
-- **Default Task Management**: Dedicated management dialog to edit, reorder, or delete default templates.
-- **NEET Quick-Add Presets**: One-tap preloaded routines including:
-  - *Physics Revision* (60m)
-  - *Biology NCERT Deep Read* (90m)
-  - *Chemistry Problem Practice* (60m)
-  - *Mock Test & Error Analysis* (180m)
-  - *Formula & Flashcard Review* (30m)
-  - *Daily Exercise & Walk* (30m)
-- **Visual Badges**: Star icon (`⭐`) and default task indicator chips.
+### 1. Date-Specific Scheduling & Bidirectional Sync
+- **Strict Date Isolation**: Tasks and plans scheduled for a specific date appear strictly on that chosen date in the Tracker view, resolving multi-day bleed.
+- **Bidirectional Plan & Tracker Synchronization**: Tasks scheduled in the Planner appear seamlessly in the Daily Tracker when navigating to that date, and tasks created in the Tracker are synchronized into the calendar plan.
+- **Completion Sync**: Marking a task complete in the Daily Tracker synchronizes its completed status in the Planner calendar view.
 
-### 2. Custom Task Frequency & Schedule
-- **Flexible Scheduling**: Customize task frequency between "Everyday" or specific days of the week (Mon, Tue, Wed, Thu, Fri, Sat, Sun).
-- **Edit Frequency**: Full support for updating task frequencies anytime via the Edit Task dialog.
+### 2. Default Date on Task Creation
+- **Targeted Day by Default**: Creating a task now defaults to "This Day Only" matching the date currently being viewed, avoiding unwanted default recurrence across everyday routines.
+- **Flexible Recurrence**: One-tap toggle to expand into custom recurring days or "Everyday".
 
-### 3. Task Notes & Photo Attachments
-- **Notes Field**: Attach chapter references, syllabus notes, formulas, or reminders.
-- **Photo Picker Integration**: Uses Android's zero-permission photo picker (`PickVisualMedia`) to safely attach study diagrams, question snapshots, or notes.
-- **Internal Storage Caching**: Attached images are securely stored in the app's internal cache directory.
-- **Image Previews**: Thumbnail preview directly on the habit card with full-screen zoom dialog.
+### 3. Refined Starred Priority Styling
+- **Subtle Visual Hierarchy**: Removed the harsh yellow container background on starred tasks, replacing it with an elegant star icon indicator and clean outline borders that match the selected app theme.
 
-### 4. Planner with Starred Priority & Upcoming Days Counter
-- **Priority Star System**: Star critical study tasks directly when creating or reviewing planned items.
-- **Upcoming Starred Banner**: Dynamic dashboard banner displaying the total number of starred tasks scheduled across upcoming days.
-- **Starred Only Filter**: Quick filter chip to focus strictly on high-priority planned sessions.
-- **Jump to Task**: Instant jump action button to take any planned task directly into live tracking.
+### 4. Day Tasks Inspection in Analytics
+- **Interactive Day Inspector**: Tapping any day row or dot in the Day, Week, or Month analytics opens an instant dialog detailing all habits and tasks for that date, complete with status, logged duration vs target, and a direct "Open in Tracker" action.
 
-### 5. Compact Day Rating Bar
-- **Minimalist Design**: Streamlined the 1–5 day rating dots (😭, 😔, 😐, 😊, 🤩) into a clean, floating bar above the bottom navigation bar.
-- **Removed Heavy Containers**: High-contrast, spacious, and accessible touch targets without bulky boxes.
+### 5. Swipe Gestures for Date Navigation
+- **Fluid Horizontal Swiping**: Swipe left or right anywhere on the Tracker screen to navigate backward or forward between dates, backed by responsive haptic feedback.
 
-### 6. Interactive Timer & Time Editing
-- **Live Stopwatch**: Real-time timer with play/pause controls per task.
-- **Direct Time Editor**: Quick modal to manually adjust logged minutes or change targets.
+### 6. NEET Class 11 & Class 12 Syllabus
+- **Comprehensive NCERT Chapters**: Preloaded with complete Class 11 and Class 12 Physics, Chemistry, and Biology syllabus chapters.
+- **3-Pillar Progress Tracking**: Independent checkboxes for *Concept Completed*, *PYQs Done*, and *Revision Done*.
 
-### 7. NEET Mock Test Score Tracking & Analytics
-- **Test Score Logger**: Track marks across Physics, Chemistry, and Biology (out of 720).
-- **Comprehensive Analytics**: Study streaks, daily completion rates, and historical trends.
+### 7. Haptic Feedback Integration
+- **Tactile Responses**: Added tactile vibration feedback for task creation, timer starts/stops, task completions, rating changes, tally counter taps, and date swipes.
+
+### 8. Dynamic App Theme Color Picker
+- **Theme Palette Selection**: Accessible via the hamburger button positioned directly above the floating add button.
+- **Color Themes**:
+  - 💛 Yellow
+  - 🏆 Golden
+  - 🖤 Deep Black (AMOLED)
+  - 🩶 Sleek Grey
+  - 🌿 Emerald Green
+  - 🌊 Ocean Blue
+  - 💜 Royal Purple
 
 ---
 
@@ -65,11 +61,12 @@ The compiled Android application package with suffix `v2` is ready in the reposi
 - **UI Framework**: Jetpack Compose with Material Design 3 (M3)
 - **Programming Language**: Kotlin (100%)
 - **Architecture**: MVVM (Model-View-ViewModel) + Repository Pattern
-- **Local Persistence**: Jetpack Room Database (SQLite)
+- **Local Persistence**: Jetpack Room Database (SQLite) v5
 - **State Management**: StateFlow & `collectAsStateWithLifecycle`
 - **Asynchronous Execution**: Kotlin Coroutines
 - **Image Handling**: Coil & Android Photo Picker
 - **Navigation**: Jetpack Navigation Compose
+- **Theme Persistence**: SharedPreferences via ThemePreferences
 
 ---
 
@@ -77,17 +74,18 @@ The compiled Android application package with suffix `v2` is ready in the reposi
 
 ```
 ├── apk/
-│   └── habit-tracker.apk         # Compiled standalone APK
+│   ├── habit-tracker-v3.apk      # Latest release v3 APK
+│   └── habit-tracker.apk         # Universal download link
 ├── app/
 │   ├── src/main/
 │   │   ├── java/com/example/
 │   │   │   ├── MainActivity.kt
 │   │   │   ├── data/             # Room Database, DAOs, and Models
 │   │   │   ├── ui/
-│   │   │   │   ├── components/   # Dialogs, rating bar, cards
+│   │   │   │   ├── components/   # Dialogs, theme picker, task rows
 │   │   │   │   ├── screens/      # Tracker, Plan, Analytics screens
-│   │   │   │   └── theme/        # Material 3 colors & typography
-│   │   │   └── util/             # Date utilities & image storage
+│   │   │   │   └── theme/        # Dynamic M3 palettes & typography
+│   │   │   └── util/             # Date utilities & Theme preferences
 │   │   └── res/                  # Android icons & resources
 │   └── build.gradle.kts
 ├── metadata.json

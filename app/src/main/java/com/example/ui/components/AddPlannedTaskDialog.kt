@@ -36,6 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -51,6 +53,7 @@ fun AddPlannedTaskDialog(
   onDismiss: () -> Unit,
   onConfirm: (PlannedTask) -> Unit
 ) {
+  val haptic = LocalHapticFeedback.current
   var title by remember { mutableStateOf("") }
   var dateStr by remember { mutableStateOf(initialDate) }
   var targetMinutesStr by remember { mutableStateOf("") }
@@ -186,6 +189,7 @@ fun AddPlannedTaskDialog(
       Button(
         onClick = {
           if (title.isNotBlank()) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             val planned = PlannedTask(
               title = title.trim(),
               date = dateStr.trim(),
