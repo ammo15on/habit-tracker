@@ -54,7 +54,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.HabitTask
-import com.example.ui.theme.RatingBestGreen
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -134,8 +133,7 @@ fun DefaultTasksDialog(
               }
             },
             enabled = customTaskInput.isNotBlank(),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen)
+            shape = RoundedCornerShape(12.dp)
           ) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(2.dp))
@@ -185,12 +183,12 @@ fun DefaultTasksDialog(
               },
               colors = SuggestionChipDefaults.suggestionChipColors(
                 containerColor = if (alreadyDefault) {
-                  RatingBestGreen.copy(alpha = 0.18f)
+                  MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                 } else {
                   MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 },
                 labelColor = if (alreadyDefault) {
-                  RatingBestGreen
+                  MaterialTheme.colorScheme.primary
                 } else {
                   MaterialTheme.colorScheme.onSurface
                 }

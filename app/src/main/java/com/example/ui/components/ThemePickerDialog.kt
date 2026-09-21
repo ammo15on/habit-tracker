@@ -78,15 +78,7 @@ fun ThemePickerDialog(
 
         AppThemeColor.values().forEach { themeColor ->
           val isSelected = themeColor == currentTheme
-          val previewColor = when (themeColor) {
-            AppThemeColor.YELLOW -> Color(0xFFEAB308)
-            AppThemeColor.GOLDEN -> Color(0xFFD97706)
-            AppThemeColor.BLACK -> Color(0xFF1E293B)
-            AppThemeColor.GREY -> Color(0xFF64748B)
-            AppThemeColor.EMERALD -> Color(0xFF059669)
-            AppThemeColor.BLUE -> Color(0xFF2563EB)
-            AppThemeColor.PURPLE -> Color(0xFF7C3AED)
-          }
+          val previewColor = themeColor.previewHex
 
           Row(
             modifier = Modifier

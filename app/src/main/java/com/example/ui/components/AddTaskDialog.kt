@@ -67,7 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.HabitTask
-import com.example.ui.theme.RatingBestGreen
+import com.example.data.model.TaskPreset
 import com.example.util.DateUtils
 import com.example.util.ImageStorageUtils
 
@@ -75,7 +75,7 @@ import com.example.util.ImageStorageUtils
 @Composable
 fun AddTaskDialog(
   selectedDate: String = "",
-  presets: List<HabitTask> = emptyList(),
+  presets: List<TaskPreset> = emptyList(),
   onDismiss: () -> Unit,
   onOpenPresetsManager: () -> Unit = {},
   onAddPreset: ((String) -> Unit)? = null,
@@ -212,7 +212,8 @@ fun AddTaskDialog(
                   if (presetItem.targetTimeMinutes > 0) {
                     targetMinutesStr = presetItem.targetTimeMinutes.toString()
                   }
-                  repeatMask = presetItem.repeatDaysMask
+                  noteText = presetItem.noteText
+                  noteImageUri = presetItem.noteImageUri
                   isPreset = true
                 },
                 label = {
@@ -546,7 +547,6 @@ fun AddTaskDialog(
         },
         enabled = taskName.isNotBlank(),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
         modifier = Modifier.testTag("confirm_add_task_button")
       ) {
         Text("Create Task", fontWeight = FontWeight.Bold)

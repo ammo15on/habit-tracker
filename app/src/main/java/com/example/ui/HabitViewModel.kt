@@ -11,6 +11,7 @@ import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
 import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
+import com.example.data.model.TaskPreset
 import com.example.data.repository.HabitRepository
 import com.example.ui.theme.AppThemeColor
 import com.example.util.DateUtils
@@ -48,8 +49,8 @@ class HabitViewModel(
   // Current selected date for tracker screen
   val selectedDate = MutableStateFlow(DateUtils.today())
 
-  // App Theme Selection State (Yellow, Golden, Black, Grey, Emerald, Blue, Purple)
-  private val _fallbackThemeColor = MutableStateFlow(AppThemeColor.EMERALD)
+  // App Theme Selection State (Slate, Indigo, Blue, Cyan, Purple, Rose, Crimson, Amber, Golden, Obsidian, Graphite, Emerald)
+  private val _fallbackThemeColor = MutableStateFlow(AppThemeColor.SLATE)
   val selectedThemeColor: StateFlow<AppThemeColor> =
     themePreferences?.themeColor ?: _fallbackThemeColor.asStateFlow()
 
@@ -104,7 +105,8 @@ class HabitViewModel(
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val defaultTasks: StateFlow<List<HabitTask>> = repository.defaultTasks
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-  val presets: StateFlow<List<HabitTask>> = defaultTasks
+  val presets: StateFlow<List<TaskPreset>> = repository.allTaskPresets
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val allPlanEvents: StateFlow<List<com.example.data.model.PlanEvent>> = repository.allPlanEvents
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val allNeetChapters: StateFlow<List<NeetChapter>> = repository.allNeetChapters
@@ -113,8 +115,13 @@ class HabitViewModel(
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   init {
-    // Populate default NEET chapters (including Class 11 and Class 12) and Tally counters
+    // Populate default NEET chapters (including Class 11 and Class 12), Tally counters, and Initial Presets
     viewModelScope.launch {
+      val existingPresets = repository.allTaskPresets.first()
+      if (existingPresets.isEmpty()) {
+        val initialPresets = TaskPreset.DEFAULT_PRESETS.map { TaskPreset(name = it) }
+        repository.insertAllTaskPresets(initialPresets)
+      }
       val existingChapters = repository.allNeetChapters.first()
       if (existingChapters.isEmpty()) {
         repository.insertAllNeetChapters(NeetChapter.DEFAULT_CHAPTERS)
@@ -886,47 +893,78 @@ class HabitViewModel(
     }
   }
 
-  // Default Tasks Quick Management
-  // Default Tasks & Presets Management
-  fun addPreset(name: String) = addPresetAsDefaultTask(name)
-
-  fun deletePreset(id: Long) = removeDefaultStatus(id)
-
-  fun schedulePresetForDates(preset: HabitTask, dates: Set<String>) {
-    if (dates.isEmpty()) return
+  // Presets Management (Independent of daily tasks until added)
+  fun addPreset(
+    name: String,
+    targetTimeMinutes: Int = 0,
+    noteText: String = "",
+    noteImageUri: String? = null
+  ) {
+    if (name.isBlank()) return
     viewModelScope.launch {
-      val allTasks = repository.allTasks.first()
-      dates.forEach { date ->
-        val alreadyScheduled = allTasks.any {
-          it.name.equals(preset.name, ignoreCase = true) && it.targetDate == date
-        }
-        if (!alreadyScheduled) {
-          repository.insertTask(
-            name = preset.name,
-            targetDate = date,
-            targetTimeMinutes = preset.targetTimeMinutes,
-            noteText = preset.noteText,
-            noteImageUri = preset.noteImageUri
-          )
-        }
-        // Also ensure it is recorded in planned tasks for that day
-        val allPlans = repository.allPlannedTasks.first()
-        val existsInPlan = allPlans.any {
-          it.title.equals(preset.name, ignoreCase = true) && it.date == date
-        }
-        if (!existsInPlan) {
-          repository.insertPlannedTask(
-            PlannedTask(
-              title = preset.name,
-              date = date,
-              targetTimeMinutes = preset.targetTimeMinutes,
-              notes = preset.noteText,
-              isStarred = preset.isStarred
-            )
-          )
-        }
-      }
+      repository.insertTaskPreset(
+        name = name.trim(),
+        targetTimeMinutes = targetTimeMinutes,
+        noteText = noteText.trim(),
+        noteImageUri = noteImageUri
+      )
     }
+  }
+
+  fun deletePreset(id: Long) {
+    viewModelScope.launch {
+      repository.deleteTaskPresetById(id)
+    }
+  }
+
+  fun addTaskFromPreset(
+    preset: TaskPreset,
+    targetDate: String? = null,
+    targetDates: Set<String> = emptySet(),
+    repeatDaysMask: Int = 0
+  ) {
+    if (targetDates.isNotEmpty()) {
+      scheduleTaskForDates(
+        name = preset.name,
+        dates = targetDates,
+        targetTimeMinutes = preset.targetTimeMinutes,
+        noteText = preset.noteText,
+        noteImageUri = preset.noteImageUri
+      )
+    } else if (repeatDaysMask != 0) {
+      addTask(
+        name = preset.name,
+        repeatDaysMask = repeatDaysMask,
+        targetTimeMinutes = preset.targetTimeMinutes,
+        isDefault = false,
+        noteText = preset.noteText,
+        noteImageUri = preset.noteImageUri
+      )
+    } else {
+      // Default to the current day / selected day the task is being added on!
+      val dayToAdd = targetDate ?: selectedDate.value
+      addTask(
+        name = preset.name,
+        targetDates = setOf(dayToAdd),
+        repeatDaysMask = 0,
+        targetTimeMinutes = preset.targetTimeMinutes,
+        isDefault = false,
+        noteText = preset.noteText,
+        noteImageUri = preset.noteImageUri
+      )
+    }
+  }
+
+  fun schedulePresetForDates(preset: TaskPreset, dates: Set<String>) {
+    if (dates.isEmpty()) return
+    scheduleTaskForDates(
+      name = preset.name,
+      dates = dates,
+      targetTimeMinutes = preset.targetTimeMinutes,
+      isStarred = false,
+      noteText = preset.noteText,
+      noteImageUri = preset.noteImageUri
+    )
   }
 
   fun scheduleTaskForDates(

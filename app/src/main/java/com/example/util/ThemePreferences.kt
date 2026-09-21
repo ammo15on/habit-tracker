@@ -22,11 +22,11 @@ class ThemePreferences(context: Context) {
   val backgroundImageUri: StateFlow<String?> = _backgroundImageUri.asStateFlow()
 
   private fun loadThemeColor(): AppThemeColor {
-    val savedId = prefs.getString(KEY_THEME_COLOR, AppThemeColor.EMERALD.name) ?: AppThemeColor.EMERALD.name
+    val savedId = prefs.getString(KEY_THEME_COLOR, AppThemeColor.SLATE.name) ?: AppThemeColor.SLATE.name
     return try {
       AppThemeColor.valueOf(savedId)
     } catch (_: Exception) {
-      AppThemeColor.EMERALD
+      AppThemeColor.SLATE
     }
   }
 

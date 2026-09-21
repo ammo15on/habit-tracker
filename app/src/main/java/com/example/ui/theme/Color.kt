@@ -18,7 +18,7 @@ val RatingAverageGreyDark = Color(0xFF64748B)
 val RatingWorstBlack = Color(0xFF1E293B) // Dark slate / black for Worst
 val RatingWorstBlackPure = Color(0xFF0F172A)
 
-// App Themes requested: Yellow, Golden, Black, Grey, Emerald, Blue, Purple
+// App Themes & UI Elements Color options
 enum class AppThemeColor(
   val displayName: String,
   val primaryLight: Color,
@@ -29,55 +29,25 @@ enum class AppThemeColor(
   val containerDark: Color,
   val previewHex: Color
 ) {
-  YELLOW(
-    displayName = "Yellow",
-    primaryLight = Color(0xFFCA8A04),
-    secondaryLight = Color(0xFFA16207),
-    containerLight = Color(0xFFFEF08A),
-    primaryDark = Color(0xFFFACC15),
-    secondaryDark = Color(0xFFEAB308),
-    containerDark = Color(0xFF713F12),
-    previewHex = Color(0xFFEAB308)
-  ),
-  GOLDEN(
-    displayName = "Golden",
-    primaryLight = Color(0xFFB45309),
-    secondaryLight = Color(0xFF92400E),
-    containerLight = Color(0xFFFDE68A),
-    primaryDark = Color(0xFFFBBF24),
-    secondaryDark = Color(0xFFF59E0B),
-    containerDark = Color(0xFF78350F),
-    previewHex = Color(0xFFD97706)
-  ),
-  BLACK(
-    displayName = "Black / Slate",
-    primaryLight = Color(0xFF0F172A),
-    secondaryLight = Color(0xFF334155),
+  SLATE(
+    displayName = "Slate / Neutral",
+    primaryLight = Color(0xFF334155),
+    secondaryLight = Color(0xFF475569),
     containerLight = Color(0xFFE2E8F0),
-    primaryDark = Color(0xFFF8FAFC),
-    secondaryDark = Color(0xFF94A3B8),
+    primaryDark = Color(0xFF94A3B8),
+    secondaryDark = Color(0xFF64748B),
     containerDark = Color(0xFF1E293B),
-    previewHex = Color(0xFF0F172A)
+    previewHex = Color(0xFF475569)
   ),
-  GREY(
-    displayName = "Grey",
-    primaryLight = Color(0xFF475569),
-    secondaryLight = Color(0xFF64748B),
-    containerLight = Color(0xFFF1F5F9),
-    primaryDark = Color(0xFFCBD5E1),
-    secondaryDark = Color(0xFF94A3B8),
-    containerDark = Color(0xFF334155),
-    previewHex = Color(0xFF64748B)
-  ),
-  EMERALD(
-    displayName = "Emerald",
-    primaryLight = Color(0xFF16A34A),
-    secondaryLight = Color(0xFF15803D),
-    containerLight = Color(0xFFDCFCE7),
-    primaryDark = Color(0xFF4ADE80),
-    secondaryDark = Color(0xFF22C55E),
-    containerDark = Color(0xFF14532D),
-    previewHex = Color(0xFF16A34A)
+  INDIGO(
+    displayName = "Indigo",
+    primaryLight = Color(0xFF4F46E5),
+    secondaryLight = Color(0xFF4338CA),
+    containerLight = Color(0xFFE0E7FF),
+    primaryDark = Color(0xFF818CF8),
+    secondaryDark = Color(0xFF6366F1),
+    containerDark = Color(0xFF312E81),
+    previewHex = Color(0xFF4F46E5)
   ),
   BLUE(
     displayName = "Ocean Blue",
@@ -89,6 +59,16 @@ enum class AppThemeColor(
     containerDark = Color(0xFF1E3A8A),
     previewHex = Color(0xFF2563EB)
   ),
+  CYAN(
+    displayName = "Cyan / Teal",
+    primaryLight = Color(0xFF0891B2),
+    secondaryLight = Color(0xFF0E7490),
+    containerLight = Color(0xFFCFFAFE),
+    primaryDark = Color(0xFF22D3EE),
+    secondaryDark = Color(0xFF06B6D4),
+    containerDark = Color(0xFF164E63),
+    previewHex = Color(0xFF06B6D4)
+  ),
   PURPLE(
     displayName = "Purple",
     primaryLight = Color(0xFF7C3AED),
@@ -98,6 +78,76 @@ enum class AppThemeColor(
     secondaryDark = Color(0xFF8B5CF6),
     containerDark = Color(0xFF4C1D95),
     previewHex = Color(0xFF7C3AED)
+  ),
+  ROSE(
+    displayName = "Rose Pink",
+    primaryLight = Color(0xFFE11D48),
+    secondaryLight = Color(0xFFBE123C),
+    containerLight = Color(0xFFFFE4E6),
+    primaryDark = Color(0xFFFB7185),
+    secondaryDark = Color(0xFFF43F5E),
+    containerDark = Color(0xFF881337),
+    previewHex = Color(0xFFF43F5E)
+  ),
+  CRIMSON(
+    displayName = "Crimson Red",
+    primaryLight = Color(0xFFDC2626),
+    secondaryLight = Color(0xFFB91C1C),
+    containerLight = Color(0xFFFEE2E2),
+    primaryDark = Color(0xFFF87171),
+    secondaryDark = Color(0xFFEF4444),
+    containerDark = Color(0xFF7F1D1D),
+    previewHex = Color(0xFFDC2626)
+  ),
+  AMBER(
+    displayName = "Amber Orange",
+    primaryLight = Color(0xFFD97706),
+    secondaryLight = Color(0xFFB45309),
+    containerLight = Color(0xFFFEF3C7),
+    primaryDark = Color(0xFFFBBF24),
+    secondaryDark = Color(0xFFF59E0B),
+    containerDark = Color(0xFF78350F),
+    previewHex = Color(0xFFF59E0B)
+  ),
+  GOLDEN(
+    displayName = "Golden",
+    primaryLight = Color(0xFFCA8A04),
+    secondaryLight = Color(0xFFA16207),
+    containerLight = Color(0xFFFEF08A),
+    primaryDark = Color(0xFFFACC15),
+    secondaryDark = Color(0xFFEAB308),
+    containerDark = Color(0xFF713F12),
+    previewHex = Color(0xFFEAB308)
+  ),
+  BLACK(
+    displayName = "Obsidian / Black",
+    primaryLight = Color(0xFF0F172A),
+    secondaryLight = Color(0xFF334155),
+    containerLight = Color(0xFFE2E8F0),
+    primaryDark = Color(0xFFF8FAFC),
+    secondaryDark = Color(0xFF94A3B8),
+    containerDark = Color(0xFF1E293B),
+    previewHex = Color(0xFF0F172A)
+  ),
+  GREY(
+    displayName = "Graphite Grey",
+    primaryLight = Color(0xFF475569),
+    secondaryLight = Color(0xFF64748B),
+    containerLight = Color(0xFFF1F5F9),
+    primaryDark = Color(0xFFCBD5E1),
+    secondaryDark = Color(0xFF94A3B8),
+    containerDark = Color(0xFF334155),
+    previewHex = Color(0xFF64748B)
+  ),
+  EMERALD(
+    displayName = "Emerald Green",
+    primaryLight = Color(0xFF16A34A),
+    secondaryLight = Color(0xFF15803D),
+    containerLight = Color(0xFFDCFCE7),
+    primaryDark = Color(0xFF4ADE80),
+    secondaryDark = Color(0xFF22C55E),
+    containerDark = Color(0xFF14532D),
+    previewHex = Color(0xFF16A34A)
   )
 }
 

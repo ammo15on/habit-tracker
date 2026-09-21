@@ -63,7 +63,6 @@ import com.example.data.model.PlannedTask
 import com.example.ui.HabitViewModel
 import com.example.ui.components.AddPlannedTaskDialog
 import com.example.ui.components.PlanEventDialog
-import com.example.ui.theme.RatingBestGreen
 import com.example.util.DateUtils
 
 @Composable
@@ -134,16 +133,15 @@ fun PlanScreen(
             }
           }
 
-          Button(
+          OutlinedButton(
             onClick = { showAddEventDialog = true },
             shape = RoundedCornerShape(10.dp),
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
             modifier = Modifier.testTag("btn_add_event")
           ) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("+ Add Event", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("+ Add Event", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
           }
         }
       }
@@ -162,16 +160,20 @@ fun PlanScreen(
         }
       }
 
-      // Upcoming count summary & Starred tasks in days banner
+      // Upcoming count summary & Starred tasks in days banner - Minimalist subtle container
       item {
         Card(
           modifier = Modifier.fillMaxWidth(),
-          shape = RoundedCornerShape(16.dp),
+          shape = RoundedCornerShape(14.dp),
           colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+          ),
+          border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
           )
         ) {
-          Column(modifier = Modifier.padding(16.dp)) {
+          Column(modifier = Modifier.padding(14.dp)) {
             Row(
               modifier = Modifier.fillMaxWidth(),
               verticalAlignment = Alignment.CenterVertically,
@@ -181,27 +183,27 @@ fun PlanScreen(
                 Text(
                   text = "Upcoming Planned Events",
                   style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                  color = MaterialTheme.colorScheme.onPrimaryContainer
+                  color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                   text = "${upcomingTasks.size} total tasks scheduled for upcoming dates",
                   style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                  color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
               }
 
               Box(
                 modifier = Modifier
-                  .clip(CircleShape)
-                  .background(MaterialTheme.colorScheme.primary)
-                  .size(40.dp),
+                  .clip(RoundedCornerShape(8.dp))
+                  .background(MaterialTheme.colorScheme.surfaceVariant)
+                  .padding(horizontal = 10.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
               ) {
                 Text(
                   text = "${upcomingTasks.size}",
                   style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                   )
                 )
               }
@@ -214,7 +216,7 @@ fun PlanScreen(
               modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
@@ -315,8 +317,7 @@ fun PlanScreen(
               Spacer(modifier = Modifier.height(16.dp))
               Button(
                 onClick = { showAddDialog = true },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen)
+                shape = RoundedCornerShape(12.dp)
               ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
@@ -609,17 +610,14 @@ private fun PlannedTaskCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(
-                if (isToday) RatingBestGreen.copy(alpha = 0.15f)
-                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-              )
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
               .padding(horizontal = 8.dp, vertical = 4.dp)
           ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               Icon(
                 Icons.Default.CalendarMonth,
                 contentDescription = null,
-                tint = if (isToday) RatingBestGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(13.dp)
               )
               Spacer(modifier = Modifier.width(4.dp))
@@ -628,7 +626,7 @@ private fun PlannedTaskCard(
                 style = MaterialTheme.typography.labelSmall.copy(
                   fontWeight = FontWeight.Bold,
                   fontSize = 11.sp,
-                  color = if (isToday) RatingBestGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                  color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
               )
             }
@@ -639,7 +637,7 @@ private fun PlannedTaskCard(
             Box(
               modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
               Row(verticalAlignment = Alignment.CenterVertically) {
@@ -712,12 +710,12 @@ private fun PlannedTaskCard(
         verticalAlignment = Alignment.CenterVertically
       ) {
         // Toggle Completed Button
-        Button(
+        OutlinedButton(
           onClick = onToggleComplete,
           shape = RoundedCornerShape(10.dp),
-          colors = ButtonDefaults.buttonColors(
-            containerColor = if (isCompleted) RatingBestGreen else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (isCompleted) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+          colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = if (isCompleted) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
+            contentColor = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
           ),
           contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
         ) {
@@ -731,15 +729,14 @@ private fun PlannedTaskCard(
         }
 
         // Jump Directly to Task button
-        Button(
+        OutlinedButton(
           onClick = onJumpToTask,
           shape = RoundedCornerShape(10.dp),
-          colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
           contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
         ) {
           Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
           Spacer(modifier = Modifier.width(4.dp))
-          Text("Jump to Task", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+          Text("Jump to Task", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
         }
       }
     }

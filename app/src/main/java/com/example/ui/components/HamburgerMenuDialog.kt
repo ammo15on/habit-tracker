@@ -76,11 +76,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.example.data.model.HabitTask
+import com.example.data.model.TaskPreset
 import com.example.ui.HabitViewModel
 import com.example.ui.theme.AppFontColor
 import com.example.ui.theme.AppThemeColor
-import com.example.ui.theme.RatingBestGreen
 import com.example.util.ImageStorageUtils
 import kotlinx.coroutines.launch
 
@@ -95,8 +94,7 @@ enum class HamburgerMenuTab(val label: String) {
 fun HamburgerMenuDialog(
   viewModel: HabitViewModel,
   initialTab: HamburgerMenuTab = HamburgerMenuTab.THEME,
-  onDismiss: () -> Unit,
-  onEditPreset: (HabitTask) -> Unit = {}
+  onDismiss: () -> Unit
 ) {
   val context = LocalContext.current
   val haptic = LocalHapticFeedback.current
@@ -111,7 +109,7 @@ fun HamburgerMenuDialog(
   // Presets state
   val presets by viewModel.presets.collectAsStateWithLifecycle()
   var customPresetInput by remember { mutableStateOf("") }
-  var presetToSchedule by remember { mutableStateOf<HabitTask?>(null) }
+  var presetToSchedule by remember { mutableStateOf<TaskPreset?>(null) }
 
   // Photo picker for background image
   val bgPhotoPickerLauncher = rememberLauncherForActivityResult(
@@ -207,10 +205,6 @@ fun HamburgerMenuDialog(
               onCustomPresetInputChange = { customPresetInput = it },
               onAddPreset = { name -> viewModel.addPreset(name) },
               onDeletePreset = { id -> viewModel.deletePreset(id) },
-              onEditPreset = { preset ->
-                onDismiss()
-                onEditPreset(preset)
-              },
               onSchedulePreset = { preset ->
                 presetToSchedule = preset
               }
@@ -261,11 +255,18 @@ private fun ThemeCategoryContent(
       .verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(14.dp)
   ) {
-    // 1. Accent Theme Color
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-      Spacer(modifier = Modifier.width(6.dp))
-      Text("App Theme Accent", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+    // 1. UI Elements & Accent Theme Color
+    Column {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        Text("UI Elements & Theme Color", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+      }
+      Text(
+        "Choose color palette for buttons, progress bars, highlights & UI elements",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
     }
 
     FlowRow(
@@ -480,7 +481,7 @@ private fun DataManagementDialogBody(viewModel: HabitViewModel) {
           .fillMaxWidth()
           .clip(RoundedCornerShape(10.dp))
           .background(
-            if (isSuccess) RatingBestGreen.copy(alpha = 0.15f)
+            if (isSuccess) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
             else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
           )
           .padding(10.dp)
@@ -488,7 +489,7 @@ private fun DataManagementDialogBody(viewModel: HabitViewModel) {
         Text(
           text = msg,
           style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-          color = if (isSuccess) RatingBestGreen else MaterialTheme.colorScheme.error
+          color = if (isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
       }
     }
@@ -557,8 +558,7 @@ private fun DataManagementDialogBody(viewModel: HabitViewModel) {
           onClick = { importFileLauncher.launch("*/*") },
           enabled = !isProcessing,
           modifier = Modifier.fillMaxWidth(),
-          shape = RoundedCornerShape(10.dp),
-          colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen)
+          shape = RoundedCornerShape(10.dp)
         ) {
           Text(if (isProcessing) "Importing..." else "Select & Import JSON File")
         }
@@ -570,18 +570,29 @@ private fun DataManagementDialogBody(viewModel: HabitViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PresetsCategoryContent(
-  presets: List<HabitTask>,
+  presets: List<TaskPreset>,
   customPresetInput: String,
   onCustomPresetInputChange: (String) -> Unit,
   onAddPreset: (String) -> Unit,
   onDeletePreset: (Long) -> Unit,
-  onEditPreset: (HabitTask) -> Unit,
-  onSchedulePreset: (HabitTask) -> Unit
+  onSchedulePreset: (TaskPreset) -> Unit
 ) {
   Column(
     modifier = Modifier.fillMaxWidth(),
     verticalArrangement = Arrangement.spacedBy(8.dp)
   ) {
+    Text(
+      text = "Preset Templates",
+      style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+    )
+    Text(
+      text = "Presets are saved templates. They are only added to your tracker on days you choose to add them.",
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(modifier = Modifier.height(4.dp))
+
     // Add custom preset input
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -605,8 +616,7 @@ private fun PresetsCategoryContent(
           }
         },
         enabled = customPresetInput.isNotBlank(),
-        shape = RoundedCornerShape(10.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen)
+        shape = RoundedCornerShape(10.dp)
       ) {
         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
         Spacer(modifier = Modifier.width(4.dp))
@@ -623,7 +633,7 @@ private fun PresetsCategoryContent(
         contentAlignment = Alignment.Center
       ) {
         Text(
-          "No custom presets yet. Add a preset above or save from Add Task.",
+          "No presets saved yet. Add a preset above.",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -643,7 +653,7 @@ private fun PresetsCategoryContent(
               containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
             )
           ) {
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(10.dp)) {
               Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -666,12 +676,6 @@ private fun PresetsCategoryContent(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                   IconButton(
-                    onClick = { onEditPreset(preset) },
-                    modifier = Modifier.size(26.dp)
-                  ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(14.dp))
-                  }
-                  IconButton(
                     onClick = { onDeletePreset(preset.id) },
                     modifier = Modifier.size(26.dp)
                   ) {
@@ -679,13 +683,13 @@ private fun PresetsCategoryContent(
                       Icons.Default.Delete,
                       contentDescription = "Delete",
                       tint = MaterialTheme.colorScheme.error,
-                      modifier = Modifier.size(14.dp)
+                      modifier = Modifier.size(16.dp)
                     )
                   }
                 }
               }
 
-              Spacer(modifier = Modifier.height(4.dp))
+              Spacer(modifier = Modifier.height(6.dp))
 
               OutlinedButton(
                 onClick = { onSchedulePreset(preset) },

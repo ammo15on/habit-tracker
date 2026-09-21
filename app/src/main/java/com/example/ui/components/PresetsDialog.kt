@@ -54,21 +54,20 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.model.HabitTask
-import com.example.ui.theme.RatingBestGreen
+import com.example.data.model.TaskPreset
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PresetsDialog(
-  presets: List<HabitTask>,
+  presets: List<TaskPreset>,
   onDismiss: () -> Unit,
-  onEditPreset: (HabitTask) -> Unit,
   onDeletePreset: (Long) -> Unit,
   onAddPreset: (name: String) -> Unit,
-  onSchedulePresetForDates: (preset: HabitTask, dates: Set<String>) -> Unit
+  onSchedulePresetForDates: (preset: TaskPreset, dates: Set<String>) -> Unit,
+  onAddPresetToDay: ((preset: TaskPreset) -> Unit)? = null
 ) {
   var customPresetInput by remember { mutableStateOf("") }
-  var presetToSchedule by remember { mutableStateOf<HabitTask?>(null) }
+  var presetToSchedule by remember { mutableStateOf<TaskPreset?>(null) }
 
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -217,12 +216,6 @@ fun PresetsDialog(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                       IconButton(
-                        onClick = { onEditPreset(preset) },
-                        modifier = Modifier.size(28.dp)
-                      ) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp))
-                      }
-                      IconButton(
                         onClick = { onDeletePreset(preset.id) },
                         modifier = Modifier.size(28.dp)
                       ) {
@@ -238,25 +231,50 @@ fun PresetsDialog(
 
                   Spacer(modifier = Modifier.height(6.dp))
 
-                  // "Schedule for Dates" Action Button with Mini Calendar
-                  OutlinedButton(
-                    onClick = { presetToSchedule = preset },
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(30.dp)
+                  Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                   ) {
-                    Icon(
-                      Icons.Default.CalendarMonth,
-                      contentDescription = null,
-                      tint = MaterialTheme.colorScheme.primary,
-                      modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                      text = "Schedule for Dates...",
-                      style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                      color = MaterialTheme.colorScheme.primary
-                    )
+                    if (onAddPresetToDay != null) {
+                      Button(
+                        onClick = { onAddPresetToDay(preset) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.height(30.dp)
+                      ) {
+                        Icon(
+                          Icons.Default.Add,
+                          contentDescription = null,
+                          modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                          text = "Add to Day",
+                          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                      }
+                    }
+
+                    // "Schedule for Dates" Action Button with Mini Calendar
+                    OutlinedButton(
+                      onClick = { presetToSchedule = preset },
+                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                      shape = RoundedCornerShape(8.dp),
+                      modifier = Modifier.height(30.dp)
+                    ) {
+                      Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                      )
+                      Spacer(modifier = Modifier.width(6.dp))
+                      Text(
+                        text = "Schedule...",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary
+                      )
+                    }
                   }
                 }
               }

@@ -12,7 +12,9 @@ import com.example.data.model.HabitTaskLog
 import com.example.data.model.NeetChapter
 import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
+import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
+import com.example.data.model.TaskPreset
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -184,4 +186,26 @@ interface HabitDao {
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertAllPlanEvents(events: List<com.example.data.model.PlanEvent>)
+
+  // Task Presets (independent storage, not added as active tasks until chosen)
+  @Query("SELECT * FROM task_presets ORDER BY id ASC")
+  fun getAllTaskPresets(): Flow<List<TaskPreset>>
+
+  @Query("SELECT * FROM task_presets WHERE id = :id LIMIT 1")
+  suspend fun getTaskPresetById(id: Long): TaskPreset?
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertTaskPreset(preset: TaskPreset): Long
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllTaskPresets(presets: List<TaskPreset>)
+
+  @Update
+  suspend fun updateTaskPreset(preset: TaskPreset)
+
+  @Delete
+  suspend fun deleteTaskPreset(preset: TaskPreset)
+
+  @Query("DELETE FROM task_presets WHERE id = :id")
+  suspend fun deleteTaskPresetById(id: Long)
 }

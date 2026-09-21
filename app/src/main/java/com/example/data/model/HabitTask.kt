@@ -43,8 +43,7 @@ data class HabitTask(
       val bit = 1 shl dayOfWeekIndex
       return (repeatDaysMask and bit) != 0
     }
-    // 5. Fallback for preset recurring tasks
-    return isDefault
+    return false
   }
 
   fun isRepeatingOn(dayOfWeekIndex: Int): Boolean {

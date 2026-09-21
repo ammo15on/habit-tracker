@@ -12,6 +12,7 @@ import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
 import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
+import com.example.data.model.TaskPreset
 
 @Database(
   entities = [
@@ -22,9 +23,10 @@ import com.example.data.model.PlannedTask
     PlannedTask::class,
     PlanEvent::class,
     NeetChapter::class,
-    NeetTallyCounter::class
+    NeetTallyCounter::class,
+    TaskPreset::class
   ],
-  version = 6,
+  version = 7,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -69,7 +69,6 @@ import com.example.ui.components.EditTaskDialog
 import com.example.ui.components.HamburgerMenuDialog
 import com.example.ui.components.PresetsDialog
 import com.example.ui.components.TaskRowItem
-import com.example.ui.theme.RatingBestGreen
 import com.example.util.DateUtils
 
 @Composable
@@ -221,18 +220,17 @@ fun TrackerScreen(
                 )
               }
 
-              Button(
+              OutlinedButton(
                 onClick = { showAddDialog = true },
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
                 modifier = Modifier
                   .defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
                   .testTag("add_task_text_button")
               ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(3.dp))
-                Text("Add", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Add", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
               }
             }
           }
@@ -356,11 +354,7 @@ fun TrackerScreen(
   if (showHamburgerMenu) {
     HamburgerMenuDialog(
       viewModel = viewModel,
-      onDismiss = { showHamburgerMenu = false },
-      onEditPreset = { task ->
-        showHamburgerMenu = false
-        taskToEdit = task
-      }
+      onDismiss = { showHamburgerMenu = false }
     )
   }
 
@@ -385,14 +379,14 @@ fun TrackerScreen(
     PresetsDialog(
       presets = presets,
       onDismiss = { showPresetsDialog = false },
-      onEditPreset = { task ->
-        showPresetsDialog = false
-        taskToEdit = task
-      },
       onAddPreset = { name -> viewModel.addPreset(name) },
       onDeletePreset = { id -> viewModel.deletePreset(id) },
       onSchedulePresetForDates = { preset, dates ->
         viewModel.schedulePresetForDates(preset, dates)
+      },
+      onAddPresetToDay = { preset ->
+        viewModel.addTaskFromPreset(preset, selectedDate)
+        showPresetsDialog = false
       }
     )
   }
@@ -458,7 +452,7 @@ private fun DayNavigationHeader(
               imageVector = Icons.Default.Schedule,
               contentDescription = null,
               modifier = Modifier.size(14.dp),
-              tint = RatingBestGreen
+              tint = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(

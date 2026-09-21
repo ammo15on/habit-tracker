@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.HabitTask
-import com.example.ui.theme.RatingBestGreen
 import com.example.util.ImageStorageUtils
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -450,7 +449,6 @@ fun EditTaskDialog(
         },
         enabled = taskName.isNotBlank(),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
         modifier = Modifier.testTag("save_edit_task_button")
       ) {
         Text("Save Changes", fontWeight = FontWeight.Bold)

@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,12 +52,15 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -116,6 +121,19 @@ fun AnalyticsScreen(
   var showAddTallyDialog by remember { mutableStateOf(false) }
   var tallyToEdit by remember { mutableStateOf<NeetTallyCounter?>(null) }
 
+  val coroutineScope = rememberCoroutineScope()
+  val pagerState = rememberPagerState(initialPage = selectedTab.ordinal, pageCount = { AnalyticsTab.entries.size })
+
+  LaunchedEffect(pagerState.currentPage) {
+    viewModel.selectedAnalyticsTab.value = AnalyticsTab.entries[pagerState.currentPage]
+  }
+
+  LaunchedEffect(selectedTab) {
+    if (pagerState.currentPage != selectedTab.ordinal) {
+      pagerState.animateScrollToPage(selectedTab.ordinal)
+    }
+  }
+
   Column(
     modifier = modifier
       .fillMaxSize()
@@ -147,7 +165,11 @@ fun AnalyticsScreen(
     ) {
       Tab(
         selected = selectedTab == AnalyticsTab.DAY,
-        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.DAY },
+        onClick = {
+          coroutineScope.launch {
+            pagerState.animateScrollToPage(AnalyticsTab.DAY.ordinal)
+          }
+        },
         text = {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -159,7 +181,11 @@ fun AnalyticsScreen(
       )
       Tab(
         selected = selectedTab == AnalyticsTab.WEEK,
-        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.WEEK },
+        onClick = {
+          coroutineScope.launch {
+            pagerState.animateScrollToPage(AnalyticsTab.WEEK.ordinal)
+          }
+        },
         text = {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.ViewWeek, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -171,7 +197,11 @@ fun AnalyticsScreen(
       )
       Tab(
         selected = selectedTab == AnalyticsTab.MONTH,
-        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.MONTH },
+        onClick = {
+          coroutineScope.launch {
+            pagerState.animateScrollToPage(AnalyticsTab.MONTH.ordinal)
+          }
+        },
         text = {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -183,7 +213,11 @@ fun AnalyticsScreen(
       )
       Tab(
         selected = selectedTab == AnalyticsTab.NEET,
-        onClick = { viewModel.selectedAnalyticsTab.value = AnalyticsTab.NEET },
+        onClick = {
+          coroutineScope.launch {
+            pagerState.animateScrollToPage(AnalyticsTab.NEET.ordinal)
+          }
+        },
         text = {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -197,70 +231,77 @@ fun AnalyticsScreen(
 
     Spacer(modifier = Modifier.height(14.dp))
 
-    when (selectedTab) {
-      AnalyticsTab.DAY -> {
-        DaysAnalyticsView(
-          days = daysAnalytics,
-          onDayClick = { date ->
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            selectedDateForTasks = date
-          }
-        )
-      }
-      AnalyticsTab.WEEK -> {
-        WeeksAnalyticsView(
-          weeks = weeksAnalytics,
-          onDayClick = { date ->
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            selectedDateForTasks = date
-          }
-        )
-      }
-      AnalyticsTab.MONTH -> {
-        MonthsAnalyticsView(
-          months = monthsAnalytics,
-          onDayClick = { date ->
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            selectedDateForTasks = date
-          }
-        )
-      }
-      AnalyticsTab.NEET -> {
-        NeetSectionView(
-          chapters = neetChapters,
-          tallyCounters = neetTallyCounters,
-          habitTallyList = tallyAnalytics,
-          testScores = neetScores,
-          onToggleChapterCompleted = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            viewModel.toggleChapterCompleted(it)
-          },
-          onToggleChapterPyq = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            viewModel.toggleChapterPyq(it)
-          },
-          onToggleChapterRevision = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            viewModel.toggleChapterRevision(it)
-          },
-          onAddChapterClick = { showAddChapterDialog = true },
-          onEditChapterClick = { chapterToEdit = it },
-          onDeleteChapterClick = { viewModel.deleteNeetChapter(it) },
-          onAddTallyClick = { showAddTallyDialog = true },
-          onEditTallyClick = { tallyToEdit = it },
-          onIncrementTally = { counter, delta ->
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            viewModel.incrementNeetTally(counter, delta)
-          },
-          onDecrementTally = { counter, delta ->
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            viewModel.decrementNeetTally(counter, delta)
-          },
-          onResetTally = { viewModel.resetNeetTally(it) },
-          onDeleteTally = { viewModel.deleteNeetTallyCounter(it) },
-          onAddScoreClick = { showAddNeetDialog = true },
-          onDeleteScoreClick = { viewModel.deleteNeetScore(it) }
-        )
+    HorizontalPager(
+      state = pagerState,
+      modifier = Modifier
+        .fillMaxWidth()
+        .weight(1f)
+    ) { page ->
+      when (AnalyticsTab.entries[page]) {
+        AnalyticsTab.DAY -> {
+          DaysAnalyticsView(
+            days = daysAnalytics,
+            onDayClick = { date ->
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              selectedDateForTasks = date
+            }
+          )
+        }
+        AnalyticsTab.WEEK -> {
+          WeeksAnalyticsView(
+            weeks = weeksAnalytics,
+            onDayClick = { date ->
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              selectedDateForTasks = date
+            }
+          )
+        }
+        AnalyticsTab.MONTH -> {
+          MonthsAnalyticsView(
+            months = monthsAnalytics,
+            onDayClick = { date ->
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              selectedDateForTasks = date
+            }
+          )
+        }
+        AnalyticsTab.NEET -> {
+          NeetSectionView(
+            chapters = neetChapters,
+            tallyCounters = neetTallyCounters,
+            habitTallyList = tallyAnalytics,
+            testScores = neetScores,
+            onToggleChapterCompleted = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.toggleChapterCompleted(it)
+            },
+            onToggleChapterPyq = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.toggleChapterPyq(it)
+            },
+            onToggleChapterRevision = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.toggleChapterRevision(it)
+            },
+            onAddChapterClick = { showAddChapterDialog = true },
+            onEditChapterClick = { chapterToEdit = it },
+            onDeleteChapterClick = { viewModel.deleteNeetChapter(it) },
+            onAddTallyClick = { showAddTallyDialog = true },
+            onEditTallyClick = { tallyToEdit = it },
+            onIncrementTally = { counter, delta ->
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.incrementNeetTally(counter, delta)
+            },
+            onDecrementTally = { counter, delta ->
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.decrementNeetTally(counter, delta)
+            },
+            onResetTally = { viewModel.resetNeetTally(it) },
+            onDeleteTally = { viewModel.deleteNeetTallyCounter(it) },
+            onAddScoreClick = { showAddNeetDialog = true },
+            onDeleteScoreClick = { viewModel.deleteNeetScore(it) }
+          )
+        }
       }
     }
   }

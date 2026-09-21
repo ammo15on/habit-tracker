@@ -15,7 +15,7 @@ import coil.compose.AsyncImage
 
 @Composable
 fun MyApplicationTheme(
-  themeColor: AppThemeColor = AppThemeColor.EMERALD,
+  themeColor: AppThemeColor = AppThemeColor.SLATE,
   fontColor: AppFontColor = AppFontColor.DEFAULT,
   backgroundImageUri: String? = null,
   darkTheme: Boolean = isSystemInDarkTheme(),

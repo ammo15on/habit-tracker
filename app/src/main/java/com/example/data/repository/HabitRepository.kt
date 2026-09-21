@@ -7,14 +7,17 @@ import com.example.data.model.HabitTaskLog
 import com.example.data.model.NeetChapter
 import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
+import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
+import com.example.data.model.TaskPreset
 import kotlinx.coroutines.flow.Flow
 
 class HabitRepository(private val dao: HabitDao) {
 
   val allTasks: Flow<List<HabitTask>> = dao.getAllTasks()
   val defaultTasks: Flow<List<HabitTask>> = dao.getDefaultTasks()
+  val allTaskPresets: Flow<List<TaskPreset>> = dao.getAllTaskPresets()
   val allRatings: Flow<List<DayRating>> = dao.getAllRatings()
   val allLogs: Flow<List<HabitTaskLog>> = dao.getAllLogs()
   val allNeetScores: Flow<List<NeetTestScore>> = dao.getAllNeetScores()
@@ -194,6 +197,30 @@ class HabitRepository(private val dao: HabitDao) {
     dao.deleteTaskByEventId(id)
   }
 
+  // Task Presets operations
+  suspend fun insertTaskPreset(
+    name: String,
+    targetTimeMinutes: Int = 0,
+    noteText: String = "",
+    noteImageUri: String? = null
+  ): Long {
+    val preset = TaskPreset(
+      name = name.trim(),
+      targetTimeMinutes = targetTimeMinutes,
+      noteText = noteText.trim(),
+      noteImageUri = noteImageUri
+    )
+    return dao.insertTaskPreset(preset)
+  }
+
+  suspend fun insertAllTaskPresets(presets: List<TaskPreset>) = dao.insertAllTaskPresets(presets)
+
+  suspend fun updateTaskPreset(preset: TaskPreset) = dao.updateTaskPreset(preset)
+
+  suspend fun deleteTaskPreset(preset: TaskPreset) = dao.deleteTaskPreset(preset)
+
+  suspend fun deleteTaskPresetById(id: Long) = dao.deleteTaskPresetById(id)
+
   // Batch insert helpers for import
   suspend fun importData(
     tasks: List<HabitTask>,
@@ -203,7 +230,8 @@ class HabitRepository(private val dao: HabitDao) {
     plannedTasks: List<PlannedTask>,
     events: List<com.example.data.model.PlanEvent>,
     chapters: List<NeetChapter>,
-    counters: List<NeetTallyCounter>
+    counters: List<NeetTallyCounter>,
+    presets: List<TaskPreset> = emptyList()
   ) {
     if (tasks.isNotEmpty()) dao.insertAllTasks(tasks)
     if (logs.isNotEmpty()) dao.insertAllLogs(logs)
@@ -213,5 +241,6 @@ class HabitRepository(private val dao: HabitDao) {
     if (events.isNotEmpty()) dao.insertAllPlanEvents(events)
     if (chapters.isNotEmpty()) dao.insertAllNeetChapters(chapters)
     if (counters.isNotEmpty()) dao.insertAllNeetTallyCounters(counters)
+    if (presets.isNotEmpty()) dao.insertAllTaskPresets(presets)
   }
 }
