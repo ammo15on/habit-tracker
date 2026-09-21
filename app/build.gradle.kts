@@ -17,19 +17,13 @@ android {
     applicationId = "com.aistudio.habittracker.uqxvp"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "3.0-v3"
+    versionCode = 4
+    versionName = "4.0-v4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
     val customKeystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
     if (file(customKeystorePath).exists() && System.getenv("STORE_PASSWORD") != null) {
       create("release") {
@@ -46,9 +40,9 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debugConfig")
+      signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug { signingConfig = signingConfigs.getByName("debug") }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11

@@ -1,20 +1,25 @@
-# Habit & Study Tracker (Android) - v3
+# Habit & Study Tracker (Android) - v4
 
 A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, time tracking, syllabus completion, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APK (v3)
+## 📱 Pre-Built APK (v4)
 
-The compiled Android application package with suffix `v3` is ready in the repository:
-- **v3 APK Location**: `apk/habit-tracker-v3.apk`
+The compiled Android application package with suffix `v4` is ready in the repository:
+- **v4 APK Location**: `apk/habit-tracker-v4.apk`
 - **Standard Link**: `apk/habit-tracker.apk`
 - **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 26+)
 - **Architecture**: Universal APK
-- **Version**: `3.0-v3` (Version Code 3)
+- **Version**: `4.0-v4` (Version Code 4)
 
 ---
+
+## 🚀 Release v4 - Updates & Improvements
+- **Automated SDK Alignment**: Tuned Android 16 (API 36) SDK properties and optimized Gradle configuration parameters.
+- **Robust Local Packaging**: Streamlined signing configuration fallback mechanisms to ensure problem-free, predictable debugging and offline APK production.
+- **Pre-Built V4 Binary Artifacts**: Added pre-compiled stand-alone binaries for straight-to-device side-loading.
 
 ## 🚀 Release v3 - Major Updates & Improvements
 
