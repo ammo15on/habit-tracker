@@ -65,10 +65,10 @@ import com.example.data.model.RatingType
 import com.example.ui.HabitViewModel
 import com.example.ui.components.AddTaskDialog
 import com.example.ui.components.DayRatingSection
-import com.example.ui.components.DefaultTasksDialog
 import com.example.ui.components.EditTaskDialog
+import com.example.ui.components.HamburgerMenuDialog
+import com.example.ui.components.PresetsDialog
 import com.example.ui.components.TaskRowItem
-import com.example.ui.components.ThemePickerDialog
 import com.example.ui.theme.RatingBestGreen
 import com.example.util.DateUtils
 
@@ -80,14 +80,13 @@ fun TrackerScreen(
   val haptic = LocalHapticFeedback.current
   val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
   val tasks by viewModel.tasksForSelectedDate.collectAsStateWithLifecycle()
-  val defaultTasks by viewModel.defaultTasks.collectAsStateWithLifecycle()
+  val presets by viewModel.presets.collectAsStateWithLifecycle()
   val currentRating by viewModel.currentDayRating.collectAsStateWithLifecycle()
   val totalTimeSeconds by viewModel.totalTimeTodaySeconds.collectAsStateWithLifecycle()
-  val currentTheme by viewModel.selectedThemeColor.collectAsStateWithLifecycle()
 
   var showAddDialog by remember { mutableStateOf(false) }
-  var showDefaultTasksDialog by remember { mutableStateOf(false) }
-  var showThemeDialog by remember { mutableStateOf(false) }
+  var showPresetsDialog by remember { mutableStateOf(false) }
+  var showHamburgerMenu by remember { mutableStateOf(false) }
   var taskToEdit by remember { mutableStateOf<HabitTask?>(null) }
   var totalDragX by remember { mutableFloatStateOf(0f) }
 
@@ -197,14 +196,14 @@ fun TrackerScreen(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-              // Edit Default Tasks button
+              // Presets button (replaces Defaults)
               OutlinedButton(
-                onClick = { showDefaultTasksDialog = true },
+                onClick = { showPresetsDialog = true },
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                   .defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
-                  .testTag("btn_manage_defaults")
+                  .testTag("btn_manage_presets")
               ) {
                 Icon(
                   imageVector = Icons.Default.Star,
@@ -214,7 +213,7 @@ fun TrackerScreen(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                  text = "Defaults (${defaultTasks.size})",
+                  text = "Presets (${presets.size})",
                   style = MaterialTheme.typography.labelMedium.copy(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
@@ -269,11 +268,11 @@ fun TrackerScreen(
           .align(Alignment.BottomEnd)
           .padding(end = 20.dp, bottom = 16.dp)
       ) {
-        // Small hamburger icon just above plus icon for App Theme Colors
+        // Small hamburger icon just above plus icon for Theme, Data, Presets
         SmallFloatingActionButton(
           onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            showThemeDialog = true
+            showHamburgerMenu = true
           },
           modifier = Modifier
             .padding(bottom = 12.dp)
@@ -284,7 +283,7 @@ fun TrackerScreen(
         ) {
           Icon(
             imageVector = Icons.Default.Menu,
-            contentDescription = "Theme Color Options",
+            contentDescription = "App Settings and Menu",
             modifier = Modifier.size(20.dp)
           )
         }
@@ -325,24 +324,26 @@ fun TrackerScreen(
   if (showAddDialog) {
     AddTaskDialog(
       selectedDate = selectedDate,
-      defaultTasks = defaultTasks,
+      presets = presets,
       onDismiss = { showAddDialog = false },
-      onOpenEditDefaultTasks = {
+      onOpenPresetsManager = {
         showAddDialog = false
-        showDefaultTasksDialog = true
+        showPresetsDialog = true
       },
-      onAddPresetAsDefault = { presetName ->
-        viewModel.addPresetAsDefaultTask(presetName)
+      onAddPreset = { presetName ->
+        viewModel.addPreset(presetName)
       },
-      onDeleteDefaultTask = { id ->
-        viewModel.removeDefaultStatus(id)
+      onDeletePreset = { id ->
+        viewModel.deletePreset(id)
       },
-      onConfirm = { name, repeatMask, targetMinutes, isDefault, noteText, noteImageUri ->
+      onConfirm = { name, targetDates, repeatMask, targetMinutes, isPreset, noteText, noteImageUri ->
         viewModel.addTask(
           name = name,
+          targetDates = targetDates,
           repeatDaysMask = repeatMask,
-          targetMinutes = targetMinutes,
-          isDefault = isDefault,
+          targetTimeMinutes = targetMinutes,
+          isDefault = isPreset,
+          isStarred = false,
           noteText = noteText,
           noteImageUri = noteImageUri
         )
@@ -351,15 +352,15 @@ fun TrackerScreen(
     )
   }
 
-  // App Theme Color Picker Dialog (Yellow, Golden, Black, Grey, Emerald, Blue, Purple)
-  if (showThemeDialog) {
-    ThemePickerDialog(
-      currentTheme = currentTheme,
-      onThemeSelected = { color ->
-        viewModel.setThemeColor(color)
-        showThemeDialog = false
-      },
-      onDismiss = { showThemeDialog = false }
+  // Hamburger Menu Dialog: Theme (Font Color + Background Image), Data (Export/Import), Presets
+  if (showHamburgerMenu) {
+    HamburgerMenuDialog(
+      viewModel = viewModel,
+      onDismiss = { showHamburgerMenu = false },
+      onEditPreset = { task ->
+        showHamburgerMenu = false
+        taskToEdit = task
+      }
     )
   }
 
@@ -379,23 +380,19 @@ fun TrackerScreen(
     )
   }
 
-  // Edit Default Tasks Dialog
-  if (showDefaultTasksDialog) {
-    DefaultTasksDialog(
-      defaultTasks = defaultTasks,
-      onDismiss = { showDefaultTasksDialog = false },
-      onEditTask = { task ->
-        showDefaultTasksDialog = false
+  // Presets Dialog (replaces Defaults)
+  if (showPresetsDialog) {
+    PresetsDialog(
+      presets = presets,
+      onDismiss = { showPresetsDialog = false },
+      onEditPreset = { task ->
+        showPresetsDialog = false
         taskToEdit = task
       },
-      onDeleteTask = { id ->
-        viewModel.removeDefaultStatus(id)
-      },
-      onAddPresetAsDefault = { presetName ->
-        viewModel.addPresetAsDefaultTask(presetName)
-      },
-      onRemovePresetFromDefault = { presetName ->
-        viewModel.removeDefaultStatusByName(presetName)
+      onAddPreset = { name -> viewModel.addPreset(name) },
+      onDeletePreset = { id -> viewModel.deletePreset(id) },
+      onSchedulePresetForDates = { preset, dates ->
+        viewModel.schedulePresetForDates(preset, dates)
       }
     )
   }

@@ -140,4 +140,48 @@ interface HabitDao {
 
   @Query("DELETE FROM neet_tally_counters WHERE id = :id")
   suspend fun deleteNeetTallyCounterById(id: Long)
+
+  // Plan Events
+  @Query("SELECT * FROM plan_events ORDER BY startDate ASC, id ASC")
+  fun getAllPlanEvents(): Flow<List<com.example.data.model.PlanEvent>>
+
+  @Query("SELECT * FROM plan_events WHERE id = :id LIMIT 1")
+  suspend fun getPlanEventById(id: Long): com.example.data.model.PlanEvent?
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertPlanEvent(event: com.example.data.model.PlanEvent): Long
+
+  @Update
+  suspend fun updatePlanEvent(event: com.example.data.model.PlanEvent)
+
+  @Delete
+  suspend fun deletePlanEvent(event: com.example.data.model.PlanEvent)
+
+  @Query("DELETE FROM plan_events WHERE id = :id")
+  suspend fun deletePlanEventById(id: Long)
+
+  @Query("SELECT * FROM habit_tasks WHERE eventId = :eventId LIMIT 1")
+  suspend fun getTaskByEventId(eventId: Long): HabitTask?
+
+  @Query("DELETE FROM habit_tasks WHERE eventId = :eventId")
+  suspend fun deleteTaskByEventId(eventId: Long)
+
+  // Batch insert helpers for Data Import
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllTasks(tasks: List<HabitTask>)
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllLogs(logs: List<HabitTaskLog>)
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllRatings(ratings: List<DayRating>)
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllNeetScores(scores: List<NeetTestScore>)
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllPlannedTasks(tasks: List<PlannedTask>)
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllPlanEvents(events: List<com.example.data.model.PlanEvent>)
 }

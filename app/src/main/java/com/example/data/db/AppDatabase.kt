@@ -10,6 +10,7 @@ import com.example.data.model.HabitTaskLog
 import com.example.data.model.NeetChapter
 import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
+import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
 
 @Database(
@@ -19,10 +20,11 @@ import com.example.data.model.PlannedTask
     DayRating::class,
     NeetTestScore::class,
     PlannedTask::class,
+    PlanEvent::class,
     NeetChapter::class,
     NeetTallyCounter::class
   ],
-  version = 5,
+  version = 6,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

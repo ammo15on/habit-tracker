@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -56,22 +57,36 @@ class MainActivity : ComponentActivity() {
         factory = HabitViewModel.provideFactory(repository, themePreferences)
       )
       val currentThemeColor by viewModel.selectedThemeColor.collectAsState()
+      val currentFontColor by viewModel.selectedFontColor.collectAsState()
+      val currentBackgroundUri by viewModel.selectedBackgroundImageUri.collectAsState()
 
-      MyApplicationTheme(themeColor = currentThemeColor) {
-        MainAppContent(viewModel = viewModel)
+      MyApplicationTheme(
+        themeColor = currentThemeColor,
+        fontColor = currentFontColor,
+        backgroundImageUri = currentBackgroundUri
+      ) {
+        MainAppContent(
+          viewModel = viewModel,
+          hasBackgroundImage = !currentBackgroundUri.isNullOrBlank()
+        )
       }
     }
   }
 }
 
 @Composable
-fun MainAppContent(viewModel: HabitViewModel) {
+fun MainAppContent(
+  viewModel: HabitViewModel,
+  hasBackgroundImage: Boolean = false
+) {
   var currentTab by remember { mutableStateOf(MainNavigationTab.TRACKER) }
 
   Scaffold(
     modifier = Modifier.fillMaxSize(),
+    containerColor = if (hasBackgroundImage) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
     bottomBar = {
       NavigationBar(
+        containerColor = if (hasBackgroundImage) MaterialTheme.colorScheme.surface.copy(alpha = 0.88f) else MaterialTheme.colorScheme.surface,
         modifier = Modifier.testTag("main_bottom_nav")
       ) {
         // Tracker Tab

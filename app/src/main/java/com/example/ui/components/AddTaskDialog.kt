@@ -26,10 +26,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notes
-import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
@@ -56,8 +56,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -75,13 +75,14 @@ import com.example.util.ImageStorageUtils
 @Composable
 fun AddTaskDialog(
   selectedDate: String = "",
-  defaultTasks: List<HabitTask> = emptyList(),
+  presets: List<HabitTask> = emptyList(),
   onDismiss: () -> Unit,
-  onOpenEditDefaultTasks: () -> Unit = {},
-  onAddPresetAsDefault: ((String) -> Unit)? = null,
-  onDeleteDefaultTask: ((Long) -> Unit)? = null,
+  onOpenPresetsManager: () -> Unit = {},
+  onAddPreset: ((String) -> Unit)? = null,
+  onDeletePreset: ((Long) -> Unit)? = null,
   onConfirm: (
     name: String,
+    targetDates: Set<String>,
     repeatMask: Int,
     targetMinutes: Int,
     isDefault: Boolean,
@@ -94,22 +95,15 @@ fun AddTaskDialog(
 
   val effectiveDate = if (selectedDate.isNotBlank()) selectedDate else DateUtils.today()
   val dayOfWeekIndex = DateUtils.getDayOfWeekIndex(effectiveDate)
-  val dayName = when (dayOfWeekIndex) {
-    0 -> "Monday"
-    1 -> "Tuesday"
-    2 -> "Wednesday"
-    3 -> "Thursday"
-    4 -> "Friday"
-    5 -> "Saturday"
-    else -> "Sunday"
-  }
 
   var taskName by remember { mutableStateOf("") }
-  // Default to 0: "This day only", not everyday!
   var repeatMask by remember { mutableIntStateOf(0) }
+  var selectedDates by remember { mutableStateOf<Set<String>>(emptySet()) }
   var isSpecificDayOnly by remember { mutableStateOf(true) }
+  var showCalendarPopup by remember { mutableStateOf(false) }
+
   var targetMinutesStr by remember { mutableStateOf("") }
-  var isDefault by remember { mutableStateOf(false) }
+  var isPreset by remember { mutableStateOf(false) }
   var noteText by remember { mutableStateOf("") }
   var noteImageUri by remember { mutableStateOf<String?>(null) }
 
@@ -163,7 +157,7 @@ fun AddTaskDialog(
         OutlinedTextField(
           value = taskName,
           onValueChange = { taskName = it },
-          placeholder = { Text("e.g. Morning Workout, bot ncert read") },
+          placeholder = { Text("e.g. bot ncert read, phy q") },
           singleLine = true,
           modifier = Modifier
             .fillMaxWidth()
@@ -173,14 +167,14 @@ fun AddTaskDialog(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Default tasks & Quick NEET study presets
+        // Presets & Quick NEET study presets
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
           Text(
-            text = "Quick Presets & Defaults:",
+            text = "Presets:",
             style = MaterialTheme.typography.labelSmall.copy(
               fontWeight = FontWeight.SemiBold,
               color = MaterialTheme.colorScheme.primary
@@ -188,12 +182,12 @@ fun AddTaskDialog(
           )
 
           TextButton(
-            onClick = onOpenEditDefaultTasks,
-            modifier = Modifier.testTag("btn_edit_default_tasks")
+            onClick = onOpenPresetsManager,
+            modifier = Modifier.testTag("btn_edit_presets")
           ) {
             Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(12.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Edit Defaults", fontSize = 11.sp)
+            Text("Manage Presets", fontSize = 11.sp)
           }
         }
 
@@ -203,89 +197,68 @@ fun AddTaskDialog(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-          // Show user defaults first with quick tap to use and delete icon
-          defaultTasks.forEach { defTask ->
-            SuggestionChip(
-              onClick = {
-                taskName = defTask.name
-                if (defTask.targetTimeMinutes > 0) {
-                  targetMinutesStr = defTask.targetTimeMinutes.toString()
-                }
-                repeatMask = defTask.repeatDaysMask
-                isDefault = true
-              },
-              label = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  Text(
-                    text = "⭐ ${defTask.name}",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                      fontSize = 11.sp,
-                      fontWeight = FontWeight.Bold
-                    )
-                  )
-                  if (onDeleteDefaultTask != null) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                      imageVector = Icons.Default.Close,
-                      contentDescription = "Remove default",
-                      tint = MaterialTheme.colorScheme.error,
-                      modifier = Modifier
-                        .size(14.dp)
-                        .clickable { onDeleteDefaultTask(defTask.id) }
-                    )
-                  }
-                }
-              },
-              colors = SuggestionChipDefaults.suggestionChipColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                labelColor = MaterialTheme.colorScheme.onSurface
-              )
+          if (presets.isEmpty()) {
+            Text(
+              text = "No presets saved yet. Tap 'Manage Presets' to add presets.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-          }
-
-          // Then show built-in NEET Presets
-          HabitTask.DEFAULT_NEET_PRESETS.forEach { preset ->
-            val isAlreadyDef = defaultTasks.any { it.name.equals(preset, ignoreCase = true) }
-            SuggestionChip(
-              onClick = { taskName = preset },
-              label = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  Text(
-                    text = preset,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
-                  )
-                  if (!isAlreadyDef && onAddPresetAsDefault != null) {
-                    Spacer(modifier = Modifier.width(3.dp))
+          } else {
+            // Show user presets with quick tap to use and delete icon
+            presets.forEach { presetItem ->
+              SuggestionChip(
+                onClick = {
+                  taskName = presetItem.name
+                  if (presetItem.targetTimeMinutes > 0) {
+                    targetMinutesStr = presetItem.targetTimeMinutes.toString()
+                  }
+                  repeatMask = presetItem.repeatDaysMask
+                  isPreset = true
+                },
+                label = {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                      text = "+★",
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = MaterialTheme.colorScheme.primary,
-                      modifier = Modifier.clickable { onAddPresetAsDefault(preset) }
+                      text = "⭐ ${presetItem.name}",
+                      style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                      )
                     )
+                    if (onDeletePreset != null) {
+                      Spacer(modifier = Modifier.width(4.dp))
+                      Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove preset",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                          .size(14.dp)
+                          .clickable { onDeletePreset(presetItem.id) }
+                      )
+                    }
                   }
-                }
-              },
-              colors = SuggestionChipDefaults.suggestionChipColors(
-                containerColor = if (taskName.equals(preset, ignoreCase = true)) {
-                  MaterialTheme.colorScheme.primaryContainer
-                } else {
-                  MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                }
+                },
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                  containerColor = if (taskName.equals(presetItem.name, ignoreCase = true)) {
+                    MaterialTheme.colorScheme.primaryContainer
+                  } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                  },
+                  labelColor = MaterialTheme.colorScheme.onSurface
+                )
               )
-            )
+            }
           }
         }
 
-        if (taskName.isNotBlank() && onAddPresetAsDefault != null && !defaultTasks.any { it.name.equals(taskName.trim(), ignoreCase = true) }) {
+        if (taskName.isNotBlank() && onAddPreset != null && !presets.any { it.name.equals(taskName.trim(), ignoreCase = true) }) {
           Spacer(modifier = Modifier.height(4.dp))
           TextButton(
-            onClick = { onAddPresetAsDefault(taskName.trim()) },
+            onClick = { onAddPreset(taskName.trim()) },
             modifier = Modifier.align(Alignment.End)
           ) {
             Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Save '$taskName' as Default", fontSize = 11.sp)
+            Text("Save '$taskName' as Preset", fontSize = 11.sp)
           }
         }
 
@@ -319,7 +292,7 @@ fun AddTaskDialog(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Repeat Schedule / Frequency of Days
+        // Date selection and Frequency options
         Text(
           text = "Schedule for:",
           style = MaterialTheme.typography.labelMedium.copy(
@@ -329,19 +302,33 @@ fun AddTaskDialog(
         )
         Spacer(modifier = Modifier.height(4.dp))
 
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(6.dp)
+        // Schedule mode chips
+        FlowRow(
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
           FilterChip(
-            selected = isSpecificDayOnly,
+            selected = isSpecificDayOnly && selectedDates.isEmpty(),
             onClick = {
               isSpecificDayOnly = true
+              selectedDates = emptySet()
               repeatMask = 0
+            },
+            label = { Text("This Day ($effectiveDate)", style = MaterialTheme.typography.labelSmall) }
+          )
+
+          FilterChip(
+            selected = selectedDates.isNotEmpty(),
+            onClick = {
+              showCalendarPopup = true
+            },
+            leadingIcon = {
+              Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(14.dp))
             },
             label = {
               Text(
-                "This Day Only",
+                if (selectedDates.isEmpty()) "Select Date(s)..."
+                else "${selectedDates.size} date(s) selected",
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
               )
             }
@@ -351,36 +338,28 @@ fun AddTaskDialog(
             selected = !isSpecificDayOnly && isEveryday,
             onClick = {
               isSpecificDayOnly = false
+              selectedDates = emptySet()
               repeatMask = HabitTask.EVERYDAY_MASK
             },
-            label = {
-              Text(
-                "Everyday",
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-              )
-            }
+            label = { Text("Everyday", style = MaterialTheme.typography.labelSmall) }
           )
 
           FilterChip(
-            selected = !isSpecificDayOnly && !isEveryday,
+            selected = !isSpecificDayOnly && !isEveryday && selectedDates.isEmpty(),
             onClick = {
               isSpecificDayOnly = false
+              selectedDates = emptySet()
               if (repeatMask == 0) {
                 repeatMask = 1 shl dayOfWeekIndex
               }
             },
-            label = {
-              Text(
-                "Custom Days",
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-              )
-            }
+            label = { Text("Week Days", style = MaterialTheme.typography.labelSmall) }
           )
         }
 
-        if (!isSpecificDayOnly) {
+        // Custom Week Days (if chosen)
+        if (!isSpecificDayOnly && selectedDates.isEmpty()) {
           Spacer(modifier = Modifier.height(8.dp))
-          // Day selection circles
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -428,7 +407,7 @@ fun AddTaskDialog(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Option to add as default task
+        // Option to save as Preset
         Row(
           modifier = Modifier
             .fillMaxWidth()
@@ -442,17 +421,17 @@ fun AddTaskDialog(
             Icon(
               imageVector = Icons.Default.Star,
               contentDescription = null,
-              tint = if (isDefault) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurfaceVariant,
+              tint = if (isPreset) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Column {
               Text(
-                text = "Add as Default Task",
+                text = "Save as Preset",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
               )
               Text(
-                text = "Save as permanent preset to add quickly anytime",
+                text = "Syncs with presets manager in hamburger menu",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
@@ -460,9 +439,9 @@ fun AddTaskDialog(
           }
 
           Switch(
-            checked = isDefault,
-            onCheckedChange = { isDefault = it },
-            modifier = Modifier.testTag("switch_add_as_default")
+            checked = isPreset,
+            onCheckedChange = { isPreset = it },
+            modifier = Modifier.testTag("switch_add_as_preset")
           )
         }
 
@@ -552,9 +531,17 @@ fun AddTaskDialog(
         onClick = {
           if (taskName.isNotBlank()) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            val mask = if (isSpecificDayOnly) 0 else repeatMask
+            val mask = if (isSpecificDayOnly && selectedDates.isEmpty()) 0 else repeatMask
             val target = targetMinutesStr.toIntOrNull() ?: 0
-            onConfirm(taskName.trim(), mask, target, isDefault, noteText.trim(), noteImageUri)
+            onConfirm(
+              taskName.trim(),
+              selectedDates,
+              mask,
+              target,
+              isPreset,
+              noteText.trim(),
+              noteImageUri
+            )
           }
         },
         enabled = taskName.isNotBlank(),
@@ -574,4 +561,22 @@ fun AddTaskDialog(
       }
     }
   )
+
+  // Mini Calendar Popup for multi-date selection
+  if (showCalendarPopup) {
+    MiniCalendarPickerPopup(
+      initialDates = if (selectedDates.isNotEmpty()) selectedDates else setOf(effectiveDate),
+      allowMultiple = true,
+      title = "Select Dates for Task",
+      onDismiss = { showCalendarPopup = false },
+      onConfirm = { dates ->
+        selectedDates = dates
+        if (dates.isNotEmpty()) {
+          isSpecificDayOnly = false
+          repeatMask = 0
+        }
+        showCalendarPopup = false
+      }
+    )
+  }
 }

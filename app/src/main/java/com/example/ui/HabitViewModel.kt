@@ -53,11 +53,35 @@ class HabitViewModel(
   val selectedThemeColor: StateFlow<AppThemeColor> =
     themePreferences?.themeColor ?: _fallbackThemeColor.asStateFlow()
 
+  private val _fallbackFontColor = MutableStateFlow(com.example.ui.theme.AppFontColor.DEFAULT)
+  val selectedFontColor: StateFlow<com.example.ui.theme.AppFontColor> =
+    themePreferences?.fontColor ?: _fallbackFontColor.asStateFlow()
+
+  private val _fallbackBgImageUri = MutableStateFlow<String?>(null)
+  val selectedBackgroundImageUri: StateFlow<String?> =
+    themePreferences?.backgroundImageUri ?: _fallbackBgImageUri.asStateFlow()
+
   fun setThemeColor(color: AppThemeColor) {
     if (themePreferences != null) {
       themePreferences.setThemeColor(color)
     } else {
       _fallbackThemeColor.value = color
+    }
+  }
+
+  fun setFontColor(color: com.example.ui.theme.AppFontColor) {
+    if (themePreferences != null) {
+      themePreferences.setFontColor(color)
+    } else {
+      _fallbackFontColor.value = color
+    }
+  }
+
+  fun setBackgroundImageUri(uri: String?) {
+    if (themePreferences != null) {
+      themePreferences.setBackgroundImageUri(uri)
+    } else {
+      _fallbackBgImageUri.value = uri
     }
   }
 
@@ -79,6 +103,9 @@ class HabitViewModel(
   val allPlannedTasks: StateFlow<List<PlannedTask>> = repository.allPlannedTasks
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val defaultTasks: StateFlow<List<HabitTask>> = repository.defaultTasks
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+  val presets: StateFlow<List<HabitTask>> = defaultTasks
+  val allPlanEvents: StateFlow<List<com.example.data.model.PlanEvent>> = repository.allPlanEvents
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val allNeetChapters: StateFlow<List<NeetChapter>> = repository.allNeetChapters
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -432,8 +459,9 @@ class HabitViewModel(
   // Task Actions
   fun addTask(
     name: String,
+    targetDates: Set<String> = emptySet(),
     repeatDaysMask: Int = 0,
-    targetMinutes: Int = 0,
+    targetTimeMinutes: Int = 0,
     isDefault: Boolean = false,
     isStarred: Boolean = false,
     noteText: String = "",
@@ -442,37 +470,70 @@ class HabitViewModel(
     if (name.isBlank()) return
     viewModelScope.launch {
       val curDate = selectedDate.value
-      // If no repeat days mask is specified and not marked as recurring default,
-      // the task is specific to this selected date!
-      val specificDate = if (!isDefault && repeatDaysMask == 0) curDate else null
 
-      repository.insertTask(
-        name = name.trim(),
-        targetDate = specificDate,
-        repeatDaysMask = repeatDaysMask,
-        targetTimeMinutes = targetMinutes,
-        isDefault = isDefault,
-        isStarred = isStarred,
-        noteText = noteText.trim(),
-        noteImageUri = noteImageUri
-      )
-
-      // Sync: task added in tracker should also appear in plan for that date!
-      val allPlans = repository.allPlannedTasks.stateIn(viewModelScope).value
-      val existsInPlan = allPlans.any {
-        it.title.equals(name.trim(), ignoreCase = true) && it.date == curDate
-      }
-      if (!existsInPlan) {
-        repository.insertPlannedTask(
-          PlannedTask(
-            title = name.trim(),
-            date = curDate,
-            targetTimeMinutes = targetMinutes,
-            notes = noteText.trim(),
+      if (targetDates.isNotEmpty()) {
+        // Multi-day selection option
+        targetDates.forEach { date ->
+          repository.insertTask(
+            name = name.trim(),
+            targetDate = date,
+            repeatDaysMask = 0,
+            targetTimeMinutes = targetTimeMinutes,
+            isDefault = false,
             isStarred = isStarred,
-            isCompleted = false
+            noteText = noteText.trim(),
+            noteImageUri = noteImageUri
           )
+          val allPlans = repository.allPlannedTasks.first()
+          val existsInPlan = allPlans.any {
+            it.title.equals(name.trim(), ignoreCase = true) && it.date == date
+          }
+          if (!existsInPlan) {
+            repository.insertPlannedTask(
+              PlannedTask(
+                title = name.trim(),
+                date = date,
+                targetTimeMinutes = targetTimeMinutes,
+                notes = noteText.trim(),
+                isStarred = isStarred,
+                isCompleted = false
+              )
+            )
+          }
+        }
+      } else {
+        // If no repeat days mask is specified and not marked as recurring default,
+        // the task is specific to this selected date!
+        val specificDate = if (!isDefault && repeatDaysMask == 0) curDate else null
+
+        repository.insertTask(
+          name = name.trim(),
+          targetDate = specificDate,
+          repeatDaysMask = repeatDaysMask,
+          targetTimeMinutes = targetTimeMinutes,
+          isDefault = isDefault,
+          isStarred = isStarred,
+          noteText = noteText.trim(),
+          noteImageUri = noteImageUri
         )
+
+        // Sync: task added in tracker should also appear in plan for that date!
+        val allPlans = repository.allPlannedTasks.first()
+        val existsInPlan = allPlans.any {
+          it.title.equals(name.trim(), ignoreCase = true) && it.date == curDate
+        }
+        if (!existsInPlan) {
+          repository.insertPlannedTask(
+            PlannedTask(
+              title = name.trim(),
+              date = curDate,
+              targetTimeMinutes = targetTimeMinutes,
+              notes = noteText.trim(),
+              isStarred = isStarred,
+              isCompleted = false
+            )
+          )
+        }
       }
     }
   }
@@ -826,6 +887,377 @@ class HabitViewModel(
   }
 
   // Default Tasks Quick Management
+  // Default Tasks & Presets Management
+  fun addPreset(name: String) = addPresetAsDefaultTask(name)
+
+  fun deletePreset(id: Long) = removeDefaultStatus(id)
+
+  fun schedulePresetForDates(preset: HabitTask, dates: Set<String>) {
+    if (dates.isEmpty()) return
+    viewModelScope.launch {
+      val allTasks = repository.allTasks.first()
+      dates.forEach { date ->
+        val alreadyScheduled = allTasks.any {
+          it.name.equals(preset.name, ignoreCase = true) && it.targetDate == date
+        }
+        if (!alreadyScheduled) {
+          repository.insertTask(
+            name = preset.name,
+            targetDate = date,
+            targetTimeMinutes = preset.targetTimeMinutes,
+            noteText = preset.noteText,
+            noteImageUri = preset.noteImageUri
+          )
+        }
+        // Also ensure it is recorded in planned tasks for that day
+        val allPlans = repository.allPlannedTasks.first()
+        val existsInPlan = allPlans.any {
+          it.title.equals(preset.name, ignoreCase = true) && it.date == date
+        }
+        if (!existsInPlan) {
+          repository.insertPlannedTask(
+            PlannedTask(
+              title = preset.name,
+              date = date,
+              targetTimeMinutes = preset.targetTimeMinutes,
+              notes = preset.noteText,
+              isStarred = preset.isStarred
+            )
+          )
+        }
+      }
+    }
+  }
+
+  fun scheduleTaskForDates(
+    name: String,
+    dates: Set<String>,
+    targetTimeMinutes: Int = 0,
+    isStarred: Boolean = false,
+    noteText: String = "",
+    noteImageUri: String? = null
+  ) {
+    if (name.isBlank() || dates.isEmpty()) return
+    viewModelScope.launch {
+      val allTasks = repository.allTasks.first()
+      dates.forEach { date ->
+        val alreadyScheduled = allTasks.any {
+          it.name.equals(name.trim(), ignoreCase = true) && it.targetDate == date
+        }
+        if (!alreadyScheduled) {
+          repository.insertTask(
+            name = name.trim(),
+            targetDate = date,
+            targetTimeMinutes = targetTimeMinutes,
+            isStarred = isStarred,
+            noteText = noteText.trim(),
+            noteImageUri = noteImageUri
+          )
+        }
+        val allPlans = repository.allPlannedTasks.first()
+        val existsInPlan = allPlans.any {
+          it.title.equals(name.trim(), ignoreCase = true) && it.date == date
+        }
+        if (!existsInPlan) {
+          repository.insertPlannedTask(
+            PlannedTask(
+              title = name.trim(),
+              date = date,
+              targetTimeMinutes = targetTimeMinutes,
+              notes = noteText.trim(),
+              isStarred = isStarred
+            )
+          )
+        }
+      }
+    }
+  }
+
+  // Plan Event Management
+  fun addPlanEvent(
+    title: String,
+    startDate: String,
+    endDate: String,
+    taskTitle: String,
+    taskTargetMinutes: Int,
+    notes: String
+  ) {
+    viewModelScope.launch {
+      val event = com.example.data.model.PlanEvent(
+        title = title,
+        startDate = startDate,
+        endDate = endDate,
+        taskTitle = taskTitle,
+        taskTargetMinutes = taskTargetMinutes,
+        notes = notes
+      )
+      repository.insertPlanEvent(event)
+    }
+  }
+
+  fun updatePlanEvent(event: com.example.data.model.PlanEvent) {
+    viewModelScope.launch {
+      repository.updatePlanEvent(event)
+    }
+  }
+
+  fun deletePlanEvent(event: com.example.data.model.PlanEvent) {
+    viewModelScope.launch {
+      repository.deletePlanEvent(event)
+    }
+  }
+
+  fun deletePlanEventById(id: Long) {
+    viewModelScope.launch {
+      repository.deletePlanEventById(id)
+    }
+  }
+
+  // Data Export & Import (Pure Android JSON)
+  suspend fun exportDataToJson(): String {
+    val root = org.json.JSONObject()
+
+    val tasks = repository.allTasks.first()
+    val tasksArray = org.json.JSONArray()
+    tasks.forEach { t ->
+      val obj = org.json.JSONObject().apply {
+        put("id", t.id)
+        put("name", t.name)
+        put("targetDate", t.targetDate ?: "")
+        put("repeatDaysMask", t.repeatDaysMask)
+        put("targetTimeMinutes", t.targetTimeMinutes)
+        put("isDefault", t.isDefault)
+        put("isStarred", t.isStarred)
+        put("targetDates", t.targetDates ?: "")
+        put("startDate", t.startDate ?: "")
+        put("endDate", t.endDate ?: "")
+        put("noteText", t.noteText)
+      }
+      tasksArray.put(obj)
+    }
+    root.put("tasks", tasksArray)
+
+    val logs = repository.allLogs.first()
+    val logsArray = org.json.JSONArray()
+    logs.forEach { l ->
+      val obj = org.json.JSONObject().apply {
+        put("id", l.id)
+        put("taskId", l.taskId)
+        put("date", l.date)
+        put("timeSpentSeconds", l.timeSpentSeconds)
+        put("isCompleted", l.isCompleted)
+      }
+      logsArray.put(obj)
+    }
+    root.put("logs", logsArray)
+
+    val ratings = repository.allRatings.first()
+    val ratingsArray = org.json.JSONArray()
+    ratings.forEach { r ->
+      val obj = org.json.JSONObject().apply {
+        put("date", r.date)
+        put("rating", r.rating)
+      }
+      ratingsArray.put(obj)
+    }
+    root.put("ratings", ratingsArray)
+
+    val scores = repository.allNeetScores.first()
+    val scoresArray = org.json.JSONArray()
+    scores.forEach { s ->
+      val obj = org.json.JSONObject().apply {
+        put("id", s.id)
+        put("testName", s.testName)
+        put("date", s.date)
+        put("physicsScore", s.physicsScore)
+        put("chemistryScore", s.chemistryScore)
+        put("botanyScore", s.botanyScore)
+        put("zoologyScore", s.zoologyScore)
+        put("maxPhysics", s.maxPhysics)
+        put("maxChemistry", s.maxChemistry)
+        put("maxBotany", s.maxBotany)
+        put("maxZoology", s.maxZoology)
+        put("timestamp", s.timestamp)
+      }
+      scoresArray.put(obj)
+    }
+    root.put("scores", scoresArray)
+
+    val planned = repository.allPlannedTasks.first()
+    val plannedArray = org.json.JSONArray()
+    planned.forEach { p ->
+      val obj = org.json.JSONObject().apply {
+        put("id", p.id)
+        put("title", p.title)
+        put("date", p.date)
+        put("targetTimeMinutes", p.targetTimeMinutes)
+        put("notes", p.notes)
+        put("isStarred", p.isStarred)
+        put("isCompleted", p.isCompleted)
+      }
+      plannedArray.put(obj)
+    }
+    root.put("plannedTasks", plannedArray)
+
+    val events = repository.allPlanEvents.first()
+    val eventsArray = org.json.JSONArray()
+    events.forEach { e ->
+      val obj = org.json.JSONObject().apply {
+        put("id", e.id)
+        put("title", e.title)
+        put("startDate", e.startDate)
+        put("endDate", e.endDate)
+        put("taskTitle", e.taskTitle)
+        put("taskTargetMinutes", e.taskTargetMinutes)
+        put("notes", e.notes)
+      }
+      eventsArray.put(obj)
+    }
+    root.put("events", eventsArray)
+
+    return root.toString(2)
+  }
+
+  suspend fun importDataFromJson(jsonString: String): Int {
+    val root = org.json.JSONObject(jsonString)
+    var importedCount = 0
+
+    val tasksList = mutableListOf<HabitTask>()
+    if (root.has("tasks")) {
+      val arr = root.getJSONArray("tasks")
+      for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        tasksList.add(
+          HabitTask(
+            id = o.optLong("id", 0L),
+            name = o.optString("name", ""),
+            targetDate = o.optString("targetDate", "").takeIf { it.isNotBlank() },
+            repeatDaysMask = o.optInt("repeatDaysMask", 0),
+            targetTimeMinutes = o.optInt("targetTimeMinutes", 0),
+            isDefault = o.optBoolean("isDefault", false),
+            isStarred = o.optBoolean("isStarred", false),
+            targetDates = o.optString("targetDates", "").takeIf { it.isNotBlank() },
+            startDate = o.optString("startDate", "").takeIf { it.isNotBlank() },
+            endDate = o.optString("endDate", "").takeIf { it.isNotBlank() },
+            noteText = o.optString("noteText", "")
+          )
+        )
+      }
+      importedCount += tasksList.size
+    }
+
+    val logsList = mutableListOf<HabitTaskLog>()
+    if (root.has("logs")) {
+      val arr = root.getJSONArray("logs")
+      for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        logsList.add(
+          HabitTaskLog(
+            id = o.optLong("id", 0L),
+            taskId = o.optLong("taskId", 0L),
+            date = o.optString("date", ""),
+            timeSpentSeconds = o.optLong("timeSpentSeconds", 0L),
+            isCompleted = o.optBoolean("isCompleted", false)
+          )
+        )
+      }
+      importedCount += logsList.size
+    }
+
+    val ratingsList = mutableListOf<DayRating>()
+    if (root.has("ratings")) {
+      val arr = root.getJSONArray("ratings")
+      for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        ratingsList.add(
+          DayRating(
+            date = o.optString("date", ""),
+            rating = o.optString("rating", "")
+          )
+        )
+      }
+      importedCount += ratingsList.size
+    }
+
+    val scoresList = mutableListOf<NeetTestScore>()
+    if (root.has("scores")) {
+      val arr = root.getJSONArray("scores")
+      for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        scoresList.add(
+          NeetTestScore(
+            id = o.optLong("id", 0L),
+            testName = o.optString("testName", ""),
+            date = o.optString("date", ""),
+            physicsScore = o.optInt("physicsScore", 0),
+            chemistryScore = o.optInt("chemistryScore", 0),
+            botanyScore = o.optInt("botanyScore", 0),
+            zoologyScore = o.optInt("zoologyScore", 0),
+            maxPhysics = o.optInt("maxPhysics", 180),
+            maxChemistry = o.optInt("maxChemistry", 180),
+            maxBotany = o.optInt("maxBotany", 180),
+            maxZoology = o.optInt("maxZoology", 180),
+            timestamp = o.optLong("timestamp", System.currentTimeMillis())
+          )
+        )
+      }
+      importedCount += scoresList.size
+    }
+
+    val plannedList = mutableListOf<PlannedTask>()
+    if (root.has("plannedTasks")) {
+      val arr = root.getJSONArray("plannedTasks")
+      for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        plannedList.add(
+          PlannedTask(
+            id = o.optLong("id", 0L),
+            title = o.optString("title", ""),
+            date = o.optString("date", ""),
+            targetTimeMinutes = o.optInt("targetTimeMinutes", 0),
+            notes = o.optString("notes", ""),
+            isStarred = o.optBoolean("isStarred", false),
+            isCompleted = o.optBoolean("isCompleted", false)
+          )
+        )
+      }
+      importedCount += plannedList.size
+    }
+
+    val eventsList = mutableListOf<com.example.data.model.PlanEvent>()
+    if (root.has("events")) {
+      val arr = root.getJSONArray("events")
+      for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        eventsList.add(
+          com.example.data.model.PlanEvent(
+            id = o.optLong("id", 0L),
+            title = o.optString("title", ""),
+            startDate = o.optString("startDate", ""),
+            endDate = o.optString("endDate", ""),
+            taskTitle = o.optString("taskTitle", ""),
+            taskTargetMinutes = o.optInt("taskTargetMinutes", 0),
+            notes = o.optString("notes", "")
+          )
+        )
+      }
+      importedCount += eventsList.size
+    }
+
+    repository.importData(
+      tasks = tasksList,
+      logs = logsList,
+      ratings = ratingsList,
+      scores = scoresList,
+      plannedTasks = plannedList,
+      events = eventsList,
+      chapters = emptyList(),
+      counters = emptyList()
+    )
+
+    return importedCount
+  }
+
   fun addPresetAsDefaultTask(presetName: String) {
     if (presetName.isBlank()) return
     viewModelScope.launch {

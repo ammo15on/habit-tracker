@@ -13,22 +13,37 @@ data class HabitTask(
   val targetTimeMinutes: Int = 0, // 0 = no target set, >0 = target timer in minutes
   val isDefault: Boolean = false, // Option to add as default task and edit default tasks
   val isStarred: Boolean = false, // Starred / high priority task
+  val targetDates: String? = null, // Multiple specific dates separated by comma (e.g. "2026-09-21,2026-09-23")
+  val startDate: String? = null, // Event starting date (yyyy-MM-dd)
+  val endDate: String? = null, // Event ending date (yyyy-MM-dd)
+  val eventId: Long? = null, // Optional parent event ID
   val noteText: String = "", // Text note
   val noteImageUri: String? = null, // Image note URI/path
   val createdAt: Long = System.currentTimeMillis(),
   val isArchived: Boolean = false
 ) {
+  val isPreset: Boolean get() = isDefault
+
   fun isScheduledFor(date: String, dayOfWeekIndex: Int): Boolean {
-    // 1. If assigned to a specific target date (e.g. one-off task or planned task)
+    // 1. If assigned to an event date range
+    if (startDate != null && endDate != null) {
+      return (date in startDate..endDate)
+    }
+    // 2. If assigned to multiple specific dates
+    if (!targetDates.isNullOrBlank()) {
+      val datesList = targetDates.split(",")
+      if (datesList.contains(date)) return true
+    }
+    // 3. If assigned to a single specific target date
     if (targetDate != null) {
       return targetDate == date
     }
-    // 2. If it's a default task or has recurring day mask configured
+    // 4. If it has recurring day mask configured
     if (repeatDaysMask != 0) {
       val bit = 1 shl dayOfWeekIndex
       return (repeatDaysMask and bit) != 0
     }
-    // 3. Fallback for default recurring tasks
+    // 5. Fallback for preset recurring tasks
     return isDefault
   }
 

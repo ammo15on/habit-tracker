@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -37,6 +39,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,9 +58,11 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
 import com.example.ui.HabitViewModel
 import com.example.ui.components.AddPlannedTaskDialog
+import com.example.ui.components.PlanEventDialog
 import com.example.ui.theme.RatingBestGreen
 import com.example.util.DateUtils
 
@@ -68,7 +73,10 @@ fun PlanScreen(
   modifier: Modifier = Modifier
 ) {
   val plannedTasks by viewModel.allPlannedTasks.collectAsStateWithLifecycle()
+  val planEvents by viewModel.allPlanEvents.collectAsStateWithLifecycle()
   var showAddDialog by remember { mutableStateOf(false) }
+  var showAddEventDialog by remember { mutableStateOf(false) }
+  var eventToEdit by remember { mutableStateOf<PlanEvent?>(null) }
   var filterStarredOnly by remember { mutableStateOf(false) }
 
   val today = DateUtils.today()
@@ -89,22 +97,67 @@ fun PlanScreen(
       contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp),
       verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-      // Header
+      // Events Header & Add Event Action
       item {
-        Column {
-          Text(
-            text = "Study & Task Planner",
-            style = MaterialTheme.typography.headlineMedium.copy(
-              fontWeight = FontWeight.Bold,
-              fontSize = 24.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface
-          )
-          Spacer(modifier = Modifier.height(4.dp))
-          Text(
-            text = "Plan ahead, star high-priority sessions, and jump directly into action.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+              imageVector = Icons.Default.Event,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+              text = "Events",
+              style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+              color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Box(
+              modifier = Modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .padding(horizontal = 7.dp, vertical = 2.dp)
+            ) {
+              Text(
+                text = "${planEvents.size}",
+                style = MaterialTheme.typography.labelSmall.copy(
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+              )
+            }
+          }
+
+          Button(
+            onClick = { showAddEventDialog = true },
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
+            modifier = Modifier.testTag("btn_add_event")
+          ) {
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("+ Add Event", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+          }
+        }
+      }
+
+      // Active Events Cards List
+      if (planEvents.isNotEmpty()) {
+        items(
+          items = planEvents,
+          key = { "event_${it.id}" }
+        ) { event ->
+          EventCardItem(
+            event = event,
+            onEdit = { eventToEdit = event },
+            onDelete = { viewModel.deletePlanEvent(event) }
           )
         }
       }
@@ -357,6 +410,155 @@ fun PlanScreen(
           showAddDialog = false
         }
       )
+    }
+
+    if (showAddEventDialog) {
+      PlanEventDialog(
+        onDismiss = { showAddEventDialog = false },
+        onConfirm = { title, startDate, endDate, taskTitle, taskTargetMinutes, notes ->
+          viewModel.addPlanEvent(
+            title = title,
+            startDate = startDate,
+            endDate = endDate,
+            taskTitle = taskTitle,
+            taskTargetMinutes = taskTargetMinutes,
+            notes = notes
+          )
+          showAddEventDialog = false
+        }
+      )
+    }
+
+    eventToEdit?.let { ev ->
+      PlanEventDialog(
+        eventToEdit = ev,
+        onDismiss = { eventToEdit = null },
+        onConfirm = { title, startDate, endDate, taskTitle, taskTargetMinutes, notes ->
+          viewModel.updatePlanEvent(
+            ev.copy(
+              title = title,
+              startDate = startDate,
+              endDate = endDate,
+              taskTitle = taskTitle,
+              taskTargetMinutes = taskTargetMinutes,
+              notes = notes
+            )
+          )
+          eventToEdit = null
+        },
+        onDelete = {
+          viewModel.deletePlanEvent(ev)
+          eventToEdit = null
+        }
+      )
+    }
+  }
+}
+
+@Composable
+private fun EventCardItem(
+  event: PlanEvent,
+  onEdit: () -> Unit,
+  onDelete: () -> Unit
+) {
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(14.dp),
+    colors = CardDefaults.cardColors(
+      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    )
+  ) {
+    Column(modifier = Modifier.padding(14.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+          Icon(
+            imageVector = Icons.Default.Event,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Text(
+            text = event.title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) {
+            Icon(
+              imageVector = Icons.Default.Edit,
+              contentDescription = "Edit Event",
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(16.dp)
+            )
+          }
+          IconButton(onClick = onDelete, modifier = Modifier.size(30.dp)) {
+            Icon(
+              imageVector = Icons.Default.Delete,
+              contentDescription = "Delete Event",
+              tint = MaterialTheme.colorScheme.error,
+              modifier = Modifier.size(16.dp)
+            )
+          }
+        }
+      }
+
+      Spacer(modifier = Modifier.height(4.dp))
+
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+          imageVector = Icons.Default.CalendarMonth,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.size(14.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+          text = "${DateUtils.formatShortDate(event.startDate)} → ${DateUtils.formatShortDate(event.endDate)}",
+          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
+
+      if (event.taskTitle.isNotBlank()) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Box(
+          modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+              text = "🎯 Task: ${event.taskTitle}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+              color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            if (event.taskTargetMinutes > 0) {
+              Text(
+                text = " (${event.taskTargetMinutes}m)",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+              )
+            }
+          }
+        }
+      }
+
+      if (event.notes.isNotBlank()) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = event.notes,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
     }
   }
 }

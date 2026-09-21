@@ -101,4 +101,55 @@ enum class AppThemeColor(
   )
 }
 
+// User-customizable font color options
+enum class AppFontColor(
+  val displayName: String,
+  val lightColor: Color,
+  val darkColor: Color,
+  val previewColor: Color
+) {
+  DEFAULT(
+    displayName = "Auto (Theme Default)",
+    lightColor = Color(0xFF0F172A),
+    darkColor = Color(0xFFF8FAFC),
+    previewColor = Color(0xFF64748B)
+  ),
+  PURE_WHITE(
+    displayName = "Pure White",
+    lightColor = Color(0xFFFFFFFF),
+    darkColor = Color(0xFFFFFFFF),
+    previewColor = Color(0xFFFFFFFF)
+  ),
+  PURE_BLACK(
+    displayName = "Pure Black",
+    lightColor = Color(0xFF000000),
+    darkColor = Color(0xFF0F172A),
+    previewColor = Color(0xFF000000)
+  ),
+  AMBER_GOLD(
+    displayName = "Amber Gold",
+    lightColor = Color(0xFFD97706),
+    darkColor = Color(0xFFFBBF24),
+    previewColor = Color(0xFFF59E0B)
+  ),
+  SLATE_BLUE(
+    displayName = "Sky Blue",
+    lightColor = Color(0xFF0284C7),
+    darkColor = Color(0xFF38BDF8),
+    previewColor = Color(0xFF38BDF8)
+  ),
+  EMERALD_GREEN(
+    displayName = "Emerald Green",
+    lightColor = Color(0xFF059669),
+    darkColor = Color(0xFF34D399),
+    previewColor = Color(0xFF10B981)
+  ),
+  CRIMSON_ROSE(
+    displayName = "Crimson Rose",
+    lightColor = Color(0xFFE11D48),
+    darkColor = Color(0xFFFB7185),
+    previewColor = Color(0xFFF43F5E)
+  )
+}
+
 

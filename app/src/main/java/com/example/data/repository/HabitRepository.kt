@@ -21,6 +21,7 @@ class HabitRepository(private val dao: HabitDao) {
   val allPlannedTasks: Flow<List<PlannedTask>> = dao.getAllPlannedTasks()
   val allNeetChapters: Flow<List<NeetChapter>> = dao.getAllNeetChapters()
   val allNeetTallyCounters: Flow<List<NeetTallyCounter>> = dao.getAllNeetTallyCounters()
+  val allPlanEvents: Flow<List<com.example.data.model.PlanEvent>> = dao.getAllPlanEvents()
 
   fun getLogsForDate(date: String): Flow<List<HabitTaskLog>> = dao.getLogsForDate(date)
 
@@ -141,4 +142,76 @@ class HabitRepository(private val dao: HabitDao) {
   suspend fun deleteNeetTallyCounter(counter: NeetTallyCounter) = dao.deleteNeetTallyCounter(counter)
 
   suspend fun deleteNeetTallyCounterById(id: Long) = dao.deleteNeetTallyCounterById(id)
+
+  // Plan Event operations
+  suspend fun insertPlanEvent(event: com.example.data.model.PlanEvent): Long {
+    val eventId = dao.insertPlanEvent(event)
+    // Synchronize event task to habit_tasks so it appears seamlessly in tracker view during event dates
+    val eventTask = HabitTask(
+      name = event.taskTitle.ifBlank { event.title },
+      startDate = event.startDate,
+      endDate = event.endDate,
+      eventId = eventId,
+      targetTimeMinutes = event.taskTargetMinutes,
+      noteText = if (event.notes.isNotBlank()) "${event.title} - ${event.notes}" else event.title
+    )
+    dao.insertTask(eventTask)
+    return eventId
+  }
+
+  suspend fun updatePlanEvent(event: com.example.data.model.PlanEvent) {
+    dao.updatePlanEvent(event)
+    val existingTask = dao.getTaskByEventId(event.id)
+    if (existingTask != null) {
+      val updated = existingTask.copy(
+        name = event.taskTitle.ifBlank { event.title },
+        startDate = event.startDate,
+        endDate = event.endDate,
+        targetTimeMinutes = event.taskTargetMinutes,
+        noteText = if (event.notes.isNotBlank()) "${event.title} - ${event.notes}" else event.title
+      )
+      dao.updateTask(updated)
+    } else {
+      val eventTask = HabitTask(
+        name = event.taskTitle.ifBlank { event.title },
+        startDate = event.startDate,
+        endDate = event.endDate,
+        eventId = event.id,
+        targetTimeMinutes = event.taskTargetMinutes,
+        noteText = if (event.notes.isNotBlank()) "${event.title} - ${event.notes}" else event.title
+      )
+      dao.insertTask(eventTask)
+    }
+  }
+
+  suspend fun deletePlanEvent(event: com.example.data.model.PlanEvent) {
+    dao.deletePlanEvent(event)
+    dao.deleteTaskByEventId(event.id)
+  }
+
+  suspend fun deletePlanEventById(id: Long) {
+    dao.deletePlanEventById(id)
+    dao.deleteTaskByEventId(id)
+  }
+
+  // Batch insert helpers for import
+  suspend fun importData(
+    tasks: List<HabitTask>,
+    logs: List<HabitTaskLog>,
+    ratings: List<DayRating>,
+    scores: List<NeetTestScore>,
+    plannedTasks: List<PlannedTask>,
+    events: List<com.example.data.model.PlanEvent>,
+    chapters: List<NeetChapter>,
+    counters: List<NeetTallyCounter>
+  ) {
+    if (tasks.isNotEmpty()) dao.insertAllTasks(tasks)
+    if (logs.isNotEmpty()) dao.insertAllLogs(logs)
+    if (ratings.isNotEmpty()) dao.insertAllRatings(ratings)
+    if (scores.isNotEmpty()) dao.insertAllNeetScores(scores)
+    if (plannedTasks.isNotEmpty()) dao.insertAllPlannedTasks(plannedTasks)
+    if (events.isNotEmpty()) dao.insertAllPlanEvents(events)
+    if (chapters.isNotEmpty()) dao.insertAllNeetChapters(chapters)
+    if (counters.isNotEmpty()) dao.insertAllNeetTallyCounters(counters)
+  }
 }
