@@ -1,18 +1,55 @@
-# Habit & Study Tracker (Android) - v4
+# Habit & Study Tracker (Android) - v5
 
 A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, time tracking, syllabus completion, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APK (v4)
+## 📱 Pre-Built APK (v5)
 
-The compiled Android application package with suffix `v4` is ready in the repository:
-- **v4 APK Location**: `apk/habit-tracker-v4.apk`
+The compiled Android application package with suffix `v5` is ready in the repository:
+- **v5 APK Location**: `apk/habit-tracker-v5.apk`
 - **Standard Link**: `apk/habit-tracker.apk`
 - **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 26+)
 - **Architecture**: Universal APK
-- **Version**: `4.0-v4` (Version Code 4)
+- **Version**: `5.0-v5` (Version Code 5)
+
+---
+
+## 🚀 Release v5 - Major Features & Improvements
+
+### 1. Dedicated Task Presets Architecture
+- **Isolated Preset Templates**: Task presets are now managed as standalone templates (`TaskPreset` Room entity & DAO) decoupled from the active daily tracker database.
+- **No Daily Task Pollution**: Creating or editing presets in the Hamburger Menu preserves them strictly as reusable templates without injecting them into active daily habit lists.
+- **One-Tap "Add to Day"**: Seamlessly instantiate any preset directly into the currently selected date or schedule across custom date ranges.
+- **Full Presets Sync**: Real-time synchronization across the Add Task dialog, Presets Manager, and Hamburger Menu.
+
+### 2. Swipeable Analytics Tabs
+- **Smooth Horizontal Swiping**: Navigate effortlessly across **Day**, **Week**, **Month**, **Tally Counter**, and **NEET Syllabus** tabs using fluid touch swipe gestures powered by `HorizontalPager`.
+- **Synchronized Tab Bar**: Smooth animation and auto-scrolling tab indicators as you swipe across views.
+
+### 3. Minimalist Plan Screen Redesign
+- **Distraction-Free Calendar View**: Redesigned upcoming event cards, summary banners, and action buttons with clean borders, generous spacing, and muted container backgrounds.
+- **Dynamic Theming Alignment**: Replaced hardcoded green button styles with system theme colors for consistent visual harmony.
+
+### 4. Expanded UI Elements & Theme Color Customization
+- **12 Dynamic Color Themes**: Customize buttons, highlights, progress indicators, and UI elements with:
+  - 🔘 Slate / Neutral
+  - 🔮 Indigo
+  - 🌊 Ocean Blue
+  - 🩵 Cyan / Teal
+  - 💜 Royal Purple
+  - 🌸 Rose Pink
+  - 🔴 Crimson Red
+  - 🍊 Amber Orange
+  - 🏆 Golden
+  - 🖤 Obsidian / Black (AMOLED)
+  - 🩶 Graphite Grey
+  - 🌿 Emerald Green
+
+### 5. IME & Soft Keyboard Inset Optimizations
+- **Smooth Inset Transitions**: Configured `windowSoftInputMode="adjustResize"` to ensure zero frame drops and smooth animations during keyboard appearance/dismissal.
+- **Android 16 (API 36) Compatibility**: Full edge-to-edge support with modern Android platform standards.
 
 ---
 
@@ -79,7 +116,7 @@ The compiled Android application package with suffix `v4` is ready in the reposi
 
 ```
 ├── apk/
-│   ├── habit-tracker-v3.apk      # Latest release v3 APK
+│   ├── habit-tracker-v5.apk      # Latest release v5 APK
 │   └── habit-tracker.apk         # Universal download link
 ├── app/
 │   ├── src/main/
