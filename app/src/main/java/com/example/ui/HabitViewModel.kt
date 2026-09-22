@@ -731,6 +731,24 @@ class HabitViewModel(
     }
   }
 
+  fun togglePlannedTaskArchived(task: PlannedTask) {
+    viewModelScope.launch {
+      val newArchived = !task.isArchived
+      repository.updatePlannedTask(task.copy(isArchived = newArchived))
+    }
+  }
+
+  fun toggleEventSubtaskComplete(event: com.example.data.model.PlanEvent, subtaskId: String) {
+    viewModelScope.launch {
+      val subtasks = event.getSubtasks()
+      val updated = subtasks.map {
+        if (it.id == subtaskId) it.copy(isCompleted = !it.isCompleted) else it
+      }
+      val updatedEvent = event.copy(subtasksJson = com.example.data.model.PlanEvent.serializeSubtasks(updated))
+      repository.updatePlanEvent(updatedEvent)
+    }
+  }
+
   fun deletePlannedTask(taskId: Long) {
     viewModelScope.launch {
       val plans = repository.allPlannedTasks.stateIn(viewModelScope).value
@@ -1018,7 +1036,8 @@ class HabitViewModel(
     endDate: String,
     taskTitle: String,
     taskTargetMinutes: Int,
-    notes: String
+    notes: String,
+    subtasks: List<com.example.data.model.EventSubtask> = emptyList()
   ) {
     viewModelScope.launch {
       val event = com.example.data.model.PlanEvent(
@@ -1027,7 +1046,8 @@ class HabitViewModel(
         endDate = endDate,
         taskTitle = taskTitle,
         taskTargetMinutes = taskTargetMinutes,
-        notes = notes
+        notes = notes,
+        subtasksJson = com.example.data.model.PlanEvent.serializeSubtasks(subtasks)
       )
       repository.insertPlanEvent(event)
     }
@@ -1131,6 +1151,7 @@ class HabitViewModel(
         put("targetTimeMinutes", p.targetTimeMinutes)
         put("notes", p.notes)
         put("isStarred", p.isStarred)
+        put("isArchived", p.isArchived)
         put("isCompleted", p.isCompleted)
       }
       plannedArray.put(obj)
@@ -1148,6 +1169,7 @@ class HabitViewModel(
         put("taskTitle", e.taskTitle)
         put("taskTargetMinutes", e.taskTargetMinutes)
         put("notes", e.notes)
+        put("subtasksJson", e.subtasksJson)
       }
       eventsArray.put(obj)
     }
@@ -1255,6 +1277,7 @@ class HabitViewModel(
             targetTimeMinutes = o.optInt("targetTimeMinutes", 0),
             notes = o.optString("notes", ""),
             isStarred = o.optBoolean("isStarred", false),
+            isArchived = o.optBoolean("isArchived", false),
             isCompleted = o.optBoolean("isCompleted", false)
           )
         )
@@ -1275,7 +1298,8 @@ class HabitViewModel(
             endDate = o.optString("endDate", ""),
             taskTitle = o.optString("taskTitle", ""),
             taskTargetMinutes = o.optInt("taskTargetMinutes", 0),
-            notes = o.optString("notes", "")
+            notes = o.optString("notes", ""),
+            subtasksJson = o.optString("subtasksJson", "[]")
           )
         )
       }

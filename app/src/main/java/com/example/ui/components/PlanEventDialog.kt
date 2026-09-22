@@ -1,6 +1,10 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Event
@@ -22,6 +28,8 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,11 +43,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.EventSubtask
 import com.example.data.model.PlanEvent
 import com.example.util.DateUtils
 
@@ -53,7 +63,8 @@ fun PlanEventDialog(
     endDate: String,
     taskTitle: String,
     taskTargetMinutes: Int,
-    notes: String
+    notes: String,
+    subtasks: List<EventSubtask>
   ) -> Unit,
   onDelete: (() -> Unit)? = null
 ) {
@@ -68,9 +79,12 @@ fun PlanEventDialog(
     mutableStateOf(if ((eventToEdit?.taskTargetMinutes ?: 0) > 0) eventToEdit!!.taskTargetMinutes.toString() else "")
   }
   var notes by remember { mutableStateOf(eventToEdit?.notes ?: "") }
+  var subtasks by remember { mutableStateOf(eventToEdit?.getSubtasks() ?: emptyList()) }
+  var newSubtaskTitle by remember { mutableStateOf("") }
 
   var pickingStartDate by remember { mutableStateOf(false) }
   var pickingEndDate by remember { mutableStateOf(false) }
+  var subtaskToPickDatesFor by remember { mutableStateOf<EventSubtask?>(null) }
 
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -109,7 +123,7 @@ fun PlanEventDialog(
         verticalArrangement = Arrangement.spacedBy(12.dp)
       ) {
         Text(
-          text = "Events span a starting to ending date. The task to do will appear in Planned and Tracker views during this period.",
+          text = "Events span a starting to ending date. Subtasks can be assigned to specific dates, or appear everyday during the event.",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -155,11 +169,137 @@ fun PlanEventDialog(
           }
         }
 
-        // Task to do in this event
+        // Subtasks Inside Event Section
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+        ) {
+          Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                  imageVector = Icons.Default.Checklist,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                  text = "Subtasks inside Event",
+                  style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                )
+              }
+              Text(
+                text = "${subtasks.size}",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+              )
+            }
+
+            // Existing Subtasks List
+            subtasks.forEachIndexed { index, st ->
+              Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+              ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Text(
+                      text = "${index + 1}. ${st.title}",
+                      style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                      color = MaterialTheme.colorScheme.onSurface,
+                      modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                      onClick = { subtasks = subtasks.filter { it.id != st.id } },
+                      modifier = Modifier.size(24.dp)
+                    ) {
+                      Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove subtask",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                      )
+                    }
+                  }
+
+                  Spacer(modifier = Modifier.height(6.dp))
+
+                  // Assigned Dates badge / selector button
+                  val assignedDatesList = st.assignedDates.split(",").filter { it.isNotBlank() }
+                  val datesLabel = if (assignedDatesList.isEmpty()) {
+                    "🗓️ Everyday during event"
+                  } else {
+                    "🗓️ ${assignedDatesList.size} date(s): " + assignedDatesList.take(2).joinToString(", ") { DateUtils.formatShortDate(it) } + if (assignedDatesList.size > 2) "..." else ""
+                  }
+
+                  OutlinedButton(
+                    onClick = { subtaskToPickDatesFor = st },
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                  ) {
+                    Text(
+                      text = datesLabel,
+                      style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                      color = if (assignedDatesList.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                  }
+                }
+              }
+            }
+
+            // Add new subtask input
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+              OutlinedTextField(
+                value = newSubtaskTitle,
+                onValueChange = { newSubtaskTitle = it },
+                placeholder = { Text("Add subtask title...", fontSize = 12.sp) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+              )
+              Button(
+                onClick = {
+                  if (newSubtaskTitle.isNotBlank()) {
+                    subtasks = subtasks + EventSubtask(
+                      title = newSubtaskTitle.trim(),
+                      assignedDates = "" // defaults to everyday during event!
+                    )
+                    newSubtaskTitle = ""
+                  }
+                },
+                enabled = newSubtaskTitle.isNotBlank(),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+              ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(2.dp))
+                Text("Add", fontSize = 12.sp)
+              }
+            }
+          }
+        }
+
+        // Primary Task (optional overarching task)
         OutlinedTextField(
           value = taskTitle,
           onValueChange = { taskTitle = it },
-          label = { Text("Task to do in this event") },
+          label = { Text("Primary Event Goal / Habit (Optional)") },
           placeholder = { Text("e.g. Complete 50 PYQs & NCERT revision") },
           singleLine = true,
           modifier = Modifier.fillMaxWidth(),
@@ -170,8 +310,8 @@ fun PlanEventDialog(
         OutlinedTextField(
           value = targetMinutesStr,
           onValueChange = { targetMinutesStr = it.filter { ch -> ch.isDigit() } },
-          label = { Text("Daily Target Timer (minutes)") },
-          placeholder = { Text("e.g. 60 (optional)") },
+          label = { Text("Daily Target Timer (minutes, optional)") },
+          placeholder = { Text("e.g. 60") },
           singleLine = true,
           keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
           leadingIcon = {
@@ -223,7 +363,8 @@ fun PlanEventDialog(
               effectiveEnd,
               effectiveTaskTitle,
               targetMinutes,
-              notes.trim()
+              notes.trim(),
+              subtasks
             )
           }
         },
@@ -264,6 +405,24 @@ fun PlanEventDialog(
       onConfirm = { dates ->
         dates.firstOrNull()?.let { endDate = it }
         pickingEndDate = false
+      }
+    )
+  }
+
+  // Subtask Assigned Dates Picker Popup
+  subtaskToPickDatesFor?.let { targetSubtask ->
+    val currentAssignedDates = targetSubtask.assignedDates.split(",").filter { it.isNotBlank() }.toSet()
+    MiniCalendarPickerPopup(
+      initialDates = currentAssignedDates,
+      allowMultiple = true,
+      title = "Assign Dates for \"${targetSubtask.title}\" (leave empty for everyday)",
+      onDismiss = { subtaskToPickDatesFor = null },
+      onConfirm = { selectedDates ->
+        val sortedDates = selectedDates.sorted().joinToString(",")
+        subtasks = subtasks.map {
+          if (it.id == targetSubtask.id) it.copy(assignedDates = sortedDates) else it
+        }
+        subtaskToPickDatesFor = null
       }
     )
   }

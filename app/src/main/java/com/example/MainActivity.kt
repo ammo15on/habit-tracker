@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.db.AppDatabase
 import com.example.data.repository.HabitRepository
@@ -86,13 +87,17 @@ fun MainAppContent(
     containerColor = if (hasBackgroundImage) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
     bottomBar = {
       NavigationBar(
-        containerColor = if (hasBackgroundImage) MaterialTheme.colorScheme.surface.copy(alpha = 0.88f) else MaterialTheme.colorScheme.surface,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        tonalElevation = 0.dp,
         modifier = Modifier.testTag("main_bottom_nav")
       ) {
         // Tracker Tab
         NavigationBarItem(
           selected = currentTab == MainNavigationTab.TRACKER,
           onClick = { currentTab = MainNavigationTab.TRACKER },
+          colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+          ),
           icon = {
             Icon(
               imageVector = if (currentTab == MainNavigationTab.TRACKER) Icons.Filled.CheckCircle
@@ -108,6 +113,9 @@ fun MainAppContent(
         NavigationBarItem(
           selected = currentTab == MainNavigationTab.PLAN,
           onClick = { currentTab = MainNavigationTab.PLAN },
+          colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+          ),
           icon = {
             Icon(
               imageVector = if (currentTab == MainNavigationTab.PLAN) Icons.Filled.CalendarMonth
@@ -123,6 +131,9 @@ fun MainAppContent(
         NavigationBarItem(
           selected = currentTab == MainNavigationTab.ANALYTICS,
           onClick = { currentTab = MainNavigationTab.ANALYTICS },
+          colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+          ),
           icon = {
             Icon(
               imageVector = if (currentTab == MainNavigationTab.ANALYTICS) Icons.Filled.Analytics

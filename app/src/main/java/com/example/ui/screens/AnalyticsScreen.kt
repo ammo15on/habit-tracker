@@ -58,6 +58,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
@@ -124,8 +125,13 @@ fun AnalyticsScreen(
   val coroutineScope = rememberCoroutineScope()
   val pagerState = rememberPagerState(initialPage = selectedTab.ordinal, pageCount = { AnalyticsTab.entries.size })
 
-  LaunchedEffect(pagerState.currentPage) {
-    viewModel.selectedAnalyticsTab.value = AnalyticsTab.entries[pagerState.currentPage]
+  LaunchedEffect(pagerState) {
+    snapshotFlow { pagerState.settledPage }.collect { page ->
+      val tab = AnalyticsTab.entries[page]
+      if (viewModel.selectedAnalyticsTab.value != tab) {
+        viewModel.selectedAnalyticsTab.value = tab
+      }
+    }
   }
 
   LaunchedEffect(selectedTab) {
@@ -153,15 +159,16 @@ fun AnalyticsScreen(
 
     Spacer(modifier = Modifier.height(10.dp))
 
-    // Scrollable Tab Row: Day, Week, Month, NEET (Strictly arranged in order)
+    // Scrollable Tab Row: Day, Week, Month, NEET (Strictly arranged in order, transparent background)
     ScrollableTabRow(
       selectedTabIndex = selectedTab.ordinal,
       modifier = Modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(12.dp))
         .testTag("analytics_tab_row"),
-      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-      edgePadding = 8.dp
+      containerColor = Color.Transparent,
+      divider = {},
+      edgePadding = 0.dp
     ) {
       Tab(
         selected = selectedTab == AnalyticsTab.DAY,
@@ -427,41 +434,22 @@ private fun WeeksAnalyticsView(
   weeks: List<WeekSummary>,
   onDayClick: (String) -> Unit
 ) {
+  val totalBest = weeks.sumOf { it.bestCount }
+  val totalAverage = weeks.sumOf { it.averageCount }
+  val totalWorst = weeks.sumOf { it.worstCount }
+
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(bottom = 80.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
     item {
-      Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-          containerColor = RatingBestGreen.copy(alpha = 0.12f)
-        )
-      ) {
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp),
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Icon(
-            imageVector = Icons.Default.Info,
-            contentDescription = null,
-            tint = RatingBestGreen,
-            modifier = Modifier.size(20.dp)
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Text(
-            text = "Week Rule: If 4 or more days in a week are rated Best (😊), the entire week turns Green.",
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontWeight = FontWeight.Medium,
-              color = MaterialTheme.colorScheme.onSurface
-            )
-          )
-        }
-      }
+      RatingCountSummaryCard(
+        bestCount = totalBest,
+        averageCount = totalAverage,
+        worstCount = totalWorst,
+        title = "Weekly Ratings Overview"
+      )
     }
 
     items(weeks) { week ->
@@ -475,22 +463,18 @@ private fun WeekSummaryCard(
   week: WeekSummary,
   onDayClick: (String) -> Unit
 ) {
-  val isGreen = week.isGreenWeek
-  val cardBg = if (isGreen) RatingBestGreen.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
-  val borderColor = if (isGreen) RatingBestGreen else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-
   Card(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = cardBg),
-    elevation = CardDefaults.cardElevation(defaultElevation = if (isGreen) 2.dp else 1.dp)
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
   ) {
     Column(
       modifier = Modifier
         .fillMaxWidth()
         .border(
-          width = if (isGreen) 2.dp else 1.dp,
-          color = borderColor,
+          width = 1.dp,
+          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
           shape = RoundedCornerShape(16.dp)
         )
         .padding(16.dp)
@@ -529,38 +513,41 @@ private fun WeekSummaryCard(
           }
         }
 
-        if (isGreen) {
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(RatingBestGreen)
-              .padding(horizontal = 10.dp, vertical = 4.dp)
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text(
-                text = "GREEN WEEK",
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = FontWeight.Bold,
-                  color = Color.White
-                )
-              )
-            }
-          }
-        } else {
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant)
-              .padding(horizontal = 8.dp, vertical = 4.dp)
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .padding(horizontal = 6.dp, vertical = 4.dp)
           ) {
             Text(
-              text = "${week.bestCount}/4 Best Days",
-              style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-              )
+              text = "😊 ${week.bestCount}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+            )
+          }
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .padding(horizontal = 6.dp, vertical = 4.dp)
+          ) {
+            Text(
+              text = "😐 ${week.averageCount}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+            )
+          }
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .padding(horizontal = 6.dp, vertical = 4.dp)
+          ) {
+            Text(
+              text = "😞 ${week.worstCount}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
             )
           }
         }
@@ -592,39 +579,22 @@ private fun MonthsAnalyticsView(
   months: List<MonthSummary>,
   onDayClick: (String) -> Unit
 ) {
+  val totalBest = months.sumOf { it.bestCount }
+  val totalAverage = months.sumOf { it.averageCount }
+  val totalWorst = months.sumOf { it.worstCount }
+
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(bottom = 80.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
     item {
-      Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = RatingBestGreen.copy(alpha = 0.12f))
-      ) {
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp),
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Icon(
-            imageVector = Icons.Default.Info,
-            contentDescription = null,
-            tint = RatingBestGreen,
-            modifier = Modifier.size(20.dp)
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Text(
-            text = "Month Rule: If ≥ 50% or 15+ rated days are Best (😊), Month turns Green. (Average = Light Grey, Worst = Black)",
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontWeight = FontWeight.Medium,
-              color = MaterialTheme.colorScheme.onSurface
-            )
-          )
-        }
-      }
+      RatingCountSummaryCard(
+        bestCount = totalBest,
+        averageCount = totalAverage,
+        worstCount = totalWorst,
+        title = "Monthly Ratings Overview"
+      )
     }
 
     items(months) { month ->
@@ -638,21 +608,18 @@ private fun MonthSummaryCard(
   month: MonthSummary,
   onDayClick: (String) -> Unit
 ) {
-  val isGreen = month.isGreenMonth
-  val cardBg = if (isGreen) RatingBestGreen.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
-  val borderColor = if (isGreen) RatingBestGreen else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-
   Card(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = cardBg)
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
   ) {
     Column(
       modifier = Modifier
         .fillMaxWidth()
         .border(
-          width = if (isGreen) 2.dp else 1.dp,
-          color = borderColor,
+          width = 1.dp,
+          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
           shape = RoundedCornerShape(16.dp)
         )
         .padding(16.dp)
@@ -681,53 +648,90 @@ private fun MonthSummaryCard(
           )
         }
 
-        if (isGreen) {
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(RatingBestGreen)
-              .padding(horizontal = 10.dp, vertical = 4.dp)
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .padding(horizontal = 6.dp, vertical = 4.dp)
           ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text(
-                text = "GREEN MONTH",
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = FontWeight.Bold,
-                  color = Color.White
-                )
-              )
-            }
-          }
-        } else {
-          val percent = if (month.ratedDaysCount > 0) (month.bestCount.toFloat() / month.ratedDaysCount * 100).toInt() else 0
-          Text(
-            text = "${month.bestCount} Best ($percent%)",
-            style = MaterialTheme.typography.labelMedium.copy(
-              fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+              text = "😊 ${month.bestCount}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
             )
-          )
+          }
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .padding(horizontal = 6.dp, vertical = 4.dp)
+          ) {
+            Text(
+              text = "😐 ${month.averageCount}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+            )
+          }
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .padding(horizontal = 6.dp, vertical = 4.dp)
+          ) {
+            Text(
+              text = "😞 ${month.worstCount}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+            )
+          }
         }
       }
 
       Spacer(modifier = Modifier.height(14.dp))
 
-      // Month Grid of Days (7 columns)
-      LazyVerticalGrid(
-        columns = GridCells.Fixed(7),
-        modifier = Modifier
-          .fillMaxWidth()
-          .height(190.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+      // Weekday column headers
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+      ) {
+        listOf("M", "T", "W", "T", "F", "S", "S").forEach { dayHeader ->
+          Text(
+            text = dayHeader,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.height(6.dp))
+
+      // Month grid non-lazy chunked by 7 for 100% smooth scroll without jank
+      Column(
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
       ) {
-        items(month.days) { day ->
-          MiniDayGridCell(
-            day = day,
-            onClick = { onDayClick(day.date) }
-          )
+        month.days.chunked(7).forEach { weekChunk ->
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+          ) {
+            weekChunk.forEach { day ->
+              Box(modifier = Modifier.weight(1f)) {
+                MiniDayGridCell(
+                  day = day,
+                  onClick = { onDayClick(day.date) }
+                )
+              }
+            }
+            if (weekChunk.size < 7) {
+              repeat(7 - weekChunk.size) {
+                Spacer(modifier = Modifier.weight(1f))
+              }
+            }
+          }
         }
       }
     }
@@ -742,11 +746,24 @@ private fun DaysAnalyticsView(
   days: List<DaySummary>,
   onDayClick: (String) -> Unit
 ) {
+  val totalBest = days.count { it.rating == RatingType.BEST }
+  val totalAverage = days.count { it.rating == RatingType.AVERAGE }
+  val totalWorst = days.count { it.rating == RatingType.WORST }
+
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(bottom = 80.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp)
   ) {
+    item {
+      RatingCountSummaryCard(
+        bestCount = totalBest,
+        averageCount = totalAverage,
+        worstCount = totalWorst,
+        title = "Daily Ratings Overview"
+      )
+    }
+
     items(days) { day ->
       DayAnalyticsRow(day = day, onClick = { onDayClick(day.date) })
     }
@@ -760,15 +777,10 @@ private fun DayAnalyticsRow(
 ) {
   val rating = day.rating
   val ratingBg = when (rating) {
-    RatingType.BEST -> RatingBestGreen
-    RatingType.AVERAGE -> RatingAverageGrey
-    RatingType.WORST -> RatingWorstBlack
-    null -> MaterialTheme.colorScheme.surfaceVariant
-  }
-  val textColor = when (rating) {
-    RatingType.BEST, RatingType.WORST -> Color.White
-    RatingType.AVERAGE -> Color(0xFF1E293B)
-    null -> MaterialTheme.colorScheme.onSurfaceVariant
+    RatingType.BEST -> RatingBestGreen.copy(alpha = 0.2f)
+    RatingType.AVERAGE -> RatingAverageGrey.copy(alpha = 0.4f)
+    RatingType.WORST -> RatingWorstBlack.copy(alpha = 0.2f)
+    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
   }
 
   Card(
@@ -797,12 +809,12 @@ private fun DayAnalyticsRow(
             text = when (rating) {
               RatingType.BEST -> "😊"
               RatingType.AVERAGE -> "😐"
-              RatingType.WORST -> "😢"
+              RatingType.WORST -> "😞"
               null -> day.dayOfWeekAbbr
             },
             fontSize = if (rating != null) 18.sp else 12.sp,
             fontWeight = FontWeight.Bold,
-            color = textColor
+            color = MaterialTheme.colorScheme.onSurface
           )
         }
 
@@ -831,6 +843,93 @@ private fun DayAnalyticsRow(
         ),
         color = MaterialTheme.colorScheme.primary
       )
+    }
+  }
+}
+
+@Composable
+private fun RatingCountSummaryCard(
+  bestCount: Int,
+  averageCount: Int,
+  worstCount: Int,
+  title: String
+) {
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(14.dp),
+    colors = CardDefaults.cardColors(
+      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    )
+  ) {
+    Column(modifier = Modifier.padding(12.dp)) {
+      Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.onSurface
+      )
+      Spacer(modifier = Modifier.height(8.dp))
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        RatingCountEmojiChip(
+          emoji = "😊",
+          label = "Best",
+          count = bestCount,
+          modifier = Modifier.weight(1f)
+        )
+        RatingCountEmojiChip(
+          emoji = "😐",
+          label = "Average",
+          count = averageCount,
+          modifier = Modifier.weight(1f)
+        )
+        RatingCountEmojiChip(
+          emoji = "😞",
+          label = "Worst",
+          count = worstCount,
+          modifier = Modifier.weight(1f)
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun RatingCountEmojiChip(
+  emoji: String,
+  label: String,
+  count: Int,
+  modifier: Modifier = Modifier
+) {
+  Card(
+    modifier = modifier,
+    shape = RoundedCornerShape(10.dp),
+    colors = CardDefaults.cardColors(
+      containerColor = MaterialTheme.colorScheme.surface
+    )
+  ) {
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 8.dp, vertical = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.Center
+    ) {
+      Text(text = emoji, fontSize = 18.sp)
+      Spacer(modifier = Modifier.width(6.dp))
+      Column {
+        Text(
+          text = "$count",
+          style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+          color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+          text = label,
+          style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
     }
   }
 }
@@ -1190,15 +1289,10 @@ private fun DayRatingBadge(
 ) {
   val rating = day.rating
   val bg = when (rating) {
-    RatingType.BEST -> RatingBestGreen
-    RatingType.AVERAGE -> RatingAverageGrey
-    RatingType.WORST -> RatingWorstBlack
-    null -> MaterialTheme.colorScheme.surfaceVariant
-  }
-  val textCol = when (rating) {
-    RatingType.BEST, RatingType.WORST -> Color.White
-    RatingType.AVERAGE -> Color(0xFF1E293B)
-    null -> MaterialTheme.colorScheme.onSurfaceVariant
+    RatingType.BEST -> RatingBestGreen.copy(alpha = 0.2f)
+    RatingType.AVERAGE -> RatingAverageGrey.copy(alpha = 0.4f)
+    RatingType.WORST -> RatingWorstBlack.copy(alpha = 0.2f)
+    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
   }
 
   Column(
@@ -1224,12 +1318,12 @@ private fun DayRatingBadge(
         text = when (rating) {
           RatingType.BEST -> "😊"
           RatingType.AVERAGE -> "😐"
-          RatingType.WORST -> "😢"
+          RatingType.WORST -> "😞"
           null -> "-"
         },
         fontSize = if (rating != null) 14.sp else 12.sp,
         fontWeight = FontWeight.Bold,
-        color = textCol
+        color = MaterialTheme.colorScheme.onSurface
       )
     }
   }
@@ -1242,15 +1336,10 @@ private fun MiniDayGridCell(
 ) {
   val rating = day.rating
   val bg = when (rating) {
-    RatingType.BEST -> RatingBestGreen
-    RatingType.AVERAGE -> RatingAverageGrey
-    RatingType.WORST -> RatingWorstBlack
-    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-  }
-  val textCol = when (rating) {
-    RatingType.BEST, RatingType.WORST -> Color.White
-    RatingType.AVERAGE -> Color(0xFF1E293B)
-    null -> MaterialTheme.colorScheme.onSurfaceVariant
+    RatingType.BEST -> RatingBestGreen.copy(alpha = 0.22f)
+    RatingType.AVERAGE -> RatingAverageGrey.copy(alpha = 0.4f)
+    RatingType.WORST -> RatingWorstBlack.copy(alpha = 0.18f)
+    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
   }
 
   val dayNum = try {
@@ -1267,16 +1356,26 @@ private fun MiniDayGridCell(
       .clickable { onClick() },
     contentAlignment = Alignment.Center
   ) {
-    Text(
-      text = when (rating) {
-        RatingType.BEST -> "😊"
-        RatingType.AVERAGE -> "😐"
-        RatingType.WORST -> "😢"
-        null -> dayNum
-      },
-      fontSize = if (rating != null) 12.sp else 10.sp,
-      fontWeight = FontWeight.Bold,
-      color = textCol
-    )
+    Column(
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.Center
+    ) {
+      Text(
+        text = dayNum,
+        fontSize = 9.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+      )
+      if (rating != null) {
+        Text(
+          text = when (rating) {
+            RatingType.BEST -> "😊"
+            RatingType.AVERAGE -> "😐"
+            RatingType.WORST -> "😞"
+          },
+          fontSize = 10.sp
+        )
+      }
+    }
   }
 }

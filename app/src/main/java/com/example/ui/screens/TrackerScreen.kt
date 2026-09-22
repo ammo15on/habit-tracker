@@ -24,7 +24,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
@@ -33,8 +36,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SmallFloatingActionButton
@@ -57,6 +62,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,12 +88,14 @@ fun TrackerScreen(
   val presets by viewModel.presets.collectAsStateWithLifecycle()
   val currentRating by viewModel.currentDayRating.collectAsStateWithLifecycle()
   val totalTimeSeconds by viewModel.totalTimeTodaySeconds.collectAsStateWithLifecycle()
+  val planEvents by viewModel.allPlanEvents.collectAsStateWithLifecycle()
 
   var showAddDialog by remember { mutableStateOf(false) }
   var showPresetsDialog by remember { mutableStateOf(false) }
   var showHamburgerMenu by remember { mutableStateOf(false) }
   var taskToEdit by remember { mutableStateOf<HabitTask?>(null) }
   var totalDragX by remember { mutableFloatStateOf(0f) }
+  var expandedEventIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
   val isToday = (selectedDate == DateUtils.today())
   val prevDay = DateUtils.getPreviousDay(selectedDate)
@@ -98,20 +106,27 @@ fun TrackerScreen(
   val dayAbbr = DateUtils.formatDayOfWeekAbbr(selectedDate)
   val fullDate = DateUtils.formatFullDate(selectedDate)
 
+  val activeEventsWithSubtasksToday = remember(planEvents, selectedDate) {
+    planEvents.filter { event ->
+      selectedDate >= event.startDate && selectedDate <= event.endDate &&
+        event.getSubtasks().any { event.isSubtaskApplicableForDate(it, selectedDate) }
+    }
+  }
+
   Column(modifier = modifier.fillMaxSize()) {
     // Upper scrolling area with day header, task counter, habits list, and FAB
     Box(
       modifier = Modifier
         .weight(1f)
         .fillMaxWidth()
-        .pointerInput(selectedDate) {
+        .pointerInput(Unit) {
           detectHorizontalDragGestures(
             onDragStart = { totalDragX = 0f },
             onDragEnd = {
-              if (totalDragX < -60f) {
+              if (totalDragX < -70f) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 viewModel.goToNextDay()
-              } else if (totalDragX > 60f) {
+              } else if (totalDragX > 70f) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 viewModel.goToPreviousDay()
               }
@@ -152,6 +167,116 @@ fun TrackerScreen(
               viewModel.goToToday()
             }
           )
+        }
+
+        // 2. Active Event Subtasks for Today (if any)
+        if (activeEventsWithSubtasksToday.isNotEmpty()) {
+          item(key = "event_subtasks_section") {
+            Card(
+              modifier = Modifier.fillMaxWidth(),
+              shape = RoundedCornerShape(16.dp),
+              colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+              )
+            ) {
+              Column(modifier = Modifier.padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Icon(
+                    imageVector = Icons.Default.Event,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                  )
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text(
+                    text = "Event Subtasks for Today",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                  )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                activeEventsWithSubtasksToday.forEach { event ->
+                  val applicableSubtasks = event.getSubtasks().filter {
+                    event.isSubtaskApplicableForDate(it, selectedDate)
+                  }
+                  if (applicableSubtasks.isNotEmpty()) {
+                    val isExpanded = expandedEventIds.contains(event.id)
+                    Row(
+                      modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                          expandedEventIds = if (isExpanded) expandedEventIds - event.id else expandedEventIds + event.id
+                        }
+                        .padding(vertical = 4.dp),
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      Text(
+                        text = event.title,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                      )
+                      Spacer(modifier = Modifier.width(4.dp))
+                      IconButton(
+                        onClick = {
+                          expandedEventIds = if (isExpanded) expandedEventIds - event.id else expandedEventIds + event.id
+                        },
+                        modifier = Modifier.size(28.dp)
+                      ) {
+                        Icon(
+                          imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                          contentDescription = if (isExpanded) "Collapse subtasks" else "Expand subtasks",
+                          tint = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.size(20.dp)
+                        )
+                      }
+                      Spacer(modifier = Modifier.width(4.dp))
+                      Text(
+                        text = "(${applicableSubtasks.count { it.isCompleted }}/${applicableSubtasks.size})",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                      )
+                    }
+
+                    if (isExpanded) {
+                      applicableSubtasks.forEach { subtask ->
+                        Row(
+                          modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                              viewModel.toggleEventSubtaskComplete(event, subtask.id)
+                            }
+                            .padding(vertical = 4.dp, horizontal = 4.dp),
+                          verticalAlignment = Alignment.CenterVertically
+                        ) {
+                          Checkbox(
+                            checked = subtask.isCompleted,
+                            onCheckedChange = {
+                              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                              viewModel.toggleEventSubtaskComplete(event, subtask.id)
+                            }
+                          )
+                          Spacer(modifier = Modifier.width(6.dp))
+                          Text(
+                            text = subtask.title,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                              textDecoration = if (subtask.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                            ),
+                            color = if (subtask.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                   else MaterialTheme.colorScheme.onSurface
+                          )
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
 
         // 2. Tasks List Header with counter and Default Tasks manager
@@ -409,9 +534,9 @@ private fun DayNavigationHeader(
       .testTag("top_day_nav_card"),
     shape = RoundedCornerShape(20.dp),
     colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surface
+      containerColor = Color.Transparent
     ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Column(
       modifier = Modifier

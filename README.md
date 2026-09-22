@@ -1,55 +1,76 @@
-# Habit & Study Tracker (Android) - v5
+# Habit & Study Tracker (Android) - v5.1
 
 A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, time tracking, syllabus completion, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APK (v5)
+## 📱 Pre-Built APKs (v5.1 & Version History)
 
-The compiled Android application package with suffix `v5` is ready in the repository:
-- **v5 APK Location**: `apk/habit-tracker-v5.apk`
-- **Standard Link**: `apk/habit-tracker.apk`
+The compiled Android application packages are available in the repository without overwriting or deleting historical versions:
+- **v5.1 Latest Release**: `apk/habit-tracker-v5.1.apk`
+- **v5 Release**: `apk/habit-tracker-v5.apk`
+- **v3 Release**: `apk/habit-tracker-v3.apk`
+- **v2 Release**: `apk/habit-tracker-v2.apk`
+- **Universal Standard Link**: `apk/habit-tracker.apk`
 - **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 26+)
 - **Architecture**: Universal APK
-- **Version**: `5.0-v5` (Version Code 5)
+- **Version**: `5.1` (Version Code 6)
+
+---
+
+## 🚀 Release v5.1 - Collapsible Event Subtasks in Tracker & Plan
+
+### 1. Collapse / Expand Icon Beside Event Name
+- **Interactive Header Controls**: Added a dedicated collapse/expand icon (`KeyboardArrowDown` / `KeyboardArrowUp`) directly beside each event name in both the **Daily Tracker** and **Plan** screen.
+- **On-Demand Subtask Visibility**: Subtasks remain neatly collapsed by default to preserve a compact, uncluttered layout. Tapping the expand icon or event title instantly expands the subtasks section to see all details and interact with individual checkboxes.
+- **Live Counter Badges**: Displays a completed subtask counter `(X/Y)` next to the expand icon so progress is immediately visible without needing to expand.
+- **Seamless Synchronization**: Toggle any subtask complete in the Tracker or Planner, and the status syncs in real time across the entire app.
 
 ---
 
 ## 🚀 Release v5 - Major Features & Improvements
 
-### 1. Dedicated Task Presets Architecture
-- **Isolated Preset Templates**: Task presets are now managed as standalone templates (`TaskPreset` Room entity & DAO) decoupled from the active daily tracker database.
-- **No Daily Task Pollution**: Creating or editing presets in the Hamburger Menu preserves them strictly as reusable templates without injecting them into active daily habit lists.
+### 1. Event Subtasks with Date Assignments & Real-Time Completion
+- **Subtasks Inside Events**: Events in the Planner now support granular subtasks with flexible scheduling.
+- **Date-Specific or Everyday Recurrence**: Subtasks can be assigned to specific dates within the event period. If no specific dates are selected, the subtask automatically recurs every single day for the entire event duration.
+- **Instant Completion Checkbox**: Mark individual event subtasks as complete or pending directly from the Planner and from the Tracker screen for the active day.
+- **Daily Tracker Integration**: Today's active event subtasks appear directly in the Daily Tracker under their parent event, synchronized in real time.
+
+### 2. Collapsible Day Grouping in Plan Screen
+- **Date-Grouped Task Lists**: All planned tasks are organized chronologically into day sections.
+- **Expand & Collapse per Day**: Tap any day header to expand or collapse the day's tasks, making long-term planning clean and easy to scan.
+- **Quick Day Counter**: Each day header shows the number of planned tasks at a glance.
+
+### 3. Task Archiving (Replaces Starred Priority)
+- **Archive System**: Starred task mechanism replaced with a clean archive flow.
+- **Active & Archived Tabs**: The Plan view features dedicated segmented tabs: **All Tasks** and **Archived Tasks**.
+- **Planner & Tracker Consistency**: Archived tasks are hidden from the active Plan view (visible only in the Archived tab), while remaining available on their scheduled day in the Daily Tracker.
+
+### 4. Transparent Header & Base Navigation Theming
+- **Zero-Visual-Clutter Layout**: The top heading cards, tab rows, and bottom navigation bar use transparent container backgrounds matching the underlying wallpaper or background.
+- **Consistent Elevation**: Removed heavy shadows and solid card containers to create an open, unified aesthetic.
+
+### 5. Smooth Gestures & Month Scrolling Optimization
+- **Fluid Day Swiping**: Tuned drag velocity thresholds and decoupled recomposition states in the Daily Tracker for ultra-smooth date swipes.
+- **100% Smooth Month Scroll**: Replaced nested `LazyVerticalGrid` inside scrollable month cards with memory-efficient chunked rows, completely eliminating scroll stutter and jank.
+- **Settled-Page Pager Sync**: Synchronized tabs using `snapshotFlow` and settled page states to ensure stutter-free horizontal swiping between Day, Week, Month, and NEET views.
+
+### 6. Emoji Rating Counts (Replaces "Green Days" Rules)
+- **Simplified Rating Overview**: Replaced complex arbitrary "Green Days" thresholds with clear, transparent counts of **Best (😊)**, **Average (😐)**, and **Worst (😞)** ratings.
+- **Multi-Tier Overviews**: Summary chips with emoji counts are prominently displayed across Weekly, Monthly, and Daily analytics overviews.
+- **Consistent Rating Badges**: Days and calendar cells highlight with emojis and subtle rating badges without heavy solid fills.
+
+---
+
+### 7. Dedicated Task Presets Architecture
+- **Isolated Preset Templates**: Task presets are managed as standalone templates (`TaskPreset` Room entity & DAO) decoupled from the active daily tracker database.
+- **No Daily Task Pollution**: Creating or editing presets preserves them strictly as reusable templates without injecting them into active daily habit lists.
 - **One-Tap "Add to Day"**: Seamlessly instantiate any preset directly into the currently selected date or schedule across custom date ranges.
-- **Full Presets Sync**: Real-time synchronization across the Add Task dialog, Presets Manager, and Hamburger Menu.
 
-### 2. Swipeable Analytics Tabs
-- **Smooth Horizontal Swiping**: Navigate effortlessly across **Day**, **Week**, **Month**, **Tally Counter**, and **NEET Syllabus** tabs using fluid touch swipe gestures powered by `HorizontalPager`.
-- **Synchronized Tab Bar**: Smooth animation and auto-scrolling tab indicators as you swipe across views.
-
-### 3. Minimalist Plan Screen Redesign
-- **Distraction-Free Calendar View**: Redesigned upcoming event cards, summary banners, and action buttons with clean borders, generous spacing, and muted container backgrounds.
-- **Dynamic Theming Alignment**: Replaced hardcoded green button styles with system theme colors for consistent visual harmony.
-
-### 4. Expanded UI Elements & Theme Color Customization
-- **12 Dynamic Color Themes**: Customize buttons, highlights, progress indicators, and UI elements with:
-  - 🔘 Slate / Neutral
-  - 🔮 Indigo
-  - 🌊 Ocean Blue
-  - 🩵 Cyan / Teal
-  - 💜 Royal Purple
-  - 🌸 Rose Pink
-  - 🔴 Crimson Red
-  - 🍊 Amber Orange
-  - 🏆 Golden
-  - 🖤 Obsidian / Black (AMOLED)
-  - 🩶 Graphite Grey
-  - 🌿 Emerald Green
-
-### 5. IME & Soft Keyboard Inset Optimizations
-- **Smooth Inset Transitions**: Configured `windowSoftInputMode="adjustResize"` to ensure zero frame drops and smooth animations during keyboard appearance/dismissal.
-- **Android 16 (API 36) Compatibility**: Full edge-to-edge support with modern Android platform standards.
+### 8. NEET Class 11 & Class 12 Syllabus & Tally Counter
+- **NCERT Chapters**: Preloaded with complete Class 11 and Class 12 Physics, Chemistry, and Biology syllabus chapters with concept, PYQ, and revision progress.
+- **Interactive Tally Counters**: Create and tap counters with tactile haptic feedback for tracking questions solved, study intervals, or daily repetitions.
 
 ---
 

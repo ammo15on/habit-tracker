@@ -12,6 +12,7 @@ data class PlannedTask(
   val targetTimeMinutes: Int = 0, // Target timer in minutes
   val notes: String = "",
   val isStarred: Boolean = false,
+  val isArchived: Boolean = false,
   val isCompleted: Boolean = false,
   val createdAt: Long = System.currentTimeMillis()
 )

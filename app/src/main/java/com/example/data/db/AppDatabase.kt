@@ -26,7 +26,7 @@ import com.example.data.model.TaskPreset
     NeetTallyCounter::class,
     TaskPreset::class
   ],
-  version = 7,
+  version = 8,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

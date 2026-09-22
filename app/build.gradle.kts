@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.habittracker.uqxvp"
     minSdk = 24
     targetSdk = 36
-    versionCode = 5
-    versionName = "5.0-v5"
+    versionCode = 6
+    versionName = "5.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
