@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -135,7 +136,7 @@ fun AnalyticsScreen(
   }
 
   LaunchedEffect(selectedTab) {
-    if (pagerState.currentPage != selectedTab.ordinal) {
+    if (!pagerState.isScrollInProgress && pagerState.currentPage != selectedTab.ordinal) {
       pagerState.animateScrollToPage(selectedTab.ordinal)
     }
   }
@@ -240,6 +241,8 @@ fun AnalyticsScreen(
 
     HorizontalPager(
       state = pagerState,
+      beyondViewportPageCount = 3,
+      key = { page -> AnalyticsTab.entries[page].name },
       modifier = Modifier
         .fillMaxWidth()
         .weight(1f)
@@ -466,15 +469,15 @@ private fun WeekSummaryCard(
   Card(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Column(
       modifier = Modifier
         .fillMaxWidth()
         .border(
           width = 1.dp,
-          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
           shape = RoundedCornerShape(16.dp)
         )
         .padding(16.dp)
@@ -520,7 +523,12 @@ private fun WeekSummaryCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .background(Color.Transparent)
+              .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                RoundedCornerShape(8.dp)
+              )
               .padding(horizontal = 6.dp, vertical = 4.dp)
           ) {
             Text(
@@ -531,7 +539,12 @@ private fun WeekSummaryCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .background(Color.Transparent)
+              .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                RoundedCornerShape(8.dp)
+              )
               .padding(horizontal = 6.dp, vertical = 4.dp)
           ) {
             Text(
@@ -542,7 +555,12 @@ private fun WeekSummaryCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .background(Color.Transparent)
+              .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                RoundedCornerShape(8.dp)
+              )
               .padding(horizontal = 6.dp, vertical = 4.dp)
           ) {
             Text(
@@ -611,15 +629,15 @@ private fun MonthSummaryCard(
   Card(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Column(
       modifier = Modifier
         .fillMaxWidth()
         .border(
           width = 1.dp,
-          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
           shape = RoundedCornerShape(16.dp)
         )
         .padding(16.dp)
@@ -655,7 +673,12 @@ private fun MonthSummaryCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .background(Color.Transparent)
+              .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                RoundedCornerShape(8.dp)
+              )
               .padding(horizontal = 6.dp, vertical = 4.dp)
           ) {
             Text(
@@ -666,7 +689,12 @@ private fun MonthSummaryCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .background(Color.Transparent)
+              .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                RoundedCornerShape(8.dp)
+              )
               .padding(horizontal = 6.dp, vertical = 4.dp)
           ) {
             Text(
@@ -677,7 +705,12 @@ private fun MonthSummaryCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .background(Color.Transparent)
+              .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                RoundedCornerShape(8.dp)
+              )
               .padding(horizontal = 6.dp, vertical = 4.dp)
           ) {
             Text(
@@ -708,22 +741,31 @@ private fun MonthSummaryCard(
 
       Spacer(modifier = Modifier.height(6.dp))
 
-      // Month grid non-lazy chunked by 7 for 100% smooth scroll without jank
+      // Month grid non-lazy chunked by 7 with weekday alignment for 100% smooth scroll without jank
+      val firstDate = month.days.firstOrNull()?.date
+      val startDayOffset = if (firstDate != null) DateUtils.getDayOfWeekIndex(firstDate) else 0
+      val gridCells = buildList<DaySummary?> {
+        repeat(startDayOffset) { add(null) }
+        addAll(month.days)
+      }
+
       Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
       ) {
-        month.days.chunked(7).forEach { weekChunk ->
+        gridCells.chunked(7).forEach { weekChunk ->
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
           ) {
             weekChunk.forEach { day ->
               Box(modifier = Modifier.weight(1f)) {
-                MiniDayGridCell(
-                  day = day,
-                  onClick = { onDayClick(day.date) }
-                )
+                if (day != null) {
+                  MiniDayGridCell(
+                    day = day,
+                    onClick = { onDayClick(day.date) }
+                  )
+                }
               }
             }
             if (weekChunk.size < 7) {
@@ -780,7 +822,7 @@ private fun DayAnalyticsRow(
     RatingType.BEST -> RatingBestGreen.copy(alpha = 0.2f)
     RatingType.AVERAGE -> RatingAverageGrey.copy(alpha = 0.4f)
     RatingType.WORST -> RatingWorstBlack.copy(alpha = 0.2f)
-    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    null -> Color.Transparent
   }
 
   Card(
@@ -788,7 +830,9 @@ private fun DayAnalyticsRow(
       .fillMaxWidth()
       .clickable { onClick() },
     shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Row(
       modifier = Modifier
@@ -802,7 +846,12 @@ private fun DayAnalyticsRow(
           modifier = Modifier
             .size(42.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(ratingBg),
+            .background(ratingBg)
+            .border(
+              width = 1.dp,
+              color = if (rating != null) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+              shape = RoundedCornerShape(10.dp)
+            ),
           contentAlignment = Alignment.Center
         ) {
           Text(
@@ -858,8 +907,10 @@ private fun RatingCountSummaryCard(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(14.dp),
     colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-    )
+      containerColor = Color.Transparent
+    ),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Column(modifier = Modifier.padding(12.dp)) {
       Text(
@@ -906,8 +957,10 @@ private fun RatingCountEmojiChip(
     modifier = modifier,
     shape = RoundedCornerShape(10.dp),
     colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surface
-    )
+      containerColor = Color.Transparent
+    ),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Row(
       modifier = Modifier
@@ -964,7 +1017,9 @@ private fun TaskTallyView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(12.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
           Row(
             modifier = Modifier
@@ -987,7 +1042,9 @@ private fun TaskTallyView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
           Row(
             modifier = Modifier
@@ -1292,7 +1349,7 @@ private fun DayRatingBadge(
     RatingType.BEST -> RatingBestGreen.copy(alpha = 0.2f)
     RatingType.AVERAGE -> RatingAverageGrey.copy(alpha = 0.4f)
     RatingType.WORST -> RatingWorstBlack.copy(alpha = 0.2f)
-    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    null -> Color.Transparent
   }
 
   Column(
@@ -1311,7 +1368,12 @@ private fun DayRatingBadge(
       modifier = Modifier
         .size(34.dp)
         .clip(RoundedCornerShape(8.dp))
-        .background(bg),
+        .background(bg)
+        .border(
+          width = 1.dp,
+          color = if (rating != null) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+          shape = RoundedCornerShape(8.dp)
+        ),
       contentAlignment = Alignment.Center
     ) {
       Text(
@@ -1339,7 +1401,7 @@ private fun MiniDayGridCell(
     RatingType.BEST -> RatingBestGreen.copy(alpha = 0.22f)
     RatingType.AVERAGE -> RatingAverageGrey.copy(alpha = 0.4f)
     RatingType.WORST -> RatingWorstBlack.copy(alpha = 0.18f)
-    null -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    null -> Color.Transparent
   }
 
   val dayNum = try {
@@ -1353,6 +1415,11 @@ private fun MiniDayGridCell(
       .aspectRatio(1f)
       .clip(RoundedCornerShape(6.dp))
       .background(bg)
+      .border(
+        width = 0.5.dp,
+        color = if (rating != null) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        shape = RoundedCornerShape(6.dp)
+      )
       .clickable { onClick() },
     contentAlignment = Alignment.Center
   ) {

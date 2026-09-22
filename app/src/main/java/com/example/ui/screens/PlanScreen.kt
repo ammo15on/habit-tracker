@@ -392,9 +392,11 @@ fun PlanScreen(
     if (showAddDialog) {
       AddPlannedTaskDialog(
         onDismiss = { showAddDialog = false },
-        onConfirm = { newPlan ->
+        onConfirm = { newPlans ->
           haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-          viewModel.addPlannedTask(newPlan)
+          newPlans.forEach { plan ->
+            viewModel.addPlannedTask(plan)
+          }
           showAddDialog = false
         }
       )

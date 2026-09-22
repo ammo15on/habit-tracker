@@ -1,6 +1,6 @@
 {
   "name": "Habit Tracker",
-  "description": "Habit and task tracker with day rating, interactive time tracking, custom schedules, and multi-tier analytics.",
+  "description": "Habit and task tracker with background timer tracking, day rating, interactive study schedules, and real-calendar aligned multi-tier analytics (v5.3).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -47,6 +47,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,11 +56,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -70,6 +74,7 @@ import com.example.data.model.HabitTask
 import com.example.data.model.TaskPreset
 import com.example.util.DateUtils
 import com.example.util.ImageStorageUtils
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -92,6 +97,16 @@ fun AddTaskDialog(
 ) {
   val context = LocalContext.current
   val haptic = LocalHapticFeedback.current
+  val focusRequester = remember { FocusRequester() }
+  val keyboardController = LocalSoftwareKeyboardController.current
+
+  LaunchedEffect(Unit) {
+    delay(150)
+    try {
+      focusRequester.requestFocus()
+      keyboardController?.show()
+    } catch (_: Exception) {}
+  }
 
   val effectiveDate = if (selectedDate.isNotBlank()) selectedDate else DateUtils.today()
   val dayOfWeekIndex = DateUtils.getDayOfWeekIndex(effectiveDate)
@@ -161,6 +176,7 @@ fun AddTaskDialog(
           singleLine = true,
           modifier = Modifier
             .fillMaxWidth()
+            .focusRequester(focusRequester)
             .testTag("task_name_input"),
           shape = RoundedCornerShape(12.dp)
         )

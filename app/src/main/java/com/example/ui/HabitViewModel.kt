@@ -86,10 +86,9 @@ class HabitViewModel(
     }
   }
 
-  // Active running timer state
-  val runningTaskId = MutableStateFlow<Long?>(null)
-  val runningTimerSessionSeconds = MutableStateFlow(0L)
-  private var timerJob: Job? = null
+  // Active running timer state (Background-enabled via TimerManager)
+  val runningTaskId: StateFlow<Long?> = com.example.util.TimerManager.runningTaskId
+  val runningTimerSessionSeconds: StateFlow<Long> = com.example.util.TimerManager.runningTimerSessionSeconds
 
   // All tasks, ratings, logs, neet scores, planned tasks from DB
   private val allTasksFlow = repository.allTasks
@@ -559,7 +558,7 @@ class HabitViewModel(
 
   fun deleteTask(taskId: Long) {
     if (runningTaskId.value == taskId) {
-      stopTimer()
+      com.example.util.TimerManager.stopTimer()
     }
     viewModelScope.launch {
       val allTasks = allTasksFlow.stateIn(viewModelScope).value
@@ -601,57 +600,19 @@ class HabitViewModel(
     }
   }
 
-  // Timer controls
+  // Timer controls with Background Tracking
   fun toggleTimer(taskId: Long) {
-    val currentRunning = runningTaskId.value
+    val currentRunning = com.example.util.TimerManager.runningTaskId.value
     if (currentRunning == taskId) {
-      stopTimer()
+      com.example.util.TimerManager.stopTimer()
     } else {
-      if (currentRunning != null) {
-        stopTimer()
-      }
-      startTimer(taskId)
-    }
-  }
-
-  private fun startTimer(taskId: Long) {
-    runningTaskId.value = taskId
-    runningTimerSessionSeconds.value = 0L
-
-    timerJob?.cancel()
-    timerJob = viewModelScope.launch {
-      while (isActive) {
-        delay(1000)
-        runningTimerSessionSeconds.value += 1L
-        if (runningTimerSessionSeconds.value % 30 == 0L) {
-          repository.addTimeToTask(taskId, selectedDate.value, 30L)
-          runningTimerSessionSeconds.value = 0L
-        }
-      }
-    }
-  }
-
-  private fun stopTimer() {
-    val taskId = runningTaskId.value ?: return
-    val session = runningTimerSessionSeconds.value
-    timerJob?.cancel()
-    timerJob = null
-    runningTaskId.value = null
-    runningTimerSessionSeconds.value = 0L
-
-    if (session > 0) {
-      viewModelScope.launch {
-        repository.addTimeToTask(taskId, selectedDate.value, session)
-      }
+      val taskName = allTasksState.value.find { it.id == taskId }?.name ?: "Task"
+      com.example.util.TimerManager.startTimer(taskId, taskName, selectedDate.value)
     }
   }
 
   private fun flushActiveTimer() {
-    val taskId = runningTaskId.value
-    val session = runningTimerSessionSeconds.value
-    if (taskId != null && session > 0) {
-      stopTimer()
-    }
+    com.example.util.TimerManager.flushTimer()
   }
 
   // NEET Test Score actions
