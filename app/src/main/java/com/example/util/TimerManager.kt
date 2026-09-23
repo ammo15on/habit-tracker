@@ -3,16 +3,32 @@ package com.example.util
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.data.repository.HabitRepository
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+data class ActiveTimerState(
+  val taskId: Long? = null,
+  val taskName: String? = null,
+  val date: String? = null,
+  val initialSeconds: Long = 0L,
+  val sessionSeconds: Long = 0L,
+  val isRunning: Boolean = false
+) {
+  val currentTotalSeconds: Long
+    get() = initialSeconds + sessionSeconds
+}
 
 object TimerManager {
   private const val PREFS_NAME = "habit_tracker_timer_prefs"
@@ -20,169 +36,211 @@ object TimerManager {
   private const val KEY_TASK_NAME = "active_task_name"
   private const val KEY_TASK_DATE = "active_task_date"
   private const val KEY_START_WALL_CLOCK_MS = "active_start_wall_clock_ms"
+  private const val KEY_INITIAL_SECONDS = "active_initial_seconds"
 
   private var context: Context? = null
   private var repository: HabitRepository? = null
-  private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+  private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
   private var tickerJob: Job? = null
+  private var isInitialized = false
 
   private var startWallClockMs: Long = 0L
+  private var initialSeconds: Long = 0L
 
-  private val _runningTaskId = MutableStateFlow<Long?>(null)
-  val runningTaskId: StateFlow<Long?> = _runningTaskId.asStateFlow()
+  // In-memory cache of latest confirmed seconds for (taskId, date)
+  // Guarantees zero-flicker and monotonic display across task switches before Room emits
+  private val cachedTaskSeconds = ConcurrentHashMap<String, Long>()
 
-  private val _runningTaskName = MutableStateFlow<String?>(null)
-  val runningTaskName: StateFlow<String?> = _runningTaskName.asStateFlow()
+  private val _activeTimerState = MutableStateFlow(ActiveTimerState())
+  val activeTimerState: StateFlow<ActiveTimerState> = _activeTimerState.asStateFlow()
 
-  private val _runningTaskDate = MutableStateFlow<String?>(null)
-  val runningTaskDate: StateFlow<String?> = _runningTaskDate.asStateFlow()
+  val runningTaskId: StateFlow<Long?> = _activeTimerState
+    .map { it.taskId }
+    .stateIn(scope, SharingStarted.Eagerly, _activeTimerState.value.taskId)
 
-  private val _runningTimerSessionSeconds = MutableStateFlow(0L)
-  val runningTimerSessionSeconds: StateFlow<Long> = _runningTimerSessionSeconds.asStateFlow()
+  val isTimerRunning: StateFlow<Boolean> = _activeTimerState
+    .map { it.isRunning }
+    .stateIn(scope, SharingStarted.Eagerly, _activeTimerState.value.isRunning)
 
-  private val _isTimerRunning = MutableStateFlow(false)
-  val isTimerRunning: StateFlow<Boolean> = _isTimerRunning.asStateFlow()
+  fun isTimerRunning(taskId: Long, date: String? = null): Boolean {
+    val state = _activeTimerState.value
+    if (!state.isRunning || state.taskId != taskId) return false
+    return date == null || state.date == date
+  }
+
+  fun getEffectiveTaskSeconds(taskId: Long, date: String, dbSeconds: Long): Long {
+    val state = _activeTimerState.value
+    if (state.isRunning && state.taskId == taskId && state.date == date) {
+      return state.currentTotalSeconds
+    }
+    val cached = cachedTaskSeconds["$taskId:$date"] ?: 0L
+    return maxOf(dbSeconds, cached)
+  }
 
   fun initialize(appContext: Context, repo: HabitRepository) {
     context = appContext.applicationContext
     repository = repo
 
-    val prefs = getPrefs()
-    val savedTaskId = prefs.getLong(KEY_TASK_ID, -1L)
-    if (savedTaskId != -1L) {
-      val savedTaskName = prefs.getString(KEY_TASK_NAME, "Task") ?: "Task"
-      val savedDate = prefs.getString(KEY_TASK_DATE, DateUtils.today()) ?: DateUtils.today()
-      val savedStartMs = prefs.getLong(KEY_START_WALL_CLOCK_MS, 0L)
+    if (isInitialized) return
+    isInitialized = true
 
-      if (savedStartMs > 0L) {
-        val now = System.currentTimeMillis()
-        val elapsedSecs = (now - savedStartMs).coerceAtLeast(0L) / 1000L
+    try {
+      val prefs = getPrefs() ?: return
+      val savedTaskId = prefs.getLong(KEY_TASK_ID, -1L)
+      if (savedTaskId != -1L) {
+        val savedDate = prefs.getString(KEY_TASK_DATE, DateUtils.today()) ?: DateUtils.today()
+        val savedStartMs = prefs.getLong(KEY_START_WALL_CLOCK_MS, 0L)
+        val savedInitial = prefs.getLong(KEY_INITIAL_SECONDS, 0L)
 
-        if (elapsedSecs > 0) {
-          scope.launch {
-            repo.addTimeToTask(savedTaskId, savedDate, elapsedSecs)
+        if (savedStartMs > 0L) {
+          val now = System.currentTimeMillis()
+          val elapsedSecs = (now - savedStartMs).coerceAtLeast(0L) / 1000L
+
+          // If recovered elapsed time is reasonable (< 12 hours), flush it to database
+          if (elapsedSecs in 1..43200) {
+            val total = savedInitial + elapsedSecs
+            cachedTaskSeconds["$savedTaskId:$savedDate"] = total
+            scope.launch(Dispatchers.IO) {
+              repo.addTimeToTask(savedTaskId, savedDate, elapsedSecs)
+            }
           }
+          // Clear prefs on launch recovery so it doesn't run indefinitely
+          prefs.edit().clear().apply()
         }
-        // Continue tracking seamlessly
-        startTimer(savedTaskId, savedTaskName, savedDate)
       }
+    } catch (e: Exception) {
+      e.printStackTrace()
     }
   }
 
-  private fun getPrefs(): SharedPreferences {
-    val ctx = context ?: throw IllegalStateException("TimerManager must be initialized before use")
+  private fun getPrefs(): SharedPreferences? {
+    val ctx = context ?: return null
     return ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
   }
 
-  fun startTimer(taskId: Long, taskName: String, date: String) {
-    val ctx = context ?: return
-    val repo = repository ?: return
+  fun startTimer(taskId: Long, taskName: String, date: String, currentBaseSeconds: Long = 0L) {
+    val repo = repository
 
-    // If another timer was running, flush it first
-    if (_isTimerRunning.value && _runningTaskId.value != null && _runningTaskId.value != taskId) {
-      stopTimer()
+    // If another timer was running, flush and stop it cleanly first
+    if (_activeTimerState.value.isRunning && _activeTimerState.value.taskId != taskId) {
+      stopTimerInternal(flushOnly = true)
     }
 
     startWallClockMs = System.currentTimeMillis()
-    _runningTaskId.value = taskId
-    _runningTaskName.value = taskName
-    _runningTaskDate.value = date
-    _runningTimerSessionSeconds.value = 0L
-    _isTimerRunning.value = true
+    initialSeconds = currentBaseSeconds
 
-    // Save in SharedPreferences for persistent background recovery
-    getPrefs().edit()
-      .putLong(KEY_TASK_ID, taskId)
-      .putString(KEY_TASK_NAME, taskName)
-      .putString(KEY_TASK_DATE, date)
-      .putLong(KEY_START_WALL_CLOCK_MS, startWallClockMs)
-      .apply()
+    _activeTimerState.value = ActiveTimerState(
+      taskId = taskId,
+      taskName = taskName,
+      date = date,
+      initialSeconds = currentBaseSeconds,
+      sessionSeconds = 0L,
+      isRunning = true
+    )
 
-    // Start Foreground Service with notification
-    TimerForegroundService.startService(ctx, taskId, taskName, date)
+    // Save in SharedPreferences for crash/power loss recovery
+    try {
+      getPrefs()?.edit()
+        ?.putLong(KEY_TASK_ID, taskId)
+        ?.putString(KEY_TASK_NAME, taskName)
+        ?.putString(KEY_TASK_DATE, date)
+        ?.putLong(KEY_START_WALL_CLOCK_MS, startWallClockMs)
+        ?.putLong(KEY_INITIAL_SECONDS, currentBaseSeconds)
+        ?.apply()
+    } catch (_: Exception) {}
+
+    // Update Foreground Service with notification
+    try {
+      context?.let { ctx ->
+        TimerForegroundService.startService(ctx, taskId, taskName, date)
+      }
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
 
     // Start tick job
     tickerJob?.cancel()
     tickerJob = scope.launch {
-      var lastFlushMs = startWallClockMs
       while (isActive) {
         delay(1000)
         val now = System.currentTimeMillis()
-        val totalSessionElapsed = ((now - startWallClockMs) / 1000).coerceAtLeast(0L)
-        _runningTimerSessionSeconds.value = totalSessionElapsed
+        val sessionSecs = ((now - startWallClockMs) / 1000).coerceAtLeast(0L)
+        val totalSecs = initialSeconds + sessionSecs
 
-        // Automatically flush incremental chunks every 15 seconds to database
-        if (now - lastFlushMs >= 15_000L) {
-          val chunk = ((now - lastFlushMs) / 1000).coerceAtLeast(0L)
-          if (chunk > 0) {
-            repo.addTimeToTask(taskId, date, chunk)
-            lastFlushMs = now
-            // Update startWallClockMs so totalSessionElapsed stays aligned
-            startWallClockMs = now
-            _runningTimerSessionSeconds.value = 0L
-            getPrefs().edit()
-              .putLong(KEY_START_WALL_CLOCK_MS, now)
-              .apply()
-          }
-        }
+        _activeTimerState.value = _activeTimerState.value.copy(
+          sessionSeconds = sessionSecs
+        )
+        cachedTaskSeconds["$taskId:$date"] = totalSecs
       }
     }
   }
 
-  fun stopTimer() {
+  private fun stopTimerInternal(flushOnly: Boolean = false) {
     val ctx = context
     val repo = repository
-    val taskId = _runningTaskId.value
-    val date = _runningTaskDate.value
+    val state = _activeTimerState.value
+    val taskId = state.taskId
+    val date = state.date
 
     tickerJob?.cancel()
     tickerJob = null
 
     if (taskId != null && date != null && startWallClockMs > 0L && repo != null) {
       val now = System.currentTimeMillis()
-      val remainingSecs = ((now - startWallClockMs) / 1000).coerceAtLeast(0L)
-      if (remainingSecs > 0) {
-        scope.launch {
-          repo.addTimeToTask(taskId, date, remainingSecs)
+      val sessionSecs = ((now - startWallClockMs) / 1000).coerceAtLeast(0L)
+      if (sessionSecs > 0) {
+        val finalTotal = initialSeconds + sessionSecs
+        cachedTaskSeconds["$taskId:$date"] = finalTotal
+        scope.launch(Dispatchers.IO) {
+          repo.addTimeToTask(taskId, date, sessionSecs)
         }
       }
     }
 
     startWallClockMs = 0L
-    _runningTaskId.value = null
-    _runningTaskName.value = null
-    _runningTaskDate.value = null
-    _runningTimerSessionSeconds.value = 0L
-    _isTimerRunning.value = false
+    initialSeconds = 0L
 
-    try {
-      getPrefs().edit().clear().apply()
-    } catch (_: Exception) {}
+    if (!flushOnly) {
+      _activeTimerState.value = ActiveTimerState()
+      try {
+        getPrefs()?.edit()?.clear()?.apply()
+      } catch (_: Exception) {}
 
-    if (ctx != null) {
-      TimerForegroundService.stopService(ctx)
+      if (ctx != null) {
+        try {
+          TimerForegroundService.stopService(ctx)
+        } catch (e: Exception) {
+          e.printStackTrace()
+        }
+      }
     }
   }
 
+  fun stopTimer() {
+    stopTimerInternal(flushOnly = false)
+  }
+
   fun flushTimer() {
-    val taskId = _runningTaskId.value
-    val date = _runningTaskDate.value
+    val state = _activeTimerState.value
+    val taskId = state.taskId
+    val date = state.date
     val repo = repository
     if (taskId != null && date != null && startWallClockMs > 0L && repo != null) {
       val now = System.currentTimeMillis()
-      val elapsed = ((now - startWallClockMs) / 1000).coerceAtLeast(0L)
-      if (elapsed > 0) {
-        scope.launch {
-          repo.addTimeToTask(taskId, date, elapsed)
+      val sessionSecs = ((now - startWallClockMs) / 1000).coerceAtLeast(0L)
+      if (sessionSecs > 0) {
+        val total = initialSeconds + sessionSecs
+        cachedTaskSeconds["$taskId:$date"] = total
+        scope.launch(Dispatchers.IO) {
+          repo.addTimeToTask(taskId, date, sessionSecs)
         }
+        initialSeconds = total
+        startWallClockMs = now
+        _activeTimerState.value = _activeTimerState.value.copy(
+          initialSeconds = total,
+          sessionSeconds = 0L
+        )
       }
-      startWallClockMs = now
-      _runningTimerSessionSeconds.value = 0L
-      try {
-        getPrefs().edit()
-          .putLong(KEY_START_WALL_CLOCK_MS, now)
-          .apply()
-      } catch (_: Exception) {}
     }
   }
 }

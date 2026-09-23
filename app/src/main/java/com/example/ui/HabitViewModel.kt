@@ -151,8 +151,9 @@ class HabitViewModel(
   }
 
   // Active running timer state (Background-enabled via TimerManager)
+  val activeTimerState: StateFlow<com.example.util.ActiveTimerState> = com.example.util.TimerManager.activeTimerState
   val runningTaskId: StateFlow<Long?> = com.example.util.TimerManager.runningTaskId
-  val runningTimerSessionSeconds: StateFlow<Long> = com.example.util.TimerManager.runningTimerSessionSeconds
+  val isTimerRunning: StateFlow<Boolean> = com.example.util.TimerManager.isTimerRunning
 
   // All tasks, ratings, logs, neet scores, planned tasks from DB
   private val allTasksFlow = repository.allTasks
@@ -210,9 +211,8 @@ class HabitViewModel(
     allTasksFlow,
     allLogsFlow,
     selectedDate,
-    runningTaskId,
-    runningTimerSessionSeconds
-  ) { tasks, logs, date, runningId, sessionSeconds ->
+    activeTimerState
+  ) { tasks, logs, date, timerState ->
     val dayOfWeekIdx = DateUtils.getDayOfWeekIndex(date)
     val logsForDate = logs.filter { it.date == date }.associateBy { it.taskId }
 
@@ -221,9 +221,9 @@ class HabitViewModel(
 
     val list = matchedHabitTasks.map { task ->
       val log = logsForDate[task.id]
-      val isRunning = (task.id == runningId)
-      val baseSeconds = log?.timeSpentSeconds ?: 0L
-      val effectiveSeconds = if (isRunning) baseSeconds + sessionSeconds else baseSeconds
+      val isRunning = (timerState.isRunning && timerState.taskId == task.id && timerState.date == date)
+      val dbSeconds = log?.timeSpentSeconds ?: 0L
+      val effectiveSeconds = com.example.util.TimerManager.getEffectiveTaskSeconds(task.id, date, dbSeconds)
       val isCompleted = log?.isCompleted ?: false
 
       TaskItemUiState(
@@ -234,15 +234,14 @@ class HabitViewModel(
       )
     }
 
-    // Move finished tasks to the bottom
+    // Move finished tasks to the bottom, keeping stable order so tasks don't jump around when played
     list.sortedWith(
       compareBy<TaskItemUiState> { it.isCompleted }
-        .thenByDescending { it.isRunning }
         .thenBy { it.task.id }
     )
   }.stateIn(
     scope = viewModelScope,
-    started = SharingStarted.WhileSubscribed(5000),
+    started = SharingStarted.Eagerly,
     initialValue = emptyList()
   )
 
@@ -263,7 +262,7 @@ class HabitViewModel(
     .map { tasks -> tasks.sumOf { it.timeSpentSeconds } }
     .stateIn(
       scope = viewModelScope,
-      started = SharingStarted.WhileSubscribed(5000),
+      started = SharingStarted.Eagerly,
       initialValue = 0L
     )
 
@@ -273,30 +272,30 @@ class HabitViewModel(
   // Effective logs flow including live running session for today
   private val effectiveLogsFlow = combine(
     allLogsFlow,
-    runningTaskId,
-    runningTimerSessionSeconds,
+    activeTimerState,
     selectedDate
-  ) { logs, runningId, sessionSecs, curDate ->
-    if (runningId == null || sessionSecs <= 0) {
-      logs
-    } else {
-      val mutable = logs.toMutableList()
-      val idx = mutable.indexOfFirst { it.taskId == runningId && it.date == curDate }
-      if (idx >= 0) {
-        val old = mutable[idx]
-        mutable[idx] = old.copy(timeSpentSeconds = old.timeSpentSeconds + sessionSecs)
-      } else {
+  ) { logs, timerState, curDate ->
+    val mutable = logs.map { log ->
+      val effective = com.example.util.TimerManager.getEffectiveTaskSeconds(log.taskId, log.date, log.timeSpentSeconds)
+      if (effective != log.timeSpentSeconds) log.copy(timeSpentSeconds = effective) else log
+    }.toMutableList()
+
+    if (timerState.isRunning && timerState.taskId != null) {
+      val runningId = timerState.taskId
+      val timerDate = timerState.date ?: curDate
+      val exists = mutable.any { it.taskId == runningId && it.date == timerDate }
+      if (!exists) {
         mutable.add(
           HabitTaskLog(
             taskId = runningId,
-            date = curDate,
-            timeSpentSeconds = sessionSecs,
+            date = timerDate,
+            timeSpentSeconds = timerState.currentTotalSeconds,
             isCompleted = false
           )
         )
       }
-      mutable
     }
+    mutable
   }
 
   // Analytics: Days Summary (recent 30 days)
@@ -651,7 +650,7 @@ class HabitViewModel(
   }
 
   fun deleteTask(taskId: Long) {
-    if (runningTaskId.value == taskId) {
+    if (com.example.util.TimerManager.isTimerRunning(taskId)) {
       com.example.util.TimerManager.stopTimer()
     }
     viewModelScope.launch {
@@ -674,6 +673,10 @@ class HabitViewModel(
 
   fun toggleTaskComplete(taskId: Long) {
     val curDate = selectedDate.value
+    // If the task being completed currently has a running timer, stop and save it
+    if (com.example.util.TimerManager.isTimerRunning(taskId, curDate)) {
+      com.example.util.TimerManager.stopTimer()
+    }
     viewModelScope.launch {
       repository.toggleTaskComplete(taskId, curDate)
 
@@ -696,12 +699,17 @@ class HabitViewModel(
 
   // Timer controls with Background Tracking
   fun toggleTimer(taskId: Long) {
-    val currentRunning = com.example.util.TimerManager.runningTaskId.value
-    if (currentRunning == taskId) {
+    val curDate = selectedDate.value
+    if (com.example.util.TimerManager.isTimerRunning(taskId, curDate)) {
       com.example.util.TimerManager.stopTimer()
     } else {
-      val taskName = allTasksState.value.find { it.id == taskId }?.name ?: "Task"
-      com.example.util.TimerManager.startTimer(taskId, taskName, selectedDate.value)
+      val taskItem = tasksForSelectedDate.value.find { it.task.id == taskId }
+      val taskName = taskItem?.task?.name
+        ?: allTasksState.value.find { it.id == taskId }?.name
+        ?: "Task"
+      val effectiveInitial = taskItem?.timeSpentSeconds
+        ?: com.example.util.TimerManager.getEffectiveTaskSeconds(taskId, curDate, 0L)
+      com.example.util.TimerManager.startTimer(taskId, taskName, curDate, effectiveInitial)
     }
   }
 

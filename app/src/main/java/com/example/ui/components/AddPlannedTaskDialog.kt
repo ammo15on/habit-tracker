@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -29,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -155,9 +157,9 @@ fun AddPlannedTaskDialog(
         )
         Spacer(modifier = Modifier.height(4.dp))
 
-        FlowRow(
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-          verticalArrangement = Arrangement.spacedBy(6.dp)
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically
         ) {
           val today = DateUtils.today()
           val tomorrow = DateUtils.addDays(today, 1)
@@ -178,24 +180,28 @@ fun AddPlannedTaskDialog(
             label = { Text("Tomorrow", fontSize = 12.sp) }
           )
 
-          FilterChip(
-            selected = selectedDates.size > 1 || (!selectedDates.contains(today) && !selectedDates.contains(tomorrow) && selectedDates.isNotEmpty()),
+          // Calendar Icon Only (No Text)
+          IconButton(
             onClick = {
               showCalendarPopup = true
             },
-            leadingIcon = {
-              Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
-            },
-            label = {
-              Text(
-                if (selectedDates.isEmpty()) "Select Date(s)..."
-                else if (selectedDates.size == 1) "${selectedDates.first()} (Multi-date)"
-                else "${selectedDates.size} dates selected",
-                fontSize = 12.sp,
-                fontWeight = if (selectedDates.size > 1) FontWeight.Bold else FontWeight.Normal
+            modifier = Modifier
+              .size(38.dp)
+              .clip(CircleShape)
+              .background(
+                if (selectedDates.size > 1 || (!selectedDates.contains(today) && !selectedDates.contains(tomorrow) && selectedDates.isNotEmpty()))
+                  MaterialTheme.colorScheme.primaryContainer
+                else
+                  MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
               )
-            }
-          )
+          ) {
+            Icon(
+              imageVector = Icons.Default.CalendarMonth,
+              contentDescription = "Select Dates Calendar",
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(20.dp)
+            )
+          }
         }
 
         // Show chips for all selected dates if multiple or custom date selected

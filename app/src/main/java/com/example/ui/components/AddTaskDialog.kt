@@ -331,33 +331,39 @@ fun AddTaskDialog(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Multi-Date Selection option (v5.2)
+        // Multi-Date Selection option: Minimal with just calendar icon (no text)
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-              imageVector = Icons.Default.CalendarMonth,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
             Text(
-              text = "Multiple Dates Selection",
-              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+              text = if (selectedDates.isEmpty()) "Specific or Multiple Dates" else "${selectedDates.size} date(s) selected",
+              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+              color = if (selectedDates.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
           }
 
-          OutlinedButton(
-            onClick = { showCalendarPopup = true },
-            modifier = Modifier.testTag("btn_select_multiple_dates")
+          IconButton(
+            onClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              showCalendarPopup = true
+            },
+            modifier = Modifier
+              .size(38.dp)
+              .clip(CircleShape)
+              .background(
+                if (selectedDates.isNotEmpty()) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+              )
+              .testTag("btn_select_multiple_dates")
           ) {
-            Text(
-              text = if (selectedDates.isEmpty()) "Pick Dates" else "${selectedDates.size} Selected",
-              fontSize = 12.sp
+            Icon(
+              imageVector = Icons.Default.CalendarMonth,
+              contentDescription = "Select Dates Calendar",
+              tint = if (selectedDates.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(20.dp)
             )
           }
         }

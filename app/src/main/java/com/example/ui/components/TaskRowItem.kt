@@ -85,9 +85,9 @@ fun TaskRowItem(
 
   val cardBgColor by animateColorAsState(
     targetValue = when {
-      isRunning -> RatingBestGreen.copy(alpha = 0.12f)
-      isCompleted -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-      else -> MaterialTheme.colorScheme.surface
+      isRunning -> RatingBestGreen.copy(alpha = 0.15f)
+      isCompleted -> Color.White.copy(alpha = 0.04f)
+      else -> Color.White.copy(alpha = 0.06f)
     },
     label = "cardBgColor"
   )
@@ -96,7 +96,7 @@ fun TaskRowItem(
     isExceeded && isRunning -> Color(0xFFE11D48)
     isRunning -> RatingBestGreen.copy(alpha = 0.8f)
     isCompleted -> RatingBestGreen.copy(alpha = 0.3f)
-    else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    else -> Color.White.copy(alpha = 0.14f)
   }
 
   Card(
@@ -105,7 +105,7 @@ fun TaskRowItem(
       .testTag("task_card_${task.id}"),
     shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(containerColor = cardBgColor),
-    elevation = CardDefaults.cardElevation(defaultElevation = if (isRunning) 3.dp else 1.dp)
+    elevation = CardDefaults.cardElevation(defaultElevation = if (isRunning) 2.dp else 0.dp)
   ) {
     Box(
       modifier = Modifier
@@ -353,14 +353,15 @@ fun TaskRowItem(
           }
         }
 
-        // Note section: Text Note and/or Image Note thumbnail
+        // Note section: Text Note and/or Image Note thumbnail (Transparent Glass)
         if (task.noteText.isNotBlank() || task.noteImageUri != null) {
           Spacer(modifier = Modifier.height(8.dp))
           Row(
             modifier = Modifier
               .fillMaxWidth()
               .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+              .background(Color.White.copy(alpha = 0.06f))
+              .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
               .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -381,7 +382,7 @@ fun TaskRowItem(
                   text = task.noteText,
                   style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  maxLines = 1,
+                  maxLines = 2,
                   overflow = TextOverflow.Ellipsis
                 )
               }
@@ -393,7 +394,7 @@ fun TaskRowItem(
                 modifier = Modifier
                   .size(34.dp)
                   .clip(RoundedCornerShape(6.dp))
-                  .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                  .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
                   .clickable { showImageZoom = true }
               ) {
                 AsyncImage(

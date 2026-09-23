@@ -12,6 +12,7 @@ import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
 import com.example.data.model.TaskPreset
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.withLock
 
 class HabitRepository(private val dao: HabitDao) {
 
@@ -67,37 +68,44 @@ class HabitRepository(private val dao: HabitDao) {
     dao.updateTask(task)
   }
 
+  private val logMutex = kotlinx.coroutines.sync.Mutex()
+
   suspend fun addTimeToTask(taskId: Long, date: String, additionalSeconds: Long) {
-    val existing = dao.getLog(taskId, date)
-    if (existing != null) {
-      val updated = existing.copy(
-        timeSpentSeconds = existing.timeSpentSeconds + additionalSeconds
-      )
-      dao.insertOrUpdateLog(updated)
-    } else {
-      val newLog = HabitTaskLog(
-        taskId = taskId,
-        date = date,
-        timeSpentSeconds = additionalSeconds,
-        isCompleted = false
-      )
-      dao.insertOrUpdateLog(newLog)
+    if (additionalSeconds <= 0L) return
+    logMutex.withLock {
+      val existing = dao.getLog(taskId, date)
+      if (existing != null) {
+        val updated = existing.copy(
+          timeSpentSeconds = existing.timeSpentSeconds + additionalSeconds
+        )
+        dao.insertOrUpdateLog(updated)
+      } else {
+        val newLog = HabitTaskLog(
+          taskId = taskId,
+          date = date,
+          timeSpentSeconds = additionalSeconds,
+          isCompleted = false
+        )
+        dao.insertOrUpdateLog(newLog)
+      }
     }
   }
 
   suspend fun toggleTaskComplete(taskId: Long, date: String) {
-    val existing = dao.getLog(taskId, date)
-    if (existing != null) {
-      val updated = existing.copy(isCompleted = !existing.isCompleted)
-      dao.insertOrUpdateLog(updated)
-    } else {
-      val newLog = HabitTaskLog(
-        taskId = taskId,
-        date = date,
-        timeSpentSeconds = 0,
-        isCompleted = true
-      )
-      dao.insertOrUpdateLog(newLog)
+    logMutex.withLock {
+      val existing = dao.getLog(taskId, date)
+      if (existing != null) {
+        val updated = existing.copy(isCompleted = !existing.isCompleted)
+        dao.insertOrUpdateLog(updated)
+      } else {
+        val newLog = HabitTaskLog(
+          taskId = taskId,
+          date = date,
+          timeSpentSeconds = 0,
+          isCompleted = true
+        )
+        dao.insertOrUpdateLog(newLog)
+      }
     }
   }
 

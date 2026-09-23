@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -99,6 +101,7 @@ fun TrackerScreen(
   var taskToEdit by remember { mutableStateOf<HabitTask?>(null) }
   var totalDragX by remember { mutableFloatStateOf(0f) }
   var expandedEventIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+  var isCompletedExpanded by remember { mutableStateOf(false) }
 
   val isToday = (selectedDate == DateUtils.today())
   val prevDay = DateUtils.getPreviousDay(selectedDate)
@@ -108,6 +111,9 @@ fun TrackerScreen(
   val nextDayFormatted = DateUtils.formatShortDate(nextDay)
   val dayAbbr = DateUtils.formatDayOfWeekAbbr(selectedDate)
   val fullDate = DateUtils.formatFullDate(selectedDate)
+
+  val activeTasks = remember(tasks) { tasks.filter { !it.isCompleted } }
+  val completedTasks = remember(tasks) { tasks.filter { it.isCompleted } }
 
   val activeEventsWithSubtasksToday = remember(planEvents, selectedDate) {
     planEvents.filter { event ->
@@ -363,7 +369,7 @@ fun TrackerScreen(
           }
         }
 
-        // 3. Tasks List Items (Finished tasks placed at the bottom automatically)
+        // 3. Tasks List Items: Active tasks + Expandable Completed Tasks section
         if (tasks.isEmpty()) {
           item(key = "empty_tasks") {
             EmptyTasksPlaceholder(
@@ -371,8 +377,9 @@ fun TrackerScreen(
             )
           }
         } else {
+          // Active Tasks
           items(
-            items = tasks,
+            items = activeTasks,
             key = { it.task.id }
           ) { taskState ->
             TaskRowItem(
@@ -382,6 +389,104 @@ fun TrackerScreen(
               onEditTask = { taskToEdit = taskState.task },
               onDeleteTask = { viewModel.deleteTask(taskState.task.id) }
             )
+          }
+
+          // Completed Tasks in an expandable section with down arrow
+          if (completedTasks.isNotEmpty()) {
+            item(key = "completed_tasks_header") {
+              Card(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clip(RoundedCornerShape(12.dp))
+                  .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    isCompletedExpanded = !isCompletedExpanded
+                  },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                  containerColor = Color.White.copy(alpha = 0.06f)
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                  1.dp,
+                  Color.White.copy(alpha = 0.12f)
+                )
+              ) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                      imageVector = Icons.Default.CheckCircle,
+                      contentDescription = null,
+                      tint = com.example.ui.theme.RatingBestGreen,
+                      modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                      text = "Completed Tasks",
+                      style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                      color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                      modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                      Text(
+                        text = "${completedTasks.size}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurface
+                      )
+                    }
+                  }
+
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                      text = if (isCompletedExpanded) "Hide" else "Show",
+                      style = MaterialTheme.typography.labelSmall,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    IconButton(
+                      onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isCompletedExpanded = !isCompletedExpanded
+                      },
+                      modifier = Modifier.size(28.dp)
+                    ) {
+                      Icon(
+                        imageVector = if (isCompletedExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isCompletedExpanded) "Collapse completed tasks" else "Expand completed tasks",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                      )
+                    }
+                  }
+                }
+              }
+            }
+
+            if (isCompletedExpanded) {
+              items(
+                items = completedTasks,
+                key = { it.task.id }
+              ) { taskState ->
+                TaskRowItem(
+                  taskUiState = taskState,
+                  onToggleTimer = { viewModel.toggleTimer(taskState.task.id) },
+                  onToggleComplete = { viewModel.toggleTaskComplete(taskState.task.id) },
+                  onEditTask = { taskToEdit = taskState.task },
+                  onDeleteTask = { viewModel.deleteTask(taskState.task.id) }
+                )
+              }
+            }
           }
         }
       }
