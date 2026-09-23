@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -7,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,11 +26,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -70,6 +76,12 @@ fun DataManagementDialog(
   var statusMessage by remember { mutableStateOf<String?>(null) }
   var isSuccess by remember { mutableStateOf(true) }
   var isProcessing by remember { mutableStateOf(false) }
+  var showPasteInput by remember { mutableStateOf(false) }
+  var manualJsonText by remember { mutableStateOf("") }
+
+  val clipboardManager = remember {
+    context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+  }
 
   // Import JSON launcher
   val importFileLauncher = rememberLauncherForActivityResult(
@@ -137,7 +149,7 @@ fun DataManagementDialog(
         verticalArrangement = Arrangement.spacedBy(14.dp)
       ) {
         Text(
-          text = "Export your habit tracking history, NEET scores, and presets as a backup, or restore data from a previous file.",
+          text = "Export your habit history, NEET scores, and presets as a backup, or restore data anytime.",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -167,15 +179,16 @@ fun DataManagementDialog(
           }
         }
 
-        // Export Data Card
+        // Export Data Card (Share & Clipboard)
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(16.dp),
           colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-          )
+            containerColor = Color.White.copy(alpha = 0.06f)
+          ),
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
         ) {
-          Column(modifier = Modifier.padding(16.dp)) {
+          Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               Icon(
                 imageVector = Icons.Default.FileUpload,
@@ -185,58 +198,88 @@ fun DataManagementDialog(
               )
               Spacer(modifier = Modifier.width(8.dp))
               Text(
-                text = "Export Data",
+                text = "Export Backup",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
               )
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-              text = "Export all habits, logs, ratings, events, and syllabus scores into a portable JSON backup.",
+              text = "Export all habits, logs, ratings, events, and scores to JSON.",
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-              onClick = {
-                coroutineScope.launch {
-                  try {
-                    val json = viewModel.exportDataToJson()
-                    val sendIntent = Intent().apply {
-                      action = Intent.ACTION_SEND
-                      putExtra(Intent.EXTRA_TEXT, json)
-                      putExtra(Intent.EXTRA_TITLE, "Habit_Tracker_Backup.json")
-                      type = "text/plain"
-                    }
-                    val shareIntent = Intent.createChooser(sendIntent, "Export Habit Tracker Data")
-                    context.startActivity(shareIntent)
-                    statusMessage = "Export generated and ready to share!"
-                    isSuccess = true
-                  } catch (e: Exception) {
-                    statusMessage = "Export failed: ${e.message}"
-                    isSuccess = false
-                  }
-                }
-              },
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
               modifier = Modifier.fillMaxWidth(),
-              shape = RoundedCornerShape(12.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+              horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-              Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-              Spacer(modifier = Modifier.width(8.dp))
-              Text("Export Backup JSON")
+              Button(
+                onClick = {
+                  coroutineScope.launch {
+                    try {
+                      val json = viewModel.exportDataToJson()
+                      val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, json)
+                        putExtra(Intent.EXTRA_TITLE, "Habit_Tracker_Backup.json")
+                        type = "text/plain"
+                      }
+                      val shareIntent = Intent.createChooser(sendIntent, "Export Habit Tracker Data")
+                      context.startActivity(shareIntent)
+                      statusMessage = "Export generated and ready to share!"
+                      isSuccess = true
+                    } catch (e: Exception) {
+                      statusMessage = "Export failed: ${e.message}"
+                      isSuccess = false
+                    }
+                  }
+                },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+              ) {
+                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Share JSON", fontSize = 12.sp)
+              }
+
+              OutlinedButton(
+                onClick = {
+                  coroutineScope.launch {
+                    try {
+                      val json = viewModel.exportDataToJson()
+                      val clip = ClipData.newPlainText("Habit_Tracker_Backup", json)
+                      clipboardManager?.setPrimaryClip(clip)
+                      haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                      statusMessage = "Backup JSON copied to clipboard! ✓"
+                      isSuccess = true
+                    } catch (e: Exception) {
+                      statusMessage = "Copy failed: ${e.message}"
+                      isSuccess = false
+                    }
+                  }
+                },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+              ) {
+                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Copy JSON", fontSize = 12.sp)
+              }
             }
           }
         }
 
-        // Import Data Card
+        // Import Data Card (Paste & File Picker)
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(16.dp),
           colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-          )
+            containerColor = Color.White.copy(alpha = 0.06f)
+          ),
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
         ) {
-          Column(modifier = Modifier.padding(16.dp)) {
+          Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               Icon(
                 imageVector = Icons.Default.FileDownload,
@@ -246,29 +289,130 @@ fun DataManagementDialog(
               )
               Spacer(modifier = Modifier.width(8.dp))
               Text(
-                text = "Import Data",
+                text = "Import Backup",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
               )
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-              text = "Restore tasks, presets, logs, and events from an existing JSON backup file.",
+              text = "Restore all your data effortlessly from clipboard or a file.",
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-              onClick = {
-                importFileLauncher.launch("*/*")
-              },
-              enabled = !isProcessing,
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
               modifier = Modifier.fillMaxWidth(),
-              shape = RoundedCornerShape(12.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen)
+              horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-              Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-              Spacer(modifier = Modifier.width(8.dp))
-              Text(if (isProcessing) "Importing..." else "Select & Import JSON File")
+              Button(
+                onClick = {
+                  coroutineScope.launch {
+                    isProcessing = true
+                    try {
+                      val clipData = clipboardManager?.primaryClip
+                      val clipText = if (clipData != null && clipData.itemCount > 0) {
+                        clipData.getItemAt(0).text?.toString() ?: ""
+                      } else ""
+
+                      if (clipText.isNotBlank()) {
+                        val count = viewModel.importDataFromJson(clipText)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        statusMessage = "Restored $count records from clipboard! ✓"
+                        isSuccess = true
+                      } else {
+                        statusMessage = "Clipboard is empty! Copy JSON backup first."
+                        isSuccess = false
+                      }
+                    } catch (e: Exception) {
+                      statusMessage = "Import failed: ${e.message}"
+                      isSuccess = false
+                    } finally {
+                      isProcessing = false
+                    }
+                  }
+                },
+                enabled = !isProcessing,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen)
+              ) {
+                Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Paste & Restore", fontSize = 12.sp)
+              }
+
+              OutlinedButton(
+                onClick = {
+                  importFileLauncher.launch("*/*")
+                },
+                enabled = !isProcessing,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+              ) {
+                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Select File", fontSize = 12.sp)
+              }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Optional direct paste text field toggle
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showPasteInput = !showPasteInput }
+                .padding(vertical = 4.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Text(
+                text = if (showPasteInput) "Hide text input ▲" else "Or paste raw JSON manually ▼",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+              )
+            }
+
+            if (showPasteInput) {
+              Spacer(modifier = Modifier.height(6.dp))
+              OutlinedTextField(
+                value = manualJsonText,
+                onValueChange = { manualJsonText = it },
+                label = { Text("Paste JSON here") },
+                placeholder = { Text("{\"version\": ..., \"tasks\": [...]}") },
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .heightIn(min = 100.dp, max = 160.dp),
+                shape = RoundedCornerShape(10.dp)
+              )
+              Spacer(modifier = Modifier.height(6.dp))
+              Button(
+                onClick = {
+                  if (manualJsonText.isNotBlank()) {
+                    coroutineScope.launch {
+                      isProcessing = true
+                      try {
+                        val count = viewModel.importDataFromJson(manualJsonText)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        statusMessage = "Imported $count records from input text! ✓"
+                        isSuccess = true
+                        manualJsonText = ""
+                        showPasteInput = false
+                      } catch (e: Exception) {
+                        statusMessage = "Invalid JSON: ${e.message}"
+                        isSuccess = false
+                      } finally {
+                        isProcessing = false
+                      }
+                    }
+                  }
+                },
+                enabled = manualJsonText.isNotBlank() && !isProcessing,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+              ) {
+                Text("Import Pasted JSON")
+              }
             }
           }
         }

@@ -66,7 +66,6 @@ class MainActivity : ComponentActivity() {
         factory = HabitViewModel.provideFactory(repository, themePreferences, goalPreferences, applicationContext)
       )
       val currentUiHex by viewModel.selectedUiHex.collectAsState()
-      val currentBgHex by viewModel.selectedBgHex.collectAsState()
       val currentTextHex by viewModel.selectedTextHex.collectAsState()
       val currentThemeColor by viewModel.selectedThemeColor.collectAsState()
       val currentFontColor by viewModel.selectedFontColor.collectAsState()
@@ -74,7 +73,6 @@ class MainActivity : ComponentActivity() {
 
       MyApplicationTheme(
         uiHex = currentUiHex,
-        bgHex = currentBgHex,
         textHex = currentTextHex,
         themeColor = currentThemeColor,
         fontColor = currentFontColor,
@@ -98,7 +96,7 @@ fun MainAppContent(
 
   Scaffold(
     modifier = Modifier.fillMaxSize(),
-    containerColor = if (hasBackgroundImage) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
+    containerColor = androidx.compose.ui.graphics.Color.Transparent,
     bottomBar = {
       NavigationBar(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,

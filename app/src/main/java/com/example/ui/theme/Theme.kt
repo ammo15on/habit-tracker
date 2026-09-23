@@ -12,10 +12,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 
+/**
+ * Calculates high-contrast text color (black or white) based on background luminance.
+ */
+fun getContrastingTextColor(backgroundColor: Color): Color {
+  val luminance = 0.299f * backgroundColor.red + 0.587f * backgroundColor.green + 0.114f * backgroundColor.blue
+  return if (luminance > 0.55f) Color(0xFF0F172A) else Color.White
+}
+
 @Composable
 fun MyApplicationTheme(
   uiHex: String = "#3B82F6",
-  bgHex: String = "#121212",
   textHex: String = "#FFFFFF",
   themeColor: AppThemeColor = AppThemeColor.SLATE,
   fontColor: AppFontColor = AppFontColor.DEFAULT,
@@ -24,21 +31,31 @@ fun MyApplicationTheme(
   content: @Composable () -> Unit,
 ) {
   val primaryColor = parseHexColor(uiHex, if (darkTheme) themeColor.primaryDark else themeColor.primaryLight)
-  val backgroundColor = parseHexColor(bgHex, if (darkTheme) Color(0xFF121212) else Color(0xFFF8FAFC))
-  val textColor = parseHexColor(textHex, if (darkTheme) Color.White else Color(0xFF0F172A))
+  val textColor = parseHexColor(textHex, Color.White)
+  val onPrimaryColor = getContrastingTextColor(primaryColor)
+
+  // Pure transparent / deep dark foundation for glassmorphism
+  val neutralBackground = Color(0xFF0B0D13)
+  val transparentSurface = Color(0x18FFFFFF) // 10% translucent white for cards
+  val transparentSurfaceVariant = Color(0x10FFFFFF)
 
   val colorScheme = darkColorScheme(
     primary = primaryColor,
-    onPrimary = Color.White,
-    primaryContainer = primaryColor.copy(alpha = 0.25f),
-    onPrimaryContainer = primaryColor,
+    onPrimary = onPrimaryColor,
+    primaryContainer = primaryColor.copy(alpha = 0.22f),
+    onPrimaryContainer = if (getContrastingTextColor(primaryColor) == Color.White) primaryColor else Color.White,
     secondary = primaryColor.copy(alpha = 0.85f),
-    background = backgroundColor,
-    surface = backgroundColor,
-    surfaceVariant = backgroundColor.copy(alpha = 0.5f),
+    onSecondary = onPrimaryColor,
+    secondaryContainer = Color(0x20FFFFFF),
+    onSecondaryContainer = textColor,
+    background = neutralBackground,
     onBackground = textColor,
+    surface = transparentSurface,
     onSurface = textColor,
-    onSurfaceVariant = textColor.copy(alpha = 0.75f)
+    surfaceVariant = transparentSurfaceVariant,
+    onSurfaceVariant = textColor.copy(alpha = 0.78f),
+    outline = Color(0x35FFFFFF),
+    outlineVariant = Color(0x20FFFFFF)
   )
 
   MaterialTheme(colorScheme = colorScheme, typography = Typography) {
@@ -50,18 +67,22 @@ fun MyApplicationTheme(
           modifier = Modifier.fillMaxSize(),
           contentScale = ContentScale.Crop
         )
-        // Semi-transparent scrim to ensure UI readability and transparent effect
+        // Neutral subtle dark gradient scrim for text readability WITHOUT tinting with UI colors
         Box(
           modifier = Modifier
             .fillMaxSize()
-            .background(
-              backgroundColor.copy(alpha = 0.72f)
-            )
+            .background(Color.Black.copy(alpha = 0.25f))
         )
         content()
       }
     } else {
-      content()
+      Box(
+        modifier = Modifier
+          .fillMaxSize()
+          .background(neutralBackground)
+      ) {
+        content()
+      }
     }
   }
 }

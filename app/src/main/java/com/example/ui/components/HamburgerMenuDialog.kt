@@ -1,6 +1,10 @@
 package com.example.ui.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,11 +36,16 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.FormatColorText
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Timer
@@ -79,14 +88,14 @@ import coil.compose.AsyncImage
 import com.example.data.model.TaskPreset
 import com.example.ui.HabitViewModel
 import com.example.ui.theme.HexColorPalette
+import com.example.ui.theme.getContrastingTextColor
 import com.example.ui.theme.parseHexColor
 import com.example.util.ImageStorageUtils
 import kotlinx.coroutines.launch
 
 enum class HexColorTarget(val label: String) {
   UI("UI / Accent"),
-  BACKGROUND("Background"),
-  TEXT("Text")
+  TEXT("Text / Font")
 }
 
 enum class HamburgerMenuTab(val label: String) {
@@ -109,7 +118,6 @@ fun HamburgerMenuDialog(
 
   // Theme states
   val currentUiHex by viewModel.selectedUiHex.collectAsStateWithLifecycle()
-  val currentBgHex by viewModel.selectedBgHex.collectAsStateWithLifecycle()
   val currentTextHex by viewModel.selectedTextHex.collectAsStateWithLifecycle()
   val currentBgImageUri by viewModel.selectedBackgroundImageUri.collectAsStateWithLifecycle()
 
@@ -188,11 +196,9 @@ fun HamburgerMenuDialog(
           HamburgerMenuTab.THEME -> {
             ThemeCategoryContent(
               currentUiHex = currentUiHex,
-              currentBgHex = currentBgHex,
               currentTextHex = currentTextHex,
               currentBgImageUri = currentBgImageUri,
               onSetUiHex = { viewModel.setCustomUiHex(it) },
-              onSetBgHex = { viewModel.setCustomBgHex(it) },
               onSetTextHex = { viewModel.setCustomTextHex(it) },
               onPickBackgroundImage = {
                 bgPhotoPickerLauncher.launch(
@@ -252,11 +258,9 @@ fun HamburgerMenuDialog(
 @Composable
 private fun ThemeCategoryContent(
   currentUiHex: String,
-  currentBgHex: String,
   currentTextHex: String,
   currentBgImageUri: String?,
   onSetUiHex: (String) -> Unit,
-  onSetBgHex: (String) -> Unit,
   onSetTextHex: (String) -> Unit,
   onPickBackgroundImage: () -> Unit,
   onRemoveBackgroundImage: () -> Unit
@@ -266,7 +270,6 @@ private fun ThemeCategoryContent(
 
   val activeHex = when (activeTarget) {
     HexColorTarget.UI -> currentUiHex
-    HexColorTarget.BACKGROUND -> currentBgHex
     HexColorTarget.TEXT -> currentTextHex
   }
 
@@ -280,7 +283,7 @@ private fun ThemeCategoryContent(
       .verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(14.dp)
   ) {
-    // 1. Target Selector: UI Accent, Background, Text Color
+    // 1. Target Selector: UI Accent, Text Color
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
       Text(
         text = "Select Element to Customize",
@@ -295,7 +298,6 @@ private fun ThemeCategoryContent(
           val isSelected = target == activeTarget
           val targetColor = when (target) {
             HexColorTarget.UI -> parseHexColor(currentUiHex, Color(0xFF3B82F6))
-            HexColorTarget.BACKGROUND -> parseHexColor(currentBgHex, Color(0xFF121212))
             HexColorTarget.TEXT -> parseHexColor(currentTextHex, Color(0xFFFFFFFF))
           }
 
@@ -322,10 +324,10 @@ private fun ThemeCategoryContent(
                 .background(targetColor)
                 .border(0.5.dp, Color.Gray, CircleShape)
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
               text = target.label,
-              fontSize = 11.sp,
+              fontSize = 12.sp,
               fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
             )
           }
@@ -359,7 +361,6 @@ private fun ThemeCategoryContent(
               val formatted = "#$cleaned"
               when (activeTarget) {
                 HexColorTarget.UI -> onSetUiHex(formatted)
-                HexColorTarget.BACKGROUND -> onSetBgHex(formatted)
                 HexColorTarget.TEXT -> onSetTextHex(formatted)
               }
             }
@@ -390,43 +391,47 @@ private fun ThemeCategoryContent(
       modifier = Modifier.fillMaxWidth(),
       shape = RoundedCornerShape(14.dp),
       colors = CardDefaults.cardColors(
-        containerColor = parseHexColor(currentBgHex, Color(0xFF121212)).copy(alpha = 0.55f)
-      )
+        containerColor = Color.White.copy(alpha = 0.08f)
+      ),
+      border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
     ) {
       Column(
-        modifier = Modifier.padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = Modifier.padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
       ) {
+        val textColor = parseHexColor(currentTextHex, Color.White)
+        val uiColor = parseHexColor(currentUiHex, Color(0xFF3B82F6))
+
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
           Text(
-            text = "Transparent Effect Preview",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = parseHexColor(currentTextHex, Color.White)
+            text = "Transparent Glass Preview",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = textColor
           )
 
           Box(
             modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(parseHexColor(currentUiHex, Color(0xFF3B82F6)))
-              .padding(horizontal = 8.dp, vertical = 3.dp)
+              .clip(RoundedCornerShape(8.dp))
+              .background(uiColor)
+              .padding(horizontal = 10.dp, vertical = 4.dp)
           ) {
             Text(
-              text = "Accent UI",
-              fontSize = 10.sp,
+              text = "Accent Button",
+              fontSize = 11.sp,
               fontWeight = FontWeight.Bold,
-              color = Color.White
+              color = getContrastingTextColor(uiColor)
             )
           }
         }
 
         Text(
-          text = "Text preview with transparent glassmorphism background effect.",
-          fontSize = 11.sp,
-          color = parseHexColor(currentTextHex, Color.White).copy(alpha = 0.85f)
+          text = "Text and UI accent colors stay clear and transparent over wallpapers.",
+          fontSize = 12.sp,
+          color = textColor.copy(alpha = 0.85f)
         )
       }
     }
@@ -447,7 +452,8 @@ private fun ThemeCategoryContent(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(12.dp))
-          .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+          .background(Color.White.copy(alpha = 0.06f))
+          .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
           .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
       ) {
@@ -476,7 +482,6 @@ private fun ThemeCategoryContent(
                     hexInputText = hexCode.removePrefix("#")
                     when (activeTarget) {
                       HexColorTarget.UI -> onSetUiHex(hexCode)
-                      HexColorTarget.BACKGROUND -> onSetBgHex(hexCode)
                       HexColorTarget.TEXT -> onSetTextHex(hexCode)
                     }
                   }
@@ -499,7 +504,8 @@ private fun ThemeCategoryContent(
     Card(
       modifier = Modifier.fillMaxWidth(),
       shape = RoundedCornerShape(12.dp),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+      colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+      border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
     ) {
       Column(modifier = Modifier.padding(12.dp)) {
         if (!currentBgImageUri.isNullOrBlank()) {
@@ -562,6 +568,12 @@ private fun DataManagementDialogBody(viewModel: HabitViewModel) {
   var statusMessage by remember { mutableStateOf<String?>(null) }
   var isSuccess by remember { mutableStateOf(true) }
   var isProcessing by remember { mutableStateOf(false) }
+  var showPasteInput by remember { mutableStateOf(false) }
+  var manualJsonText by remember { mutableStateOf("") }
+
+  val clipboardManager = remember {
+    context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+  }
 
   val importFileLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.GetContent()
@@ -606,6 +618,11 @@ private fun DataManagementDialogBody(viewModel: HabitViewModel) {
             if (isSuccess) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
             else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
           )
+          .border(
+            1.dp,
+            if (isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            RoundedCornerShape(10.dp)
+          )
           .padding(10.dp)
       ) {
         Text(
@@ -616,73 +633,217 @@ private fun DataManagementDialogBody(viewModel: HabitViewModel) {
       }
     }
 
-    // Export Data Card
+    // Export Card (Easy 1-Tap Share & 1-Tap Clipboard Copy)
     Card(
       modifier = Modifier.fillMaxWidth(),
-      shape = RoundedCornerShape(12.dp),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+      shape = RoundedCornerShape(14.dp),
+      colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+      border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
     ) {
-      Column(modifier = Modifier.padding(12.dp)) {
-        Text("Export Data", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+      Column(modifier = Modifier.padding(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(Icons.Default.FileUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+          Spacer(modifier = Modifier.width(8.dp))
+          Text("Export Data Backup", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          "Export your tasks, presets, NEET chapters, ratings, and logs as a portable JSON backup file.",
+          "Export your tasks, presets, NEET chapters, ratings, and timer logs into portable JSON.",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-          onClick = {
-            coroutineScope.launch {
-              try {
-                val json = viewModel.exportDataToJson()
-                val sendIntent = Intent().apply {
-                  action = Intent.ACTION_SEND
-                  putExtra(Intent.EXTRA_TEXT, json)
-                  putExtra(Intent.EXTRA_TITLE, "Habit_Tracker_Backup.json")
-                  type = "text/plain"
-                }
-                val shareIntent = Intent.createChooser(sendIntent, "Export Habit Tracker Data")
-                context.startActivity(shareIntent)
-                statusMessage = "Export ready to save or share!"
-                isSuccess = true
-              } catch (e: Exception) {
-                statusMessage = "Export failed: ${e.message}"
-                isSuccess = false
-              }
-            }
-          },
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
           modifier = Modifier.fillMaxWidth(),
-          shape = RoundedCornerShape(10.dp),
-          colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-          Text("Export Backup JSON")
+          Button(
+            onClick = {
+              coroutineScope.launch {
+                try {
+                  val json = viewModel.exportDataToJson()
+                  val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, json)
+                    putExtra(Intent.EXTRA_TITLE, "Habit_Tracker_Backup.json")
+                    type = "text/plain"
+                  }
+                  val shareIntent = Intent.createChooser(sendIntent, "Export Habit Tracker Data")
+                  context.startActivity(shareIntent)
+                  statusMessage = "Backup ready to save or share!"
+                  isSuccess = true
+                } catch (e: Exception) {
+                  statusMessage = "Export failed: ${e.message}"
+                  isSuccess = false
+                }
+              }
+            },
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp)
+          ) {
+            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Share Backup", fontSize = 12.sp)
+          }
+
+          OutlinedButton(
+            onClick = {
+              coroutineScope.launch {
+                try {
+                  val json = viewModel.exportDataToJson()
+                  val clip = ClipData.newPlainText("Habit_Tracker_Backup", json)
+                  clipboardManager?.setPrimaryClip(clip)
+                  haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                  statusMessage = "JSON backup copied to clipboard! ✓"
+                  isSuccess = true
+                } catch (e: Exception) {
+                  statusMessage = "Copy failed: ${e.message}"
+                  isSuccess = false
+                }
+              }
+            },
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp)
+          ) {
+            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Copy JSON", fontSize = 12.sp)
+          }
         }
       }
     }
 
-    // Import Data Card
+    // Import Card (1-Tap Paste from Clipboard & 1-Tap Select File)
     Card(
       modifier = Modifier.fillMaxWidth(),
-      shape = RoundedCornerShape(12.dp),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+      shape = RoundedCornerShape(14.dp),
+      colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+      border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
     ) {
-      Column(modifier = Modifier.padding(12.dp)) {
-        Text("Import Data", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+      Column(modifier = Modifier.padding(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(Icons.Default.FileDownload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+          Spacer(modifier = Modifier.width(8.dp))
+          Text("Import Data Backup", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-          "Restore tasks, presets, and logs from a previously exported JSON backup file.",
+          "Restore tasks, presets, logs, and events instantly from clipboard or a file.",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-          onClick = { importFileLauncher.launch("*/*") },
-          enabled = !isProcessing,
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
           modifier = Modifier.fillMaxWidth(),
-          shape = RoundedCornerShape(10.dp)
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-          Text(if (isProcessing) "Importing..." else "Select & Import JSON File")
+          Button(
+            onClick = {
+              coroutineScope.launch {
+                isProcessing = true
+                try {
+                  val clipData = clipboardManager?.primaryClip
+                  val clipText = if (clipData != null && clipData.itemCount > 0) {
+                    clipData.getItemAt(0).text?.toString() ?: ""
+                  } else ""
+
+                  if (clipText.isNotBlank()) {
+                    val count = viewModel.importDataFromJson(clipText)
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    statusMessage = "Successfully restored $count records from clipboard!"
+                    isSuccess = true
+                  } else {
+                    statusMessage = "Clipboard is empty! Copy JSON backup first."
+                    isSuccess = false
+                  }
+                } catch (e: Exception) {
+                  statusMessage = "Clipboard import error: ${e.message}"
+                  isSuccess = false
+                } finally {
+                  isProcessing = false
+                }
+              }
+            },
+            enabled = !isProcessing,
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp)
+          ) {
+            Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Paste & Restore", fontSize = 12.sp)
+          }
+
+          OutlinedButton(
+            onClick = { importFileLauncher.launch("*/*") },
+            enabled = !isProcessing,
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp)
+          ) {
+            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Select File", fontSize = 12.sp)
+          }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Optional direct paste text field toggle
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showPasteInput = !showPasteInput }
+            .padding(vertical = 4.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Text(
+            text = if (showPasteInput) "Hide text input ▲" else "Or paste raw JSON manually ▼",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary
+          )
+        }
+
+        if (showPasteInput) {
+          Spacer(modifier = Modifier.height(6.dp))
+          OutlinedTextField(
+            value = manualJsonText,
+            onValueChange = { manualJsonText = it },
+            label = { Text("Paste JSON here") },
+            placeholder = { Text("{\"version\": ..., \"tasks\": [...]}") },
+            modifier = Modifier
+              .fillMaxWidth()
+              .heightIn(min = 100.dp, max = 160.dp),
+            shape = RoundedCornerShape(10.dp)
+          )
+          Spacer(modifier = Modifier.height(6.dp))
+          Button(
+            onClick = {
+              if (manualJsonText.isNotBlank()) {
+                coroutineScope.launch {
+                  isProcessing = true
+                  try {
+                    val count = viewModel.importDataFromJson(manualJsonText)
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    statusMessage = "Imported $count records from input text!"
+                    isSuccess = true
+                    manualJsonText = ""
+                    showPasteInput = false
+                  } catch (e: Exception) {
+                    statusMessage = "Invalid JSON: ${e.message}"
+                    isSuccess = false
+                  } finally {
+                    isProcessing = false
+                  }
+                }
+              }
+            },
+            enabled = manualJsonText.isNotBlank() && !isProcessing,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp)
+          ) {
+            Text("Import Pasted JSON")
+          }
         }
       }
     }
