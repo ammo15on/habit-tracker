@@ -92,14 +92,28 @@ class TimerForegroundService : Service() {
     )
 
     val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-      .setContentTitle("⏱️ Active: $taskName")
-      .setContentText("Background tracking is active")
+      .setContentTitle("⏱️ $taskName")
+      .setContentText("Focus session in progress")
+      .setSubText("Active Tracker")
       .setSmallIcon(R.drawable.ic_timer_notification)
+      .setColor(0xFF3B82F6.toInt())
       .setOngoing(true)
       .setUsesChronometer(true)
+      .setShowWhen(true)
       .setWhen(System.currentTimeMillis())
       .setContentIntent(openAppPendingIntent)
-      .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Timer", stopPendingIntent)
+      .setStyle(
+        NotificationCompat.BigTextStyle()
+          .setBigContentTitle("⏱️ Focusing: $taskName")
+          .bigText("Active background tracking is in progress. Tap anywhere to open the tracker or tap below to stop and save.")
+      )
+      .addAction(
+        NotificationCompat.Action.Builder(
+          android.R.drawable.ic_menu_close_clear_cancel,
+          "⏹ Stop & Save",
+          stopPendingIntent
+        ).build()
+      )
       .setPriority(NotificationCompat.PRIORITY_LOW)
       .setCategory(NotificationCompat.CATEGORY_WORKOUT)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

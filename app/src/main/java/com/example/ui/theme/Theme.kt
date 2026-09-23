@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -15,47 +14,34 @@ import coil.compose.AsyncImage
 
 @Composable
 fun MyApplicationTheme(
+  uiHex: String = "#3B82F6",
+  bgHex: String = "#121212",
+  textHex: String = "#FFFFFF",
   themeColor: AppThemeColor = AppThemeColor.SLATE,
   fontColor: AppFontColor = AppFontColor.DEFAULT,
   backgroundImageUri: String? = null,
   darkTheme: Boolean = isSystemInDarkTheme(),
   content: @Composable () -> Unit,
 ) {
-  val customTextColor = when {
-    fontColor == AppFontColor.DEFAULT -> null
-    darkTheme -> fontColor.darkColor
-    else -> fontColor.lightColor
-  }
+  val primaryColor = parseHexColor(uiHex, if (darkTheme) themeColor.primaryDark else themeColor.primaryLight)
+  val backgroundColor = parseHexColor(bgHex, if (darkTheme) Color(0xFF121212) else Color(0xFFF8FAFC))
+  val textColor = parseHexColor(textHex, if (darkTheme) Color.White else Color(0xFF0F172A))
 
-  val baseColorScheme = if (darkTheme) {
-    darkColorScheme(
-      primary = themeColor.primaryDark,
-      onPrimary = Color.Black,
-      primaryContainer = themeColor.containerDark,
-      onPrimaryContainer = Color.White,
-      secondary = themeColor.secondaryDark,
-      background = if (themeColor == AppThemeColor.BLACK) Color(0xFF000000) else Color(0xFF121212),
-      surface = if (themeColor == AppThemeColor.BLACK) Color(0xFF10141C) else Color(0xFF1E1E1E),
-      onBackground = customTextColor ?: Color.White,
-      onSurface = customTextColor ?: Color.White,
-      onSurfaceVariant = customTextColor?.copy(alpha = 0.8f) ?: Color(0xFFCBD5E1)
-    )
-  } else {
-    lightColorScheme(
-      primary = themeColor.primaryLight,
-      onPrimary = Color.White,
-      primaryContainer = themeColor.containerLight,
-      onPrimaryContainer = Color(0xFF0F172A),
-      secondary = themeColor.secondaryLight,
-      background = Color(0xFFF8FAFC),
-      surface = Color(0xFFFFFFFF),
-      onBackground = customTextColor ?: Color(0xFF0F172A),
-      onSurface = customTextColor ?: Color(0xFF0F172A),
-      onSurfaceVariant = customTextColor?.copy(alpha = 0.8f) ?: Color(0xFF475569)
-    )
-  }
+  val colorScheme = darkColorScheme(
+    primary = primaryColor,
+    onPrimary = Color.White,
+    primaryContainer = primaryColor.copy(alpha = 0.25f),
+    onPrimaryContainer = primaryColor,
+    secondary = primaryColor.copy(alpha = 0.85f),
+    background = backgroundColor,
+    surface = backgroundColor,
+    surfaceVariant = backgroundColor.copy(alpha = 0.5f),
+    onBackground = textColor,
+    onSurface = textColor,
+    onSurfaceVariant = textColor.copy(alpha = 0.75f)
+  )
 
-  MaterialTheme(colorScheme = baseColorScheme, typography = Typography) {
+  MaterialTheme(colorScheme = colorScheme, typography = Typography) {
     if (!backgroundImageUri.isNullOrBlank()) {
       Box(modifier = Modifier.fillMaxSize()) {
         AsyncImage(
@@ -64,13 +50,12 @@ fun MyApplicationTheme(
           modifier = Modifier.fillMaxSize(),
           contentScale = ContentScale.Crop
         )
-        // Semi-transparent scrim to ensure UI readability and contrast
+        // Semi-transparent scrim to ensure UI readability and transparent effect
         Box(
           modifier = Modifier
             .fillMaxSize()
             .background(
-              if (darkTheme) Color.Black.copy(alpha = 0.65f)
-              else Color.White.copy(alpha = 0.82f)
+              backgroundColor.copy(alpha = 0.72f)
             )
         )
         content()
@@ -80,5 +65,3 @@ fun MyApplicationTheme(
     }
   }
 }
-
-

@@ -76,6 +76,8 @@ import com.example.data.model.PlannedTask
 import com.example.ui.HabitViewModel
 import com.example.ui.components.AddPlannedTaskDialog
 import com.example.ui.components.PlanEventDialog
+import androidx.compose.material.icons.filled.Flag
+import com.example.ui.components.GoalDialog
 import com.example.util.DateUtils
 
 @Composable
@@ -86,8 +88,10 @@ fun PlanScreen(
 ) {
   val plannedTasks by viewModel.allPlannedTasks.collectAsStateWithLifecycle()
   val planEvents by viewModel.allPlanEvents.collectAsStateWithLifecycle()
+  val goal by viewModel.goal.collectAsStateWithLifecycle()
   var showAddDialog by remember { mutableStateOf(false) }
   var showAddEventDialog by remember { mutableStateOf(false) }
+  var showGoalDialog by remember { mutableStateOf(false) }
   var eventToEdit by remember { mutableStateOf<PlanEvent?>(null) }
   var viewArchivedOnly by remember { mutableStateOf(false) }
 
@@ -151,15 +155,87 @@ fun PlanScreen(
             }
           }
 
-          OutlinedButton(
-            onClick = { showAddEventDialog = true },
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-            modifier = Modifier.testTag("btn_add_event")
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+              onClick = { showGoalDialog = true },
+              shape = RoundedCornerShape(10.dp),
+              contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+              modifier = Modifier.testTag("btn_plan_goal")
+            ) {
+              Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+              Spacer(modifier = Modifier.width(4.dp))
+              Text(if (goal != null) "🎯 Goal" else "+ Set Goal", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            OutlinedButton(
+              onClick = { showAddEventDialog = true },
+              shape = RoundedCornerShape(10.dp),
+              contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+              modifier = Modifier.testTag("btn_add_event")
+            ) {
+              Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("+ Add Event", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+          }
+        }
+      }
+
+      // Active Target Goal Card (if set)
+      if (goal != null) {
+        item {
+          Card(
+            modifier = Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(14.dp))
+              .clickable { showGoalDialog = true },
+            colors = CardDefaults.cardColors(
+              containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            )
           ) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("+ Add Event", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                  imageVector = Icons.Default.Flag,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                  Text(
+                    text = "🎯 ${goal!!.title}",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                  )
+                  Text(
+                    text = "Target Date: ${DateUtils.formatFullDate(goal!!.targetDate)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                  )
+                }
+              }
+
+              val daysLeft = DateUtils.daysBetween(DateUtils.today(), goal!!.targetDate)
+              Box(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(8.dp))
+                  .background(MaterialTheme.colorScheme.primary)
+                  .padding(horizontal = 8.dp, vertical = 4.dp)
+              ) {
+                Text(
+                  text = if (daysLeft > 0) "$daysLeft days left" else if (daysLeft == 0L) "Today!" else "${-daysLeft} days ago",
+                  style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                  color = Color.White
+                )
+              }
+            }
           }
         }
       }
@@ -387,6 +463,15 @@ fun PlanScreen(
       shape = CircleShape
     ) {
       Icon(Icons.Default.Add, contentDescription = "Add Plan", modifier = Modifier.size(28.dp))
+    }
+
+    if (showGoalDialog) {
+      GoalDialog(
+        currentGoal = goal,
+        onSetGoal = { title, targetDate -> viewModel.setGoal(title, targetDate) },
+        onClearGoal = { viewModel.clearGoal() },
+        onDismiss = { showGoalDialog = false }
+      )
     }
 
     if (showAddDialog) {

@@ -54,6 +54,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.material.icons.filled.Check
 import com.example.data.model.TaskPreset
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -66,8 +69,10 @@ fun PresetsDialog(
   onSchedulePresetForDates: (preset: TaskPreset, dates: Set<String>) -> Unit,
   onAddPresetToDay: ((preset: TaskPreset) -> Unit)? = null
 ) {
+  val haptic = LocalHapticFeedback.current
   var customPresetInput by remember { mutableStateOf("") }
   var presetToSchedule by remember { mutableStateOf<TaskPreset?>(null) }
+  var addedPresetIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -236,20 +241,28 @@ fun PresetsDialog(
                     verticalAlignment = Alignment.CenterVertically
                   ) {
                     if (onAddPresetToDay != null) {
+                      val isAdded = addedPresetIds.contains(preset.id)
                       Button(
-                        onClick = { onAddPresetToDay(preset) },
+                        onClick = {
+                          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                          onAddPresetToDay(preset)
+                          addedPresetIds = addedPresetIds + preset.id
+                        },
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(30.dp)
+                        modifier = Modifier.height(30.dp),
+                        colors = if (isAdded) ButtonDefaults.buttonColors(
+                          containerColor = MaterialTheme.colorScheme.secondary
+                        ) else ButtonDefaults.buttonColors()
                       ) {
                         Icon(
-                          Icons.Default.Add,
+                          if (isAdded) Icons.Default.Check else Icons.Default.Add,
                           contentDescription = null,
                           modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                          text = "Add to Day",
+                          text = if (isAdded) "Added ✓" else "Add to Day",
                           style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
                         )
                       }

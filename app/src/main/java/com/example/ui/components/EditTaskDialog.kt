@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import android.app.TimePickerDialog
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,11 +25,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
@@ -42,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,8 +57,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -63,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.HabitTask
+import com.example.util.DateUtils
 import com.example.util.ImageStorageUtils
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -74,6 +80,7 @@ fun EditTaskDialog(
   onDelete: (() -> Unit)? = null
 ) {
   val context = LocalContext.current
+  val haptic = LocalHapticFeedback.current
 
   var taskName by remember { mutableStateOf(task.name) }
   var repeatMask by remember { mutableIntStateOf(task.repeatDaysMask) }
@@ -92,8 +99,14 @@ fun EditTaskDialog(
     mutableStateOf(if (task.targetTimeMinutes > 0) task.targetTimeMinutes.toString() else "")
   }
   var isPreset by remember { mutableStateOf(task.isDefault) }
+
+  // Alarm / Reminder feature
+  var reminderEnabled by remember { mutableStateOf(!task.reminderTime.isNullOrBlank()) }
+  var reminderTimeStr by remember { mutableStateOf(task.reminderTime ?: "08:00") }
+
   var noteText by remember { mutableStateOf(task.noteText) }
   var noteImageUri by remember { mutableStateOf(task.noteImageUri) }
+  var showFullScreenImage by remember { mutableStateOf(false) }
 
   val isEveryday = (repeatMask == HabitTask.EVERYDAY_MASK)
   val dayLabels = HabitTask.DAY_LETTERS
@@ -128,18 +141,20 @@ fun EditTaskDialog(
           )
           Spacer(modifier = Modifier.width(8.dp))
           Text(
-            text = "Edit Task & Habit",
+            text = "Edit Task",
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
           )
         }
 
         if (onDelete != null) {
-          IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+          IconButton(
+            onClick = onDelete,
+            modifier = Modifier.testTag("delete_task_button")
+          ) {
             Icon(
               imageVector = Icons.Default.Delete,
               contentDescription = "Delete Task",
-              tint = MaterialTheme.colorScheme.error,
-              modifier = Modifier.size(20.dp)
+              tint = MaterialTheme.colorScheme.error
             )
           }
         }
@@ -154,23 +169,31 @@ fun EditTaskDialog(
         // Task Name
         Text(
           text = "Task Name",
-          style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+          style = MaterialTheme.typography.labelMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
         )
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
           value = taskName,
           onValueChange = { taskName = it },
           singleLine = true,
-          modifier = Modifier.fillMaxWidth(),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("edit_task_name_input"),
           shape = RoundedCornerShape(12.dp)
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Target Timer
+        // Target Timer input (in minutes)
         Text(
           text = "Target Timer (Minutes)",
-          style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+          style = MaterialTheme.typography.labelMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
         )
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
@@ -180,87 +203,234 @@ fun EditTaskDialog(
               targetMinutesStr = input
             }
           },
-          placeholder = { Text("e.g. 45 (or 0 for no target)") },
+          label = { Text("Target Duration (e.g. 45 min)") },
+          placeholder = { Text("0 = No target timer") },
+          leadingIcon = {
+            Icon(
+              imageVector = Icons.Default.Timer,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(20.dp)
+            )
+          },
+          trailingIcon = {
+            if (targetMinutesStr.isNotBlank()) {
+              IconButton(onClick = { targetMinutesStr = "" }) {
+                Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+              }
+            }
+          },
           singleLine = true,
           keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-          leadingIcon = {
-            Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(18.dp))
-          },
-          modifier = Modifier.fillMaxWidth(),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("edit_task_target_timer_input"),
           shape = RoundedCornerShape(12.dp)
         )
 
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Quick timer chips: 25m, 45m, 60m, 90m, 120m
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+          listOf(25, 45, 60, 90, 120).forEach { mins ->
+            val isSelected = targetMinutesStr == mins.toString()
+            SuggestionChip(
+              onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                targetMinutesStr = if (isSelected) "" else mins.toString()
+              },
+              label = { Text("${mins}m", fontSize = 11.sp) },
+              modifier = Modifier.height(28.dp)
+            )
+          }
+        }
+
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Date Selection and Frequency of Days
-        Text(
-          text = "Date Selection & Frequency",
-          style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-
-        FlowRow(
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-          verticalArrangement = Arrangement.spacedBy(6.dp)
+        // Alarm / Reminder with Sound Notification
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
         ) {
-          // Date Selection via Mini Calendar Popup
-          FilterChip(
-            selected = targetDates.isNotEmpty(),
-            onClick = { showCalendarPopup = true },
-            leadingIcon = {
-              Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(14.dp))
-            },
-            label = {
+          Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Icon(
+              imageVector = Icons.Default.Alarm,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
               Text(
-                if (targetDates.isEmpty()) "Select Date(s)..."
-                else "${targetDates.size} date(s) selected",
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = if (targetDates.isNotEmpty()) FontWeight.Bold else FontWeight.Normal
-                )
+                text = "Reminder / Alarm",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+              )
+              Text(
+                text = if (reminderEnabled) "Alert with sound at $reminderTimeStr" else "Sound alert at scheduled time",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
               )
             }
-          )
+          }
 
-          FilterChip(
-            selected = isEveryday,
-            onClick = {
-              repeatMask = if (isEveryday) 0 else HabitTask.EVERYDAY_MASK
-              if (!isEveryday) targetDates = emptySet()
-            },
-            label = {
-              Text(
-                "Everyday",
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = if (isEveryday) FontWeight.Bold else FontWeight.Normal
-                )
-              )
-            },
-            leadingIcon = {
-              Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(14.dp))
-            }
-          )
-
-          FilterChip(
-            selected = !isEveryday && repeatMask != 0,
-            onClick = {
-              if (repeatMask == 0) repeatMask = 0b0111110 // Mon-Fri
-              targetDates = emptySet()
-            },
-            label = {
-              Text(
-                "Week Days",
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = if (!isEveryday && repeatMask != 0) FontWeight.Bold else FontWeight.Normal
-                )
-              )
+          Switch(
+            checked = reminderEnabled,
+            onCheckedChange = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              reminderEnabled = it
             }
           )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        if (reminderEnabled) {
+          Spacer(modifier = Modifier.height(8.dp))
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            OutlinedButton(
+              onClick = {
+                val parts = reminderTimeStr.split(":")
+                val curH = parts.getOrNull(0)?.toIntOrNull() ?: 8
+                val curM = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                TimePickerDialog(context, { _, hourOfDay, minute ->
+                  reminderTimeStr = String.format("%02d:%02d", hourOfDay, minute)
+                }, curH, curM, true).show()
+              },
+              shape = RoundedCornerShape(10.dp)
+            ) {
+              Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Time: $reminderTimeStr")
+            }
 
-        // 7 Day circles
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+              listOf("06:00", "08:00", "14:00", "20:00").forEach { time ->
+                SuggestionChip(
+                  onClick = { reminderTimeStr = time },
+                  label = { Text(time, fontSize = 10.sp) },
+                  modifier = Modifier.height(26.dp)
+                )
+              }
+            }
+          }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Multi-Date Picker Trigger (v5.2)
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+              imageVector = Icons.Default.CalendarMonth,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+              text = "Multiple Dates Selection",
+              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+          }
+
+          OutlinedButton(
+            onClick = { showCalendarPopup = true }
+          ) {
+            Text(
+              text = if (targetDates.isEmpty()) "Pick Dates" else "${targetDates.size} Selected",
+              fontSize = 12.sp
+            )
+          }
+        }
+
+        if (targetDates.isNotEmpty()) {
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = "Scheduled for: " + targetDates.sorted().joinToString(", ") { DateUtils.formatShortDate(it) },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
+          )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Schedule / Recurrence
         if (targetDates.isEmpty()) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+              imageVector = Icons.Default.Repeat,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+              text = "Repeat Days",
+              style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            )
+          }
+          Spacer(modifier = Modifier.height(6.dp))
+
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            FilterChip(
+              selected = isEveryday,
+              onClick = {
+                repeatMask = if (isEveryday) 0 else HabitTask.EVERYDAY_MASK
+                targetDates = emptySet()
+              },
+              label = {
+                Text(
+                  "Every Day",
+                  style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = if (isEveryday) FontWeight.Bold else FontWeight.Normal
+                  )
+                )
+              }
+            )
+
+            FilterChip(
+              selected = !isEveryday && repeatMask != 0,
+              onClick = {
+                if (repeatMask == 0) repeatMask = 0b0111110 // Mon-Fri
+                targetDates = emptySet()
+              },
+              label = {
+                Text(
+                  "Week Days",
+                  style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = if (!isEveryday && repeatMask != 0) FontWeight.Bold else FontWeight.Normal
+                  )
+                )
+              }
+            )
+          }
+
+          Spacer(modifier = Modifier.height(6.dp))
+
+          // 7 Day circles
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -304,77 +474,34 @@ fun EditTaskDialog(
               }
             }
           }
+
+          Spacer(modifier = Modifier.height(14.dp))
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Option to add/keep as Preset
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-              imageVector = Icons.Default.Star,
-              contentDescription = null,
-              tint = if (isPreset) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Column {
-              Text(
-                text = "Preset Habit",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-              )
-              Text(
-                text = "Keep this habit in quick presets list",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-              )
-            }
-          }
-
-          Switch(
-            checked = isPreset,
-            onCheckedChange = { isPreset = it },
-            modifier = Modifier.testTag("switch_edit_default")
-          )
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Note in task: Text Note
+        // Note Text
         Text(
-          text = "Note / Study Reminder (Text)",
-          style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+          text = "Notes & Details",
+          style = MaterialTheme.typography.labelMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
         )
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
           value = noteText,
           onValueChange = { noteText = it },
-          placeholder = { Text("e.g. Chapter summary, formulas, tips...") },
+          label = { Text("Task Notes") },
           leadingIcon = {
             Icon(Icons.Default.Notes, contentDescription = null, modifier = Modifier.size(18.dp))
           },
           modifier = Modifier.fillMaxWidth(),
-          maxLines = 4,
-          shape = RoundedCornerShape(12.dp)
+          shape = RoundedCornerShape(12.dp),
+          maxLines = 3
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Note in task: Image Note
-        Text(
-          text = "Image Note",
-          style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-
+        // Image Attachment
         if (noteImageUri != null) {
           Box(
             modifier = Modifier
@@ -382,6 +509,7 @@ fun EditTaskDialog(
               .height(140.dp)
               .clip(RoundedCornerShape(12.dp))
               .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+              .clickable { showFullScreenImage = true }
           ) {
             AsyncImage(
               model = noteImageUri,
@@ -434,6 +562,7 @@ fun EditTaskDialog(
             val target = targetMinutesStr.toIntOrNull() ?: 0
             val targetDatesStr = if (targetDates.isNotEmpty()) targetDates.joinToString(",") else null
             val singleTargetDate = if (targetDates.size == 1) targetDates.first() else task.targetDate
+            val reminder = if (reminderEnabled) reminderTimeStr else null
             val updated = task.copy(
               name = taskName.trim(),
               repeatDaysMask = if (targetDates.isNotEmpty()) 0 else repeatMask,
@@ -442,7 +571,8 @@ fun EditTaskDialog(
               targetTimeMinutes = target,
               isDefault = isPreset,
               noteText = noteText.trim(),
-              noteImageUri = noteImageUri
+              noteImageUri = noteImageUri,
+              reminderTime = reminder
             )
             onConfirm(updated)
           }
@@ -463,6 +593,13 @@ fun EditTaskDialog(
       }
     }
   )
+
+  if (showFullScreenImage && noteImageUri != null) {
+    FullScreenImageViewerDialog(
+      imageUri = noteImageUri!!,
+      onDismiss = { showFullScreenImage = false }
+    )
+  }
 
   // Mini Calendar Picker Popup for date selection
   if (showCalendarPopup) {

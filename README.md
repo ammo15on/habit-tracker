@@ -1,22 +1,50 @@
-# Habit & Study Tracker (Android) - v5.3
+# Habit & Study Tracker (Android) - v5.4
 
 A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v5.3 & Version History)
+## 📱 Pre-Built APKs (v5.4 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v5.3 Latest Release**: [`apk/habit-tracker-v5.3.apk`](apk/habit-tracker-v5.3.apk)
+- **v5.4 Latest Release**: [`apk/habit-tracker-v5.4.apk`](apk/habit-tracker-v5.4.apk)
+- **v5.3 Release**: [`apk/habit-tracker-v5.3.apk`](apk/habit-tracker-v5.3.apk)
 - **v5.1 Release**: [`apk/habit-tracker-v5.1.apk`](apk/habit-tracker-v5.1.apk)
 - **v5 Release**: [`apk/habit-tracker-v5.apk`](apk/habit-tracker-v5.apk)
 - **v3 Release**: [`apk/habit-tracker-v3.apk`](apk/habit-tracker-v3.apk)
 - **v2 Release**: [`apk/habit-tracker-v2.apk`](apk/habit-tracker-v2.apk)
 - **Universal Standard Link**: [`apk/habit-tracker.apk`](apk/habit-tracker.apk)
-- **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
+- **Build Output**: `app/build/outputs/apk/release/app-release.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `5.3` (Version Code 8)
+- **Version**: `5.4` (Version Code 9)
+
+---
+
+## 🚀 Release v5.4 - Hex Color Themes, Alarms & Reminders, Goal Milestones & Full-Screen Viewer
+
+### 1. Hexadecimal Theme System with Transparency
+- **Complete Hex Palette**: Integrated a 90-swatch Hexadecimal Colour Chart for UI elements, background, and text colors.
+- **Custom Hex Code Input**: Type or paste any 6-digit hex code with instant swatch preview and validation.
+- **Glassmorphism Preview**: Real-time transparent card effect preview and custom wallpaper support.
+
+### 2. Task Alarms & Sound Notifications
+- **Exact Alarms**: Schedule reminder times for tasks directly from Add Task and Edit Task dialogs.
+- **Audio & Haptic Alerts**: High-priority notifications with sound and vibration powered by Android's exact alarm scheduler.
+
+### 3. Future Goal Countdown
+- **Target Date Tracking**: Set milestone goals with future dates from Tracker and Plan screens.
+- **Clean Inline Days Indicator**: Displays remaining days count directly on the right side of Habits & Tasks in the Tracker.
+
+### 4. Full-Screen Image Viewer
+- **Modal Viewer**: Tap any image attachment or note thumbnail to open an interactive full-screen image viewer with pinch-to-zoom and pan.
+
+### 5. Presets Experience in Hamburger Menu
+- **Streamlined Add Task**: Presets consolidated into the Hamburger Menu.
+- **Continuous Addition**: "Add to Day" keeps the presets dialog open for rapid multi-task creation with instant checkmark feedback.
+
+### 6. Modernized Time Tracking Notification
+- **Refined Foreground Notification**: Enhanced layout with elapsed chronometer time, clean action buttons, and high visibility.
 
 ---
 

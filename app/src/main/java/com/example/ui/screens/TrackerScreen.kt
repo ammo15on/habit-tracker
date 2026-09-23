@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Today
+import com.example.ui.components.GoalDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -89,9 +90,11 @@ fun TrackerScreen(
   val currentRating by viewModel.currentDayRating.collectAsStateWithLifecycle()
   val totalTimeSeconds by viewModel.totalTimeTodaySeconds.collectAsStateWithLifecycle()
   val planEvents by viewModel.allPlanEvents.collectAsStateWithLifecycle()
+  val goal by viewModel.goal.collectAsStateWithLifecycle()
 
   var showAddDialog by remember { mutableStateOf(false) }
   var showPresetsDialog by remember { mutableStateOf(false) }
+  var showGoalDialog by remember { mutableStateOf(false) }
   var showHamburgerMenu by remember { mutableStateOf(false) }
   var taskToEdit by remember { mutableStateOf<HabitTask?>(null) }
   var totalDragX by remember { mutableFloatStateOf(0f) }
@@ -320,29 +323,28 @@ fun TrackerScreen(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-              // Presets button (replaces Defaults)
-              OutlinedButton(
-                onClick = { showPresetsDialog = true },
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                  .defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
-                  .testTag("btn_manage_presets")
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Star,
-                  contentDescription = null,
-                  tint = Color(0xFFF59E0B),
-                  modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                  text = "Presets (${presets.size})",
-                  style = MaterialTheme.typography.labelMedium.copy(
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
+              // Goal Countdown display: If a goal exists, just show no of days in right side of habit and task
+              if (goal != null) {
+                val daysLeft = DateUtils.daysBetween(DateUtils.today(), goal!!.targetDate)
+                val countdownLabel = if (daysLeft > 1L) "$daysLeft days" else if (daysLeft == 1L) "1 day" else if (daysLeft == 0L) "0 days" else "${-daysLeft} days ago"
+
+                Box(
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+                    .clickable { showGoalDialog = true }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                  contentAlignment = Alignment.Center
+                ) {
+                  Text(
+                    text = countdownLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                      fontSize = 11.sp,
+                      fontWeight = FontWeight.SemiBold,
+                      color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                   )
-                )
+                }
               }
 
               OutlinedButton(
@@ -447,28 +449,18 @@ fun TrackerScreen(
   if (showAddDialog) {
     AddTaskDialog(
       selectedDate = selectedDate,
-      presets = presets,
       onDismiss = { showAddDialog = false },
-      onOpenPresetsManager = {
-        showAddDialog = false
-        showPresetsDialog = true
-      },
-      onAddPreset = { presetName ->
-        viewModel.addPreset(presetName)
-      },
-      onDeletePreset = { id ->
-        viewModel.deletePreset(id)
-      },
-      onConfirm = { name, targetDates, repeatMask, targetMinutes, isPreset, noteText, noteImageUri ->
+      onConfirm = { name, targetDates, repeatMask, targetMinutes, reminderTime, noteText, noteImageUri ->
         viewModel.addTask(
           name = name,
           targetDates = targetDates,
           repeatDaysMask = repeatMask,
           targetTimeMinutes = targetMinutes,
-          isDefault = isPreset,
+          isDefault = false,
           isStarred = false,
           noteText = noteText,
-          noteImageUri = noteImageUri
+          noteImageUri = noteImageUri,
+          reminderTime = reminderTime
         )
         showAddDialog = false
       }
@@ -511,8 +503,18 @@ fun TrackerScreen(
       },
       onAddPresetToDay = { preset ->
         viewModel.addTaskFromPreset(preset, selectedDate)
-        showPresetsDialog = false
+        // Keep dialog open so user can add multiple presets without having to reopen
       }
+    )
+  }
+
+  // Goal Dialog
+  if (showGoalDialog) {
+    GoalDialog(
+      currentGoal = goal,
+      onSetGoal = { title, targetDate -> viewModel.setGoal(title, targetDate) },
+      onClearGoal = { viewModel.clearGoal() },
+      onDismiss = { showGoalDialog = false }
     )
   }
 }

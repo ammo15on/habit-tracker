@@ -202,4 +202,28 @@ enum class AppFontColor(
   )
 }
 
+fun parseHexColor(hexString: String?, defaultColor: Color): Color {
+  if (hexString.isNullOrBlank()) return defaultColor
+  return try {
+    var hex = hexString.trim().removePrefix("#")
+    if (hex.length == 6) {
+      hex = "FF$hex"
+    }
+    if (hex.length == 8) {
+      Color(hex.toLong(16))
+    } else {
+      defaultColor
+    }
+  } catch (_: Exception) {
+    defaultColor
+  }
+}
+
+fun Color.toHexRgb(): String {
+  val red = (this.red * 255).toInt().coerceIn(0, 255)
+  val green = (this.green * 255).toInt().coerceIn(0, 255)
+  val blue = (this.blue * 255).toInt().coerceIn(0, 255)
+  return String.format("#%02X%02X%02X", red, green, blue)
+}
+
 

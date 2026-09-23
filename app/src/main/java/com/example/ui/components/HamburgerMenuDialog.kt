@@ -78,10 +78,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.data.model.TaskPreset
 import com.example.ui.HabitViewModel
-import com.example.ui.theme.AppFontColor
-import com.example.ui.theme.AppThemeColor
+import com.example.ui.theme.HexColorPalette
+import com.example.ui.theme.parseHexColor
 import com.example.util.ImageStorageUtils
 import kotlinx.coroutines.launch
+
+enum class HexColorTarget(val label: String) {
+  UI("UI / Accent"),
+  BACKGROUND("Background"),
+  TEXT("Text")
+}
 
 enum class HamburgerMenuTab(val label: String) {
   THEME("Theme"),
@@ -102,8 +108,9 @@ fun HamburgerMenuDialog(
   var selectedTab by remember { mutableStateOf(initialTab) }
 
   // Theme states
-  val currentThemeColor by viewModel.selectedThemeColor.collectAsStateWithLifecycle()
-  val currentFontColor by viewModel.selectedFontColor.collectAsStateWithLifecycle()
+  val currentUiHex by viewModel.selectedUiHex.collectAsStateWithLifecycle()
+  val currentBgHex by viewModel.selectedBgHex.collectAsStateWithLifecycle()
+  val currentTextHex by viewModel.selectedTextHex.collectAsStateWithLifecycle()
   val currentBgImageUri by viewModel.selectedBackgroundImageUri.collectAsStateWithLifecycle()
 
   // Presets state
@@ -180,11 +187,13 @@ fun HamburgerMenuDialog(
         when (selectedTab) {
           HamburgerMenuTab.THEME -> {
             ThemeCategoryContent(
-              currentThemeColor = currentThemeColor,
-              currentFontColor = currentFontColor,
+              currentUiHex = currentUiHex,
+              currentBgHex = currentBgHex,
+              currentTextHex = currentTextHex,
               currentBgImageUri = currentBgImageUri,
-              onThemeColorSelected = { viewModel.setThemeColor(it) },
-              onFontColorSelected = { viewModel.setFontColor(it) },
+              onSetUiHex = { viewModel.setCustomUiHex(it) },
+              onSetBgHex = { viewModel.setCustomBgHex(it) },
+              onSetTextHex = { viewModel.setCustomTextHex(it) },
               onPickBackgroundImage = {
                 bgPhotoPickerLauncher.launch(
                   PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -207,6 +216,9 @@ fun HamburgerMenuDialog(
               onDeletePreset = { id -> viewModel.deletePreset(id) },
               onSchedulePreset = { preset ->
                 presetToSchedule = preset
+              },
+              onAddPresetToDay = { preset ->
+                viewModel.addTaskFromPreset(preset)
               }
             )
           }
@@ -239,15 +251,28 @@ fun HamburgerMenuDialog(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ThemeCategoryContent(
-  currentThemeColor: AppThemeColor,
-  currentFontColor: AppFontColor,
+  currentUiHex: String,
+  currentBgHex: String,
+  currentTextHex: String,
   currentBgImageUri: String?,
-  onThemeColorSelected: (AppThemeColor) -> Unit,
-  onFontColorSelected: (AppFontColor) -> Unit,
+  onSetUiHex: (String) -> Unit,
+  onSetBgHex: (String) -> Unit,
+  onSetTextHex: (String) -> Unit,
   onPickBackgroundImage: () -> Unit,
   onRemoveBackgroundImage: () -> Unit
 ) {
   val haptic = LocalHapticFeedback.current
+  var activeTarget by remember { mutableStateOf(HexColorTarget.UI) }
+
+  val activeHex = when (activeTarget) {
+    HexColorTarget.UI -> currentUiHex
+    HexColorTarget.BACKGROUND -> currentBgHex
+    HexColorTarget.TEXT -> currentTextHex
+  }
+
+  var hexInputText by remember(activeTarget, activeHex) {
+    mutableStateOf(activeHex.removePrefix("#"))
+  }
 
   Column(
     modifier = Modifier
@@ -255,123 +280,220 @@ private fun ThemeCategoryContent(
       .verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(14.dp)
   ) {
-    // 1. UI Elements & Accent Theme Color
-    Column {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(6.dp))
-        Text("UI Elements & Theme Color", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-      }
+    // 1. Target Selector: UI Accent, Background, Text Color
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
       Text(
-        "Choose color palette for buttons, progress bars, highlights & UI elements",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        text = "Select Element to Customize",
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
       )
-    }
 
-    FlowRow(
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-      AppThemeColor.values().forEach { themeColor ->
-        val isSelected = themeColor == currentThemeColor
-        Box(
-          modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(
-              if (isSelected) MaterialTheme.colorScheme.primaryContainer
-              else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
-            .border(
-              width = if (isSelected) 2.dp else 0.5.dp,
-              color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f),
-              shape = RoundedCornerShape(10.dp)
-            )
-            .clickable {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              onThemeColorSelected(themeColor)
-            }
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-              modifier = Modifier
-                .size(14.dp)
-                .clip(CircleShape)
-                .background(themeColor.previewHex)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-              text = themeColor.displayName,
-              style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-              )
-            )
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        HexColorTarget.values().forEach { target ->
+          val isSelected = target == activeTarget
+          val targetColor = when (target) {
+            HexColorTarget.UI -> parseHexColor(currentUiHex, Color(0xFF3B82F6))
+            HexColorTarget.BACKGROUND -> parseHexColor(currentBgHex, Color(0xFF121212))
+            HexColorTarget.TEXT -> parseHexColor(currentTextHex, Color(0xFFFFFFFF))
           }
-        }
-      }
-    }
 
-    Spacer(modifier = Modifier.height(4.dp))
-
-    // 2. Font Color Selection
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      Icon(Icons.Default.FormatColorText, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-      Spacer(modifier = Modifier.width(6.dp))
-      Text("Font Color Selection", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-    }
-
-    FlowRow(
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
-      verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-      AppFontColor.values().forEach { fontColor ->
-        val isSelected = fontColor == currentFontColor
-        Box(
-          modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-              if (isSelected) MaterialTheme.colorScheme.primaryContainer
-              else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-            )
-            .border(
-              width = if (isSelected) 1.5.dp else 0.5.dp,
-              color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f),
-              shape = RoundedCornerShape(8.dp)
-            )
-            .clickable {
+          OutlinedButton(
+            onClick = {
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              onFontColorSelected(fontColor)
-            }
-            .padding(horizontal = 8.dp, vertical = 5.dp)
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
+              activeTarget = target
+            },
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+              containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+              if (isSelected) 2.dp else 1.dp,
+              if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f)
+            ),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+          ) {
             Box(
               modifier = Modifier
                 .size(12.dp)
                 .clip(CircleShape)
-                .background(fontColor.previewColor)
+                .background(targetColor)
                 .border(0.5.dp, Color.Gray, CircleShape)
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
-              text = fontColor.displayName,
-              style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-              )
+              text = target.label,
+              fontSize = 11.sp,
+              fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
             )
           }
         }
       }
     }
 
-    Spacer(modifier = Modifier.height(4.dp))
+    // 2. Write Hexadecimal Code
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      Text(
+        text = "Hexadecimal Code Input",
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+      )
+      Text(
+        text = "Write or paste any 6-digit hex color code for ${activeTarget.label}:",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
 
-    // 3. UI Background Image
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        OutlinedTextField(
+          value = hexInputText,
+          onValueChange = { input ->
+            val cleaned = input.filter { it.isLetterOrDigit() }.take(6).uppercase()
+            hexInputText = cleaned
+            if (cleaned.length == 6) {
+              val formatted = "#$cleaned"
+              when (activeTarget) {
+                HexColorTarget.UI -> onSetUiHex(formatted)
+                HexColorTarget.BACKGROUND -> onSetBgHex(formatted)
+                HexColorTarget.TEXT -> onSetTextHex(formatted)
+              }
+            }
+          },
+          leadingIcon = {
+            Text("#", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+          },
+          label = { Text("${activeTarget.label} Hex") },
+          placeholder = { Text("e.g. 3B82F6") },
+          singleLine = true,
+          modifier = Modifier.weight(1f),
+          shape = RoundedCornerShape(12.dp)
+        )
+
+        val parsedPreview = parseHexColor("#$hexInputText", parseHexColor(activeHex, Color.Gray))
+        Box(
+          modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(parsedPreview)
+            .border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+        )
+      }
+    }
+
+    // 3. Live Transparent Effect Preview Card
+    Card(
+      modifier = Modifier.fillMaxWidth(),
+      shape = RoundedCornerShape(14.dp),
+      colors = CardDefaults.cardColors(
+        containerColor = parseHexColor(currentBgHex, Color(0xFF121212)).copy(alpha = 0.55f)
+      )
+    ) {
+      Column(
+        modifier = Modifier.padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Text(
+            text = "Transparent Effect Preview",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = parseHexColor(currentTextHex, Color.White)
+          )
+
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(parseHexColor(currentUiHex, Color(0xFF3B82F6)))
+              .padding(horizontal = 8.dp, vertical = 3.dp)
+          ) {
+            Text(
+              text = "Accent UI",
+              fontSize = 10.sp,
+              fontWeight = FontWeight.Bold,
+              color = Color.White
+            )
+          }
+        }
+
+        Text(
+          text = "Text preview with transparent glassmorphism background effect.",
+          fontSize = 11.sp,
+          color = parseHexColor(currentTextHex, Color.White).copy(alpha = 0.85f)
+        )
+      }
+    }
+
+    // 4. Hexadecimal Colour Chart
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      Text(
+        text = "Hexadecimal Colour Chart",
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+      )
+      Text(
+        text = "Tap any color swatch below to apply to ${activeTarget.label}:",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
+
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+          .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+      ) {
+        HexColorPalette.rows.forEach { rowColors ->
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+          ) {
+            rowColors.forEach { hexCode ->
+              val swatchColor = parseHexColor(hexCode, Color.Gray)
+              val isSelected = hexCode.equals(activeHex, ignoreCase = true) ||
+                "#$hexInputText".equals(hexCode, ignoreCase = true)
+
+              Box(
+                modifier = Modifier
+                  .size(26.dp)
+                  .clip(RoundedCornerShape(6.dp))
+                  .background(swatchColor)
+                  .border(
+                    width = if (isSelected) 2.5.dp else 0.5.dp,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(6.dp)
+                  )
+                  .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    hexInputText = hexCode.removePrefix("#")
+                    when (activeTarget) {
+                      HexColorTarget.UI -> onSetUiHex(hexCode)
+                      HexColorTarget.BACKGROUND -> onSetBgHex(hexCode)
+                      HexColorTarget.TEXT -> onSetTextHex(hexCode)
+                    }
+                  }
+              )
+            }
+          }
+        }
+      }
+    }
+
+    Spacer(modifier = Modifier.height(2.dp))
+
+    // 5. Device Background Wallpaper Image
     Row(verticalAlignment = Alignment.CenterVertically) {
       Icon(Icons.Default.Image, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
       Spacer(modifier = Modifier.width(6.dp))
-      Text("Device Background Image", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+      Text("Device Background Wallpaper", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
     }
 
     Card(
@@ -575,7 +697,8 @@ private fun PresetsCategoryContent(
   onCustomPresetInputChange: (String) -> Unit,
   onAddPreset: (String) -> Unit,
   onDeletePreset: (Long) -> Unit,
-  onSchedulePreset: (TaskPreset) -> Unit
+  onSchedulePreset: (TaskPreset) -> Unit,
+  onAddPresetToDay: (TaskPreset) -> Unit = {}
 ) {
   Column(
     modifier = Modifier.fillMaxWidth(),
@@ -691,23 +814,39 @@ private fun PresetsCategoryContent(
 
               Spacer(modifier = Modifier.height(6.dp))
 
-              OutlinedButton(
-                onClick = { onSchedulePreset(preset) },
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.height(28.dp)
+              Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
               ) {
-                Icon(
-                  Icons.Default.CalendarMonth,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                  text = "Schedule for Dates...",
-                  style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
-                )
+                Button(
+                  onClick = { onAddPresetToDay(preset) },
+                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                  shape = RoundedCornerShape(6.dp),
+                  modifier = Modifier.height(28.dp)
+                ) {
+                  Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                  Spacer(modifier = Modifier.width(3.dp))
+                  Text("Add to Day", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                OutlinedButton(
+                  onClick = { onSchedulePreset(preset) },
+                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                  shape = RoundedCornerShape(6.dp),
+                  modifier = Modifier.height(28.dp)
+                ) {
+                  Icon(
+                    Icons.Default.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(12.dp)
+                  )
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text(
+                    text = "Schedule...",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
+                  )
+                }
               }
             }
           }

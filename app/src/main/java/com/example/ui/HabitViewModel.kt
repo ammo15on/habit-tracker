@@ -16,6 +16,10 @@ import com.example.data.repository.HabitRepository
 import com.example.ui.theme.AppThemeColor
 import com.example.util.DateUtils
 import com.example.util.ThemePreferences
+import com.example.util.GoalPreferences
+import com.example.util.AppGoal
+import com.example.util.AlarmScheduler
+import android.content.Context
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -43,11 +47,71 @@ typealias CompletedDayTaskInfo = DayCompletedTaskItem
 
 class HabitViewModel(
   private val repository: HabitRepository,
-  private val themePreferences: ThemePreferences? = null
+  private val themePreferences: ThemePreferences? = null,
+  private val goalPreferences: GoalPreferences? = null,
+  private val appContext: Context? = null
 ) : ViewModel() {
 
   // Current selected date for tracker screen
   val selectedDate = MutableStateFlow(DateUtils.today())
+
+  // Custom Hexadecimal Color States
+  private val _fallbackUiHex = MutableStateFlow("#3B82F6")
+  val selectedUiHex: StateFlow<String> =
+    themePreferences?.customUiHex ?: _fallbackUiHex.asStateFlow()
+
+  private val _fallbackBgHex = MutableStateFlow("#121212")
+  val selectedBgHex: StateFlow<String> =
+    themePreferences?.customBgHex ?: _fallbackBgHex.asStateFlow()
+
+  private val _fallbackTextHex = MutableStateFlow("#FFFFFF")
+  val selectedTextHex: StateFlow<String> =
+    themePreferences?.customTextHex ?: _fallbackTextHex.asStateFlow()
+
+  fun setCustomUiHex(hex: String) {
+    if (themePreferences != null) {
+      themePreferences.setCustomUiHex(hex)
+    } else {
+      _fallbackUiHex.value = hex
+    }
+  }
+
+  fun setCustomBgHex(hex: String) {
+    if (themePreferences != null) {
+      themePreferences.setCustomBgHex(hex)
+    } else {
+      _fallbackBgHex.value = hex
+    }
+  }
+
+  fun setCustomTextHex(hex: String) {
+    if (themePreferences != null) {
+      themePreferences.setCustomTextHex(hex)
+    } else {
+      _fallbackTextHex.value = hex
+    }
+  }
+
+  // App Goal state (Count of days left to future target date)
+  private val _fallbackGoal = MutableStateFlow<AppGoal?>(null)
+  val goal: StateFlow<AppGoal?> =
+    goalPreferences?.goal ?: _fallbackGoal.asStateFlow()
+
+  fun setGoal(title: String, targetDate: String) {
+    if (goalPreferences != null) {
+      goalPreferences.setGoal(title, targetDate)
+    } else {
+      _fallbackGoal.value = AppGoal(title, targetDate)
+    }
+  }
+
+  fun clearGoal() {
+    if (goalPreferences != null) {
+      goalPreferences.clearGoal()
+    } else {
+      _fallbackGoal.value = null
+    }
+  }
 
   // App Theme Selection State (Slate, Indigo, Blue, Cyan, Purple, Rose, Crimson, Amber, Golden, Obsidian, Graphite, Emerald)
   private val _fallbackThemeColor = MutableStateFlow(AppThemeColor.SLATE)
@@ -471,7 +535,8 @@ class HabitViewModel(
     isDefault: Boolean = false,
     isStarred: Boolean = false,
     noteText: String = "",
-    noteImageUri: String? = null
+    noteImageUri: String? = null,
+    reminderTime: String? = null
   ) {
     if (name.isBlank()) return
     viewModelScope.launch {
@@ -480,7 +545,7 @@ class HabitViewModel(
       if (targetDates.isNotEmpty()) {
         // Multi-day selection option
         targetDates.forEach { date ->
-          repository.insertTask(
+          val newId = repository.insertTask(
             name = name.trim(),
             targetDate = date,
             repeatDaysMask = 0,
@@ -488,8 +553,18 @@ class HabitViewModel(
             isDefault = false,
             isStarred = isStarred,
             noteText = noteText.trim(),
-            noteImageUri = noteImageUri
+            noteImageUri = noteImageUri,
+            reminderTime = reminderTime
           )
+          if (!reminderTime.isNullOrBlank() && appContext != null) {
+            val taskForAlarm = HabitTask(
+              id = newId,
+              name = name.trim(),
+              targetDate = date,
+              reminderTime = reminderTime
+            )
+            AlarmScheduler.scheduleAlarm(appContext, taskForAlarm)
+          }
           val allPlans = repository.allPlannedTasks.first()
           val existsInPlan = allPlans.any {
             it.title.equals(name.trim(), ignoreCase = true) && it.date == date
@@ -512,7 +587,7 @@ class HabitViewModel(
         // the task is specific to this selected date!
         val specificDate = if (!isDefault && repeatDaysMask == 0) curDate else null
 
-        repository.insertTask(
+        val newId = repository.insertTask(
           name = name.trim(),
           targetDate = specificDate,
           repeatDaysMask = repeatDaysMask,
@@ -520,8 +595,20 @@ class HabitViewModel(
           isDefault = isDefault,
           isStarred = isStarred,
           noteText = noteText.trim(),
-          noteImageUri = noteImageUri
+          noteImageUri = noteImageUri,
+          reminderTime = reminderTime
         )
+
+        if (!reminderTime.isNullOrBlank() && appContext != null) {
+          val taskForAlarm = HabitTask(
+            id = newId,
+            name = name.trim(),
+            targetDate = specificDate,
+            repeatDaysMask = repeatDaysMask,
+            reminderTime = reminderTime
+          )
+          AlarmScheduler.scheduleAlarm(appContext, taskForAlarm)
+        }
 
         // Sync: task added in tracker should also appear in plan for that date!
         val allPlans = repository.allPlannedTasks.first()
@@ -547,6 +634,13 @@ class HabitViewModel(
   fun updateTask(task: HabitTask) {
     viewModelScope.launch {
       repository.updateTask(task)
+      if (appContext != null) {
+        if (!task.reminderTime.isNullOrBlank()) {
+          AlarmScheduler.scheduleAlarm(appContext, task)
+        } else {
+          AlarmScheduler.cancelAlarm(appContext, task.id)
+        }
+      }
     }
   }
 
@@ -1325,12 +1419,14 @@ class HabitViewModel(
   companion object {
     fun provideFactory(
       repository: HabitRepository,
-      themePreferences: ThemePreferences? = null
+      themePreferences: ThemePreferences? = null,
+      goalPreferences: GoalPreferences? = null,
+      context: Context? = null
     ): ViewModelProvider.Factory =
       object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-          return HabitViewModel(repository, themePreferences) as T
+          return HabitViewModel(repository, themePreferences, goalPreferences, context?.applicationContext) as T
         }
       }
   }

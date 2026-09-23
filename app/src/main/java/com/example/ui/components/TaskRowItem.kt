@@ -410,41 +410,11 @@ fun TaskRowItem(
     }
   }
 
-  // Zoomed Image Note Dialog
+  // Zoomed Image Note Dialog (Full Screen)
   if (showImageZoom && task.noteImageUri != null) {
-    Dialog(onDismissRequest = { showImageZoom = false }) {
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(16.dp))
-          .background(Color.Black)
-          .padding(8.dp)
-      ) {
-        AsyncImage(
-          model = task.noteImageUri,
-          contentDescription = "Full note image",
-          contentScale = ContentScale.Fit,
-          modifier = Modifier
-            .fillMaxWidth()
-            .height(360.dp)
-        )
-
-        IconButton(
-          onClick = { showImageZoom = false },
-          modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(4.dp)
-            .size(32.dp)
-            .background(Color.Black.copy(alpha = 0.7f), CircleShape)
-        ) {
-          Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Close",
-            tint = Color.White,
-            modifier = Modifier.size(20.dp)
-          )
-        }
-      }
-    }
+    FullScreenImageViewerDialog(
+      imageUri = task.noteImageUri,
+      onDismiss = { showImageZoom = false }
+    )
   }
 }

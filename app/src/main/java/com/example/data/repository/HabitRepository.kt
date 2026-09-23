@@ -38,7 +38,8 @@ class HabitRepository(private val dao: HabitDao) {
     isDefault: Boolean = false,
     isStarred: Boolean = false,
     noteText: String = "",
-    noteImageUri: String? = null
+    noteImageUri: String? = null,
+    reminderTime: String? = null
   ): Long {
     val task = HabitTask(
       name = name,
@@ -48,7 +49,8 @@ class HabitRepository(private val dao: HabitDao) {
       isDefault = isDefault,
       isStarred = isStarred,
       noteText = noteText,
-      noteImageUri = noteImageUri
+      noteImageUri = noteImageUri,
+      reminderTime = reminderTime
     )
     return dao.insertTask(task)
   }

@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
     val database = AppDatabase.getDatabase(applicationContext)
     val repository = HabitRepository(database.habitDao())
     val themePreferences = com.example.util.ThemePreferences(applicationContext)
+    val goalPreferences = com.example.util.GoalPreferences(applicationContext)
     com.example.util.TimerManager.initialize(applicationContext, repository)
 
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -62,13 +63,19 @@ class MainActivity : ComponentActivity() {
 
     setContent {
       val viewModel: HabitViewModel = viewModel(
-        factory = HabitViewModel.provideFactory(repository, themePreferences)
+        factory = HabitViewModel.provideFactory(repository, themePreferences, goalPreferences, applicationContext)
       )
+      val currentUiHex by viewModel.selectedUiHex.collectAsState()
+      val currentBgHex by viewModel.selectedBgHex.collectAsState()
+      val currentTextHex by viewModel.selectedTextHex.collectAsState()
       val currentThemeColor by viewModel.selectedThemeColor.collectAsState()
       val currentFontColor by viewModel.selectedFontColor.collectAsState()
       val currentBackgroundUri by viewModel.selectedBackgroundImageUri.collectAsState()
 
       MyApplicationTheme(
+        uiHex = currentUiHex,
+        bgHex = currentBgHex,
+        textHex = currentTextHex,
         themeColor = currentThemeColor,
         fontColor = currentFontColor,
         backgroundImageUri = currentBackgroundUri

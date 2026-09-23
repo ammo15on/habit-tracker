@@ -19,6 +19,7 @@ data class HabitTask(
   val eventId: Long? = null, // Optional parent event ID
   val noteText: String = "", // Text note
   val noteImageUri: String? = null, // Image note URI/path
+  val reminderTime: String? = null, // Scheduled reminder/alarm time (e.g. "08:30")
   val createdAt: Long = System.currentTimeMillis(),
   val isArchived: Boolean = false
 ) {

@@ -13,6 +13,10 @@ object DateUtils {
     return sdf.format(Date())
   }
 
+  fun tomorrow(): String {
+    return getNextDay(today())
+  }
+
   fun getPreviousDay(dateStr: String): String {
     return offsetDay(dateStr, -1)
   }
@@ -144,6 +148,18 @@ object DateUtils {
       hours > 0 -> "${hours}h ${minutes}m"
       minutes > 0 -> "${minutes}m ${secs}s"
       else -> "${secs}s"
+    }
+  }
+
+  fun daysBetween(fromStr: String, toStr: String): Long {
+    val sdf = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
+    return try {
+      val fromDate = sdf.parse(fromStr) ?: return 0L
+      val toDate = sdf.parse(toStr) ?: return 0L
+      val diffMillis = toDate.time - fromDate.time
+      diffMillis / (1000 * 60 * 60 * 24)
+    } catch (_: Exception) {
+      0L
     }
   }
 }
