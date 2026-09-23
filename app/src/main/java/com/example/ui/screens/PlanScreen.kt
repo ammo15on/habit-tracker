@@ -190,8 +190,9 @@ fun PlanScreen(
               .clip(RoundedCornerShape(14.dp))
               .clickable { showGoalDialog = true },
             colors = CardDefaults.cardColors(
-              containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-            )
+              containerColor = Color.White.copy(alpha = 0.06f)
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
           ) {
             Row(
               modifier = Modifier
@@ -226,13 +227,14 @@ fun PlanScreen(
               Box(
                 modifier = Modifier
                   .clip(RoundedCornerShape(8.dp))
-                  .background(MaterialTheme.colorScheme.primary)
+                  .background(Color.White.copy(alpha = 0.08f))
+                  .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
                   .padding(horizontal = 8.dp, vertical = 4.dp)
               ) {
                 Text(
                   text = if (daysLeft > 0) "$daysLeft days left" else if (daysLeft == 0L) "Today!" else "${-daysLeft} days ago",
                   style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                  color = Color.White
+                  color = MaterialTheme.colorScheme.onSurface
                 )
               }
             }
@@ -367,10 +369,14 @@ fun PlanScreen(
               shape = RoundedCornerShape(12.dp),
               colors = CardDefaults.cardColors(
                 containerColor = if (isToday) {
-                  MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                  Color.White.copy(alpha = 0.10f)
                 } else {
-                  MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                  Color.White.copy(alpha = 0.05f)
                 }
+              ),
+              border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f)
               )
             ) {
               Row(
@@ -401,7 +407,8 @@ fun PlanScreen(
                   Box(
                     modifier = Modifier
                       .clip(RoundedCornerShape(6.dp))
-                      .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+                      .background(Color.White.copy(alpha = 0.08f))
+                      .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
                       .padding(horizontal = 6.dp, vertical = 2.dp)
                   ) {
                     Text(
@@ -546,8 +553,9 @@ private fun EventCardItem(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(14.dp),
     colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    )
+      containerColor = Color.White.copy(alpha = 0.06f)
+    ),
+    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
   ) {
     Column(modifier = Modifier.padding(14.dp)) {
       Row(
@@ -626,20 +634,21 @@ private fun EventCardItem(
         Box(
           modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+            .background(Color.White.copy(alpha = 0.08f))
+            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
               text = "🎯 Goal: ${event.taskTitle}",
               style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-              color = MaterialTheme.colorScheme.onPrimaryContainer
+              color = MaterialTheme.colorScheme.onSurface
             )
             if (event.taskTargetMinutes > 0) {
               Text(
                 text = " (${event.taskTargetMinutes}m)",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurfaceVariant
               )
             }
           }
@@ -759,12 +768,12 @@ private fun PlannedTaskCard(
     shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(
       containerColor = if (isCompleted) {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        Color.White.copy(alpha = 0.04f)
       } else {
-        MaterialTheme.colorScheme.surface
+        Color.White.copy(alpha = 0.07f)
       }
     ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Column(
       modifier = Modifier
@@ -773,7 +782,7 @@ private fun PlannedTaskCard(
           width = 1.dp,
           color = when {
             isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            else -> Color.White.copy(alpha = 0.12f)
           },
           shape = RoundedCornerShape(16.dp)
         )
@@ -788,7 +797,8 @@ private fun PlannedTaskCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+              .background(Color.White.copy(alpha = 0.08f))
+              .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
               .padding(horizontal = 8.dp, vertical = 4.dp)
           ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -815,7 +825,8 @@ private fun PlannedTaskCard(
             Box(
               modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .background(Color.White.copy(alpha = 0.08f))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
                 .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
               Row(verticalAlignment = Alignment.CenterVertically) {

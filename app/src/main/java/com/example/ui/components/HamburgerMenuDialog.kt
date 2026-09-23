@@ -386,57 +386,7 @@ private fun ThemeCategoryContent(
       }
     }
 
-    // 3. Live Transparent Effect Preview Card
-    Card(
-      modifier = Modifier.fillMaxWidth(),
-      shape = RoundedCornerShape(14.dp),
-      colors = CardDefaults.cardColors(
-        containerColor = Color.White.copy(alpha = 0.08f)
-      ),
-      border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
-    ) {
-      Column(
-        modifier = Modifier.padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-      ) {
-        val textColor = parseHexColor(currentTextHex, Color.White)
-        val uiColor = parseHexColor(currentUiHex, Color(0xFF3B82F6))
-
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Text(
-            text = "Transparent Glass Preview",
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = textColor
-          )
-
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(uiColor)
-              .padding(horizontal = 10.dp, vertical = 4.dp)
-          ) {
-            Text(
-              text = "Accent Button",
-              fontSize = 11.sp,
-              fontWeight = FontWeight.Bold,
-              color = getContrastingTextColor(uiColor)
-            )
-          }
-        }
-
-        Text(
-          text = "Text and UI accent colors stay clear and transparent over wallpapers.",
-          fontSize = 12.sp,
-          color = textColor.copy(alpha = 0.85f)
-        )
-      }
-    }
-
-    // 4. Hexadecimal Colour Chart
+    // 3. Hexadecimal Colour Chart
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
       Text(
         text = "Hexadecimal Colour Chart",

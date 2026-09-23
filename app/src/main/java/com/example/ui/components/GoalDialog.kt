@@ -170,8 +170,9 @@ fun GoalDialog(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(14.dp),
           colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-          )
+            containerColor = Color.White.copy(alpha = 0.06f)
+          ),
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
         ) {
           Column(
             modifier = Modifier.padding(14.dp),
