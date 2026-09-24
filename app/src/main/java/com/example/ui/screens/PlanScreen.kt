@@ -190,9 +190,10 @@ fun PlanScreen(
               .clip(RoundedCornerShape(14.dp))
               .clickable { showGoalDialog = true },
             colors = CardDefaults.cardColors(
-              containerColor = Color.White.copy(alpha = 0.06f)
+              containerColor = Color.Transparent
             ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
           ) {
             Row(
               modifier = Modifier
@@ -227,8 +228,8 @@ fun PlanScreen(
               Box(
                 modifier = Modifier
                   .clip(RoundedCornerShape(8.dp))
-                  .background(Color.White.copy(alpha = 0.08f))
-                  .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
+                  .background(Color.Transparent)
+                  .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
                   .padding(horizontal = 8.dp, vertical = 4.dp)
               ) {
                 Text(
@@ -311,8 +312,10 @@ fun PlanScreen(
               .padding(vertical = 24.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-              containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-            )
+              containerColor = Color.Transparent
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
           ) {
             Column(
               modifier = Modifier
@@ -368,15 +371,12 @@ fun PlanScreen(
                 .clickable { collapsedDays[date] = !isCollapsed },
               shape = RoundedCornerShape(12.dp),
               colors = CardDefaults.cardColors(
-                containerColor = if (isToday) {
-                  Color.White.copy(alpha = 0.10f)
-                } else {
-                  Color.White.copy(alpha = 0.05f)
-                }
+                containerColor = Color.Transparent
               ),
+              elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
               border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f)
+                if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
               )
             ) {
               Row(
@@ -407,8 +407,8 @@ fun PlanScreen(
                   Box(
                     modifier = Modifier
                       .clip(RoundedCornerShape(6.dp))
-                      .background(Color.White.copy(alpha = 0.08f))
-                      .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                      .background(Color.Transparent)
+                      .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
                       .padding(horizontal = 6.dp, vertical = 2.dp)
                   ) {
                     Text(
@@ -553,9 +553,10 @@ private fun EventCardItem(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(14.dp),
     colors = CardDefaults.cardColors(
-      containerColor = Color.White.copy(alpha = 0.06f)
+      containerColor = Color.Transparent
     ),
-    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
   ) {
     Column(modifier = Modifier.padding(14.dp)) {
       Row(
@@ -634,8 +635,8 @@ private fun EventCardItem(
         Box(
           modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.White.copy(alpha = 0.08f))
-            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+            .background(Color.Transparent)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
@@ -767,11 +768,7 @@ private fun PlannedTaskCard(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(
-      containerColor = if (isCompleted) {
-        Color.White.copy(alpha = 0.04f)
-      } else {
-        Color.White.copy(alpha = 0.07f)
-      }
+      containerColor = Color.Transparent
     ),
     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
@@ -781,8 +778,8 @@ private fun PlannedTaskCard(
         .border(
           width = 1.dp,
           color = when {
-            isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-            else -> Color.White.copy(alpha = 0.12f)
+            isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
           },
           shape = RoundedCornerShape(16.dp)
         )
@@ -797,8 +794,8 @@ private fun PlannedTaskCard(
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
-              .background(Color.White.copy(alpha = 0.08f))
-              .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+              .background(Color.Transparent)
+              .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
               .padding(horizontal = 8.dp, vertical = 4.dp)
           ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -825,8 +822,8 @@ private fun PlannedTaskCard(
             Box(
               modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color.White.copy(alpha = 0.08f))
-                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                .background(Color.Transparent)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
                 .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
               Row(verticalAlignment = Alignment.CenterVertically) {

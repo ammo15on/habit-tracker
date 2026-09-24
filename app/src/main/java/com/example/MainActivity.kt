@@ -47,9 +47,33 @@ enum class MainNavigationTab {
 }
 
 class MainActivity : ComponentActivity() {
+  private val activeTabState = kotlinx.coroutines.flow.MutableStateFlow(MainNavigationTab.TRACKER)
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+
+    // Request maximum display refresh rate (90Hz / 120Hz / 144Hz) for maximum fluid FPS
+    try {
+      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        val maxMode = display?.supportedModes?.maxByOrNull { it.refreshRate }
+        if (maxMode != null) {
+          val lp = window.attributes
+          lp.preferredDisplayModeId = maxMode.modeId
+          window.attributes = lp
+        }
+      } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+        @Suppress("DEPRECATION")
+        val maxMode = window.windowManager.defaultDisplay.supportedModes?.maxByOrNull { it.refreshRate }
+        if (maxMode != null) {
+          val lp = window.attributes
+          lp.preferredDisplayModeId = maxMode.modeId
+          window.attributes = lp
+        }
+      }
+    } catch (_: Exception) {}
+
+    checkIntentForTargetTab(intent)
 
     val database = AppDatabase.getDatabase(applicationContext)
     val repository = HabitRepository(database.habitDao())
@@ -68,14 +92,17 @@ class MainActivity : ComponentActivity() {
         factory = HabitViewModel.provideFactory(repository, themePreferences, goalPreferences, applicationContext)
       )
       val currentUiHex by viewModel.selectedUiHex.collectAsState()
+      val currentBgHex by viewModel.selectedBgHex.collectAsState()
       val currentTextHex by viewModel.selectedTextHex.collectAsState()
       val currentThemeColor by viewModel.selectedThemeColor.collectAsState()
       val currentFontColor by viewModel.selectedFontColor.collectAsState()
       val currentBackgroundUri by viewModel.selectedBackgroundImageUri.collectAsState()
       val currentUiOpacity by viewModel.selectedUiOpacity.collectAsState()
+      val activeTab by activeTabState.collectAsState()
 
       MyApplicationTheme(
         uiHex = currentUiHex,
+        bgHex = currentBgHex,
         textHex = currentTextHex,
         themeColor = currentThemeColor,
         fontColor = currentFontColor,
@@ -84,9 +111,24 @@ class MainActivity : ComponentActivity() {
       ) {
         MainAppContent(
           viewModel = viewModel,
-          hasBackgroundImage = !currentBackgroundUri.isNullOrBlank()
+          hasBackgroundImage = !currentBackgroundUri.isNullOrBlank(),
+          currentTab = activeTab,
+          onTabChanged = { activeTabState.value = it }
         )
       }
+    }
+  }
+
+  override fun onNewIntent(intent: android.content.Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    checkIntentForTargetTab(intent)
+  }
+
+  private fun checkIntentForTargetTab(intent: android.content.Intent?) {
+    val targetTab = intent?.getStringExtra(com.example.widget.NeetProgressAppWidgetProvider.EXTRA_TARGET_TAB)
+    if (targetTab == "DETAIL") {
+      activeTabState.value = MainNavigationTab.DETAIL
     }
   }
 }
@@ -94,10 +136,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent(
   viewModel: HabitViewModel,
-  hasBackgroundImage: Boolean = false
+  hasBackgroundImage: Boolean = false,
+  currentTab: MainNavigationTab = MainNavigationTab.TRACKER,
+  onTabChanged: (MainNavigationTab) -> Unit = {}
 ) {
-  var currentTab by remember { mutableStateOf(MainNavigationTab.TRACKER) }
-
   Scaffold(
     modifier = Modifier.fillMaxSize(),
     containerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -110,7 +152,7 @@ fun MainAppContent(
         // Tracker Tab
         NavigationBarItem(
           selected = currentTab == MainNavigationTab.TRACKER,
-          onClick = { currentTab = MainNavigationTab.TRACKER },
+          onClick = { onTabChanged(MainNavigationTab.TRACKER) },
           colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
             indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
           ),
@@ -128,7 +170,7 @@ fun MainAppContent(
         // Plan Tab
         NavigationBarItem(
           selected = currentTab == MainNavigationTab.PLAN,
-          onClick = { currentTab = MainNavigationTab.PLAN },
+          onClick = { onTabChanged(MainNavigationTab.PLAN) },
           colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
             indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
           ),
@@ -146,7 +188,7 @@ fun MainAppContent(
         // Detail Tab
         NavigationBarItem(
           selected = currentTab == MainNavigationTab.DETAIL,
-          onClick = { currentTab = MainNavigationTab.DETAIL },
+          onClick = { onTabChanged(MainNavigationTab.DETAIL) },
           colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
             indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
           ),
@@ -175,7 +217,7 @@ fun MainAppContent(
           viewModel = viewModel,
           onJumpToTask = { plannedTask ->
             viewModel.jumpToPlannedTask(plannedTask)
-            currentTab = MainNavigationTab.TRACKER
+            onTabChanged(MainNavigationTab.TRACKER)
           },
           modifier = Modifier.padding(innerPadding)
         )
@@ -185,7 +227,7 @@ fun MainAppContent(
           viewModel = viewModel,
           onNavigateToDate = { targetDate ->
             viewModel.selectDate(targetDate)
-            currentTab = MainNavigationTab.TRACKER
+            onTabChanged(MainNavigationTab.TRACKER)
           },
           modifier = Modifier.padding(innerPadding)
         )

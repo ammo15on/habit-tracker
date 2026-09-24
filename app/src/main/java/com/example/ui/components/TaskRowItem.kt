@@ -85,9 +85,9 @@ fun TaskRowItem(
 
   val cardBgColor by animateColorAsState(
     targetValue = when {
-      isRunning -> RatingBestGreen.copy(alpha = 0.15f)
-      isCompleted -> Color.White.copy(alpha = 0.04f)
-      else -> Color.White.copy(alpha = 0.06f)
+      isRunning -> RatingBestGreen.copy(alpha = 0.12f)
+      isCompleted -> Color.Transparent
+      else -> Color.Transparent
     },
     label = "cardBgColor"
   )
@@ -95,8 +95,8 @@ fun TaskRowItem(
   val borderColor = when {
     isExceeded && isRunning -> Color(0xFFE11D48)
     isRunning -> RatingBestGreen.copy(alpha = 0.8f)
-    isCompleted -> RatingBestGreen.copy(alpha = 0.3f)
-    else -> Color.White.copy(alpha = 0.14f)
+    isCompleted -> RatingBestGreen.copy(alpha = 0.35f)
+    else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
   }
 
   Card(
@@ -105,7 +105,7 @@ fun TaskRowItem(
       .testTag("task_card_${task.id}"),
     shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(containerColor = cardBgColor),
-    elevation = CardDefaults.cardElevation(defaultElevation = if (isRunning) 2.dp else 0.dp)
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Box(
       modifier = Modifier

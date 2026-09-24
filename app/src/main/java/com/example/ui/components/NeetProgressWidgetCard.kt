@@ -53,11 +53,8 @@ import java.util.Locale
 @Composable
 fun NeetProgressWidgetCard(
   chapters: List<NeetChapter>,
-  modifier: Modifier = Modifier,
-  showPinButton: Boolean = true
+  modifier: Modifier = Modifier
 ) {
-  val context = LocalContext.current
-
   val totalChapters = chapters.size
   val completedChapters = chapters.count { it.isCompleted }
   val pyqDoneChapters = chapters.count { it.isPyqDone }
@@ -77,17 +74,17 @@ fun NeetProgressWidgetCard(
 
   Card(
     modifier = modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(20.dp),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    shape = RoundedCornerShape(16.dp),
+    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Column(
       modifier = Modifier
         .fillMaxWidth()
         .border(
-          width = 1.5.dp,
-          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-          shape = RoundedCornerShape(20.dp)
+          width = 1.dp,
+          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
+          shape = RoundedCornerShape(16.dp)
         )
         .padding(16.dp)
     ) {
@@ -102,7 +99,8 @@ fun NeetProgressWidgetCard(
             modifier = Modifier
               .size(34.dp)
               .clip(RoundedCornerShape(10.dp))
-              .background(RatingBestGreen.copy(alpha = 0.15f)),
+              .background(RatingBestGreen.copy(alpha = 0.15f))
+              .border(1.dp, RatingBestGreen.copy(alpha = 0.3f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
           ) {
             Icon(
@@ -115,40 +113,15 @@ fun NeetProgressWidgetCard(
           Spacer(modifier = Modifier.width(10.dp))
           Column {
             Text(
-              text = "Home Screen Widget",
+              text = "NEET Progress Overview",
               style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
               color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-              text = "Live NEET progress overview • $overallPercent% total",
+              text = "Live home widget sync • $overallPercent% total completed",
               style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-          }
-        }
-
-        if (showPinButton) {
-          Button(
-            onClick = {
-              val pinned = NeetProgressAppWidgetProvider.pinWidgetToHomeScreen(context)
-              if (pinned) {
-                Toast.makeText(context, "Adding widget to home screen...", Toast.LENGTH_SHORT).show()
-              } else {
-                Toast.makeText(
-                  context,
-                  "Long-press your phone's Home Screen and choose 'Habit Tracker' widget",
-                  Toast.LENGTH_LONG
-                ).show()
-              }
-            },
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-            modifier = Modifier.height(34.dp)
-          ) {
-            Icon(Icons.Default.PinDrop, contentDescription = null, modifier = Modifier.size(14.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Pin Widget", fontSize = 11.sp, fontWeight = FontWeight.Bold)
           }
         }
       }

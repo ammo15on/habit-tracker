@@ -23,6 +23,7 @@ fun getContrastingTextColor(backgroundColor: Color): Color {
 @Composable
 fun MyApplicationTheme(
   uiHex: String = "#3B82F6",
+  bgHex: String = "#0B0D13",
   textHex: String = "#FFFFFF",
   themeColor: AppThemeColor = AppThemeColor.SLATE,
   fontColor: AppFontColor = AppFontColor.DEFAULT,
@@ -35,20 +36,23 @@ fun MyApplicationTheme(
   val textColor = parseHexColor(textHex, Color.White)
   val onPrimaryColor = getContrastingTextColor(primaryColor)
 
-  val neutralBackground = Color(0xFF0B0D13)
+  val neutralBackground = parseHexColor(bgHex, Color(0xFF0B0D13))
   val safeOpacity = uiOpacity.coerceIn(0.05f, 1.0f)
-  val surfaceAlpha = (safeOpacity * 0.40f).coerceIn(0.08f, 0.95f)
-  val surfaceColor = Color.White.copy(alpha = surfaceAlpha)
-  val surfaceVariantColor = Color.White.copy(alpha = (surfaceAlpha * 0.75f).coerceIn(0.05f, 0.85f))
+  
+  // Clean translucent obsidian/slate glass or transparent when opacity is low
+  // Eliminates whitish/blackish cloudy boxes around text!
+  val cardBase = Color(0xFF131722)
+  val surfaceColor = if (safeOpacity <= 0.15f) Color.Transparent else cardBase.copy(alpha = (safeOpacity * 0.45f).coerceIn(0.02f, 0.85f))
+  val surfaceVariantColor = if (safeOpacity <= 0.15f) Color.Transparent else Color(0xFF1B2030).copy(alpha = (safeOpacity * 0.35f).coerceIn(0.02f, 0.75f))
 
   val colorScheme = darkColorScheme(
     primary = primaryColor,
     onPrimary = onPrimaryColor,
-    primaryContainer = primaryColor.copy(alpha = (safeOpacity * 0.35f).coerceIn(0.12f, 0.75f)),
+    primaryContainer = primaryColor.copy(alpha = (safeOpacity * 0.30f).coerceIn(0.12f, 0.65f)),
     onPrimaryContainer = if (getContrastingTextColor(primaryColor) == Color.White) primaryColor else Color.White,
     secondary = primaryColor.copy(alpha = 0.85f),
     onSecondary = onPrimaryColor,
-    secondaryContainer = Color.White.copy(alpha = (safeOpacity * 0.30f).coerceIn(0.10f, 0.65f)),
+    secondaryContainer = Color(0xFF1E2433).copy(alpha = (safeOpacity * 0.35f).coerceIn(0.10f, 0.65f)),
     onSecondaryContainer = textColor,
     background = neutralBackground,
     onBackground = textColor,
@@ -56,8 +60,9 @@ fun MyApplicationTheme(
     onSurface = textColor,
     surfaceVariant = surfaceVariantColor,
     onSurfaceVariant = textColor.copy(alpha = 0.82f),
-    outline = Color.White.copy(alpha = (safeOpacity * 0.40f).coerceIn(0.15f, 0.60f)),
-    outlineVariant = Color.White.copy(alpha = (safeOpacity * 0.25f).coerceIn(0.10f, 0.40f))
+    surfaceTint = Color.Transparent, // Crucial: prevents M3 from adding automatic tinted elevation wash!
+    outline = Color(0xFF64748B).copy(alpha = (safeOpacity * 0.45f).coerceIn(0.18f, 0.65f)),
+    outlineVariant = Color(0xFF475569).copy(alpha = (safeOpacity * 0.35f).coerceIn(0.15f, 0.50f))
   )
 
   MaterialTheme(colorScheme = colorScheme, typography = Typography) {

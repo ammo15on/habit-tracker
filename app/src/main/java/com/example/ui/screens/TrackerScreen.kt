@@ -184,8 +184,10 @@ fun TrackerScreen(
               modifier = Modifier.fillMaxWidth(),
               shape = RoundedCornerShape(16.dp),
               colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-              )
+                containerColor = Color.Transparent
+              ),
+              elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+              border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
               Column(modifier = Modifier.padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -403,11 +405,12 @@ fun TrackerScreen(
                   },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                  containerColor = Color.White.copy(alpha = 0.06f)
+                  containerColor = Color.Transparent
                 ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 border = androidx.compose.foundation.BorderStroke(
                   1.dp,
-                  Color.White.copy(alpha = 0.12f)
+                  MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                 )
               ) {
                 Row(
@@ -741,8 +744,10 @@ private fun EmptyTasksPlaceholder(
       .padding(vertical = 12.dp),
     shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-    )
+      containerColor = Color.Transparent
+    ),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
   ) {
     Column(
       modifier = Modifier

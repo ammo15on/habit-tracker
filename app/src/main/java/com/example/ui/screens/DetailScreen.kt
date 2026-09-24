@@ -2,8 +2,10 @@ package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -29,6 +31,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -149,129 +157,181 @@ fun DetailScreen(
   var showAddTallyDialog by remember { mutableStateOf(false) }
   var tallyToEdit by remember { mutableStateOf<NeetTallyCounter?>(null) }
 
+  val pagerState = rememberPagerState(
+    initialPage = selectedTab.ordinal,
+    pageCount = { 3 }
+  )
+  val coroutineScope = rememberCoroutineScope()
+
+  // Sync pagerState -> viewModel.selectedDetailTab
+  LaunchedEffect(pagerState.currentPage) {
+    if (viewModel.selectedDetailTab.value.ordinal != pagerState.currentPage) {
+      viewModel.selectedDetailTab.value = DetailTab.entries[pagerState.currentPage]
+    }
+  }
+
+  // Sync viewModel.selectedDetailTab -> pagerState
+  LaunchedEffect(selectedTab) {
+    if (pagerState.currentPage != selectedTab.ordinal) {
+      pagerState.animateScrollToPage(selectedTab.ordinal)
+    }
+  }
+
+  var isTopBarVisible by remember { mutableStateOf(true) }
+  val nestedScrollConnection = remember {
+    object : NestedScrollConnection {
+      override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        val delta = available.y
+        if (delta < -12f && isTopBarVisible) {
+          isTopBarVisible = false
+        } else if (delta > 12f && !isTopBarVisible) {
+          isTopBarVisible = true
+        }
+        return Offset.Zero
+      }
+    }
+  }
+
   Column(
     modifier = modifier
       .fillMaxSize()
+      .nestedScroll(nestedScrollConnection)
       .padding(horizontal = 16.dp)
   ) {
-    Spacer(modifier = Modifier.height(8.dp))
-
-    // Top Header: Hamburger on top left corner (no white circular ring)
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(vertical = 4.dp),
-      horizontalArrangement = Arrangement.Start,
-      verticalAlignment = Alignment.CenterVertically
+    // Top Bar & Tab Row - Automatically hides when scrolling down for more screen space!
+    AnimatedVisibility(
+      visible = isTopBarVisible,
+      enter = expandVertically() + fadeIn(),
+      exit = shrinkVertically() + fadeOut()
     ) {
-      IconButton(
-        onClick = {
-          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-          showHamburgerMenu = true
-        },
-        modifier = Modifier
-          .size(40.dp)
-          .testTag("btn_detail_hamburger")
-      ) {
-        Icon(
-          imageVector = Icons.Default.Menu,
-          contentDescription = "Open Settings & Hub",
-          tint = MaterialTheme.colorScheme.onSurface,
-          modifier = Modifier.size(24.dp)
-        )
+      Column(modifier = Modifier.fillMaxWidth()) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Top Header: Hamburger on top left corner (clean, no halo)
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+          horizontalArrangement = Arrangement.Start,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          IconButton(
+            onClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              showHamburgerMenu = true
+            },
+            modifier = Modifier
+              .size(40.dp)
+              .testTag("btn_detail_hamburger")
+          ) {
+            Icon(
+              imageVector = Icons.Default.Menu,
+              contentDescription = "Open Settings & Hub",
+              tint = MaterialTheme.colorScheme.onSurface,
+              modifier = Modifier.size(24.dp)
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // 3 Main Tabs: Timeline (Cycles Day/Week/Month on tab click), NEET, Analytics
+        TabRow(
+          selectedTabIndex = pagerState.currentPage,
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .testTag("detail_tab_row"),
+          containerColor = Color.Transparent,
+          divider = {}
+        ) {
+          // 1. Timeline Tab
+          Tab(
+            selected = pagerState.currentPage == 0,
+            onClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              if (pagerState.currentPage == 0) {
+                // Already on timeline -> cycle to next mode smoothly!
+                viewModel.cycleTimelineMode()
+              } else {
+                coroutineScope.launch {
+                  pagerState.animateScrollToPage(0)
+                }
+              }
+            },
+            text = {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                  imageVector = when (timelineMode) {
+                    TimelineCycleMode.DAY -> Icons.Default.DateRange
+                    TimelineCycleMode.WEEK -> Icons.Default.ViewWeek
+                    TimelineCycleMode.MONTH -> Icons.Default.CalendarMonth
+                  },
+                  contentDescription = null,
+                  modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                  text = "Timeline (${timelineMode.label})",
+                  fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.Normal
+                )
+              }
+            },
+            modifier = Modifier.testTag("tab_timeline")
+          )
+
+          // 2. NEET Tab
+          Tab(
+            selected = pagerState.currentPage == 1,
+            onClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              coroutineScope.launch {
+                pagerState.animateScrollToPage(1)
+              }
+            },
+            text = {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("NEET", fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.Normal)
+              }
+            },
+            modifier = Modifier.testTag("tab_neet")
+          )
+
+          // 3. Analytics Tab
+          Tab(
+            selected = pagerState.currentPage == 2,
+            onClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              coroutineScope.launch {
+                pagerState.animateScrollToPage(2)
+              }
+            },
+            text = {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Insights, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Analytics", fontWeight = if (pagerState.currentPage == 2) FontWeight.Bold else FontWeight.Normal)
+              }
+            },
+            modifier = Modifier.testTag("tab_analytics")
+          )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
       }
     }
 
-    Spacer(modifier = Modifier.height(8.dp))
-
-    // 3 Main Tabs: Timeline (Cycles Day/Week/Month on tab click), NEET, Analytics
-    TabRow(
-      selectedTabIndex = selectedTab.ordinal,
-      modifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(12.dp))
-        .testTag("detail_tab_row"),
-      containerColor = Color.Transparent,
-      divider = {}
-    ) {
-      // 1. Timeline Tab (Day, Week, Month combined - cycles on tab click smoothly!)
-      Tab(
-        selected = selectedTab == DetailTab.TIMELINE,
-        onClick = {
-          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-          if (selectedTab == DetailTab.TIMELINE) {
-            // Already on timeline -> cycle to next mode smoothly!
-            viewModel.cycleTimelineMode()
-          } else {
-            viewModel.selectedDetailTab.value = DetailTab.TIMELINE
-          }
-        },
-        text = {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-              imageVector = when (timelineMode) {
-                TimelineCycleMode.DAY -> Icons.Default.DateRange
-                TimelineCycleMode.WEEK -> Icons.Default.ViewWeek
-                TimelineCycleMode.MONTH -> Icons.Default.CalendarMonth
-              },
-              contentDescription = null,
-              modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-              text = "Timeline (${timelineMode.label})",
-              fontWeight = if (selectedTab == DetailTab.TIMELINE) FontWeight.Bold else FontWeight.Normal
-            )
-          }
-        },
-        modifier = Modifier.testTag("tab_timeline")
-      )
-
-      // 2. NEET Tab
-      Tab(
-        selected = selectedTab == DetailTab.NEET,
-        onClick = {
-          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-          viewModel.selectedDetailTab.value = DetailTab.NEET
-        },
-        text = {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("NEET", fontWeight = if (selectedTab == DetailTab.NEET) FontWeight.Bold else FontWeight.Normal)
-          }
-        },
-        modifier = Modifier.testTag("tab_neet")
-      )
-
-      // 3. Analytics Tab
-      Tab(
-        selected = selectedTab == DetailTab.AI_ANALYTICS,
-        onClick = {
-          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-          viewModel.selectedDetailTab.value = DetailTab.AI_ANALYTICS
-        },
-        text = {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Insights, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Analytics", fontWeight = if (selectedTab == DetailTab.AI_ANALYTICS) FontWeight.Bold else FontWeight.Normal)
-          }
-        },
-        modifier = Modifier.testTag("tab_analytics")
-      )
-    }
-
-    Spacer(modifier = Modifier.height(10.dp))
-
-    // Main Tab Content Area
-    Box(
+    // Main Tab Content Area with Smooth Horizontal Pager Swiping across Tabs!
+    HorizontalPager(
+      state = pagerState,
       modifier = Modifier
         .fillMaxWidth()
         .weight(1f)
-    ) {
-      when (selectedTab) {
-        DetailTab.TIMELINE -> {
+    ) { page ->
+      when (page) {
+        0 -> {
           TimelineSectionView(
             mode = timelineMode,
             days = daysAnalytics,
@@ -284,7 +344,7 @@ fun DetailScreen(
           )
         }
 
-        DetailTab.NEET -> {
+        1 -> {
           NeetSectionView(
             chapters = neetChapters,
             tallyCounters = neetTallyCounters,
@@ -322,7 +382,7 @@ fun DetailScreen(
           )
         }
 
-        DetailTab.AI_ANALYTICS -> {
+        2 -> {
           AnalyticsSectionView(
             chapters = neetChapters,
             testScores = neetScores,
@@ -538,8 +598,7 @@ private fun AnalyticsSectionView(
       // 1. HOME SCREEN WIDGET COMPONENT (Chapters, PYQ, NCERT completed out of total)
       item(key = "neet_widget_component") {
         NeetProgressWidgetCard(
-          chapters = chapters,
-          showPinButton = true
+          chapters = chapters
         )
       }
 
@@ -548,8 +607,9 @@ private fun AnalyticsSectionView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
         ) {
           Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -653,8 +713,9 @@ private fun AnalyticsSectionView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
         ) {
           Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -738,8 +799,9 @@ private fun AnalyticsSectionView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
         ) {
           Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -799,8 +861,8 @@ private fun AnalyticsSectionView(
                 modifier = Modifier
                   .weight(1f)
                   .clip(RoundedCornerShape(10.dp))
-                  .background(RatingAverageGrey.copy(alpha = 0.25f))
-                  .border(1.dp, RatingAverageGrey.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                  .background(Color.Transparent)
+                  .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
                   .padding(8.dp)
               ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -836,8 +898,9 @@ private fun AnalyticsSectionView(
           Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
           ) {
             Column(modifier = Modifier.padding(14.dp)) {
               Text(

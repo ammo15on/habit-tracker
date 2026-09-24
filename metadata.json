@@ -1,6 +1,6 @@
 {
   "name": "Habit Tracker",
-  "description": "Habit & NEET study tracker with full-screen hamburger menu, past tasks archive, smooth day/week/month cycling, and AI study coach analytics (v6.0).",
+  "description": "Habit & NEET study tracker with home widget, swipeable detail tabs, modern transparent glass UI, scroll-hide top navigation, and high-FPS mode (v6.1).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

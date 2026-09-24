@@ -1,13 +1,14 @@
-# Habit & Study Tracker (Android) - v6.0
+# Habit & Study Tracker (Android) - v6.1
 
 A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widget, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v6.0 & Version History)
+## 📱 Pre-Built APKs (v6.1 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v6.0 Latest Release**: [`apk/habit-tracker-v6.apk`](apk/habit-tracker-v6.apk)
+- **v6.1 Latest Release**: [`apk/habit-tracker-v6.1.apk`](apk/habit-tracker-v6.1.apk)
+- **v6.0 Release**: [`apk/habit-tracker-v6.apk`](apk/habit-tracker-v6.apk)
 - **v5.4 Release**: [`apk/habit-tracker-v5.4.apk`](apk/habit-tracker-v5.4.apk)
 - **v5.3 Release**: [`apk/habit-tracker-v5.3.apk`](apk/habit-tracker-v5.3.apk)
 - **v5.1 Release**: [`apk/habit-tracker-v5.1.apk`](apk/habit-tracker-v5.1.apk)
@@ -18,7 +19,31 @@ The compiled Android application packages are available directly in the reposito
 - **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `6.0` (Version Code 10)
+- **Version**: `6.1` (Version Code 11)
+
+---
+
+## 🚀 Release v6.1 - Fixed Widget, Swipe Across Tabs, Clean Transparent UI, Scroll-Hide Tabs & Max FPS
+
+### 1. Fixed Home Screen Widget
+- **RemoteViews Inflation Fix**: Fixed the widget failure by replacing unsupported XML layout tags with RemoteViews-compliant FrameLayout separators.
+- **Immediate Data Sync & Launch Handler**: Tapping the widget opens the app directly into the NEET Detail screen.
+
+### 2. Removed Pin Button & Pin Text
+- **Clean Interface**: Completely removed the "Pin Widget" text and action button from the NEET and Analytics sections; users can add the widget directly from their phone's home screen widget picker.
+
+### 3. Swipe Across Tabs Feature
+- **Horizontal Pager Integration**: Added smooth horizontal gesture swiping between the 3 main detail tabs (Timeline, NEET, and Analytics), fully synchronized with the tab navigation bar.
+
+### 4. Eliminated Whitish / Blackish Tint Boxes & True UI Transparency
+- **Unified Clean Styling**: Replaced cloudy white/black card fills across Tracker, Plan, NEET, and Analytics screens with clean transparent containers and thin slate borders, matching the beloved Timeline tab aesthetic.
+- **Disabled Artificial M3 Surface Tint**: Removed Material 3's automatic surface tint overlay, allowing custom background colors and wallpaper transparency to shine through without milky washed-out boxes.
+
+### 5. Scroll-Aware Auto-Hiding Top Navigation
+- **Maximized Content Space**: Positioned the tab bar and header at the top of the page with smooth scroll detection—tucking away when scrolling down and revealing when scrolling up.
+
+### 6. Boosted Display Refresh Rate (Max FPS)
+- **Fluid High-FPS Mode**: Dynamically configures window attributes to run at the device's highest supported display refresh rate (90Hz / 120Hz / 144Hz) for buttery-smooth scrolling and animations.
 
 ---
 

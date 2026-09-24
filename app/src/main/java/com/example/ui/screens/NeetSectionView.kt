@@ -113,8 +113,9 @@ fun NeetSectionView(
       modifier = Modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(12.dp))
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
         .testTag("neet_sub_tabs"),
-      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+      containerColor = Color.Transparent
     ) {
       Tab(
         selected = selectedSubTab == NeetSubTab.CHAPTERS,
@@ -230,8 +231,7 @@ private fun NeetChaptersView(
     // 1. Home Screen Widget Component (Chapters, PYQ, NCERT completed out of total)
     item {
       NeetProgressWidgetCard(
-        chapters = chapters,
-        showPinButton = true
+        chapters = chapters
       )
     }
 
@@ -306,7 +306,9 @@ private fun NeetChaptersView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+          border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
           Column(
             modifier = Modifier.padding(24.dp),
@@ -357,8 +359,8 @@ private fun ChapterItemCard(
   Card(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
   ) {
     Column(
       modifier = Modifier
@@ -561,7 +563,9 @@ private fun NeetTallyCountersView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+          border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
           Column(
             modifier = Modifier.padding(24.dp),
@@ -596,8 +600,9 @@ private fun NeetTallyCountersView(
       Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
       ) {
         Column(modifier = Modifier.padding(14.dp)) {
           Row(
@@ -690,8 +695,9 @@ private fun NeetTallyCard(
   Card(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
   ) {
     Column(
       modifier = Modifier
@@ -880,7 +886,9 @@ private fun NeetTestScoresView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+          border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
           Column(
             modifier = Modifier.padding(24.dp),
@@ -904,8 +912,9 @@ private fun NeetTestScoresView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+          border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
           Row(
             modifier = Modifier
@@ -933,8 +942,9 @@ private fun NeetTestScoresView(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+          border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
           Column(
             modifier = Modifier
