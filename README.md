@@ -1,23 +1,43 @@
-# Habit & Study Tracker (Android) - v5.4
+# Habit & Study Tracker (Android) - v6.0
 
-A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, and productivity analytics.
+A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widget, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v5.4 & Version History)
+## 📱 Pre-Built APKs (v6.0 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v5.4 Latest Release**: [`apk/habit-tracker-v5.4.apk`](apk/habit-tracker-v5.4.apk)
+- **v6.0 Latest Release**: [`apk/habit-tracker-v6.apk`](apk/habit-tracker-v6.apk)
+- **v5.4 Release**: [`apk/habit-tracker-v5.4.apk`](apk/habit-tracker-v5.4.apk)
 - **v5.3 Release**: [`apk/habit-tracker-v5.3.apk`](apk/habit-tracker-v5.3.apk)
 - **v5.1 Release**: [`apk/habit-tracker-v5.1.apk`](apk/habit-tracker-v5.1.apk)
 - **v5 Release**: [`apk/habit-tracker-v5.apk`](apk/habit-tracker-v5.apk)
 - **v3 Release**: [`apk/habit-tracker-v3.apk`](apk/habit-tracker-v3.apk)
 - **v2 Release**: [`apk/habit-tracker-v2.apk`](apk/habit-tracker-v2.apk)
 - **Universal Standard Link**: [`apk/habit-tracker.apk`](apk/habit-tracker.apk)
-- **Build Output**: `app/build/outputs/apk/release/app-release.apk`
+- **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `5.4` (Version Code 9)
+- **Version**: `6.0` (Version Code 10)
+
+---
+
+## 🚀 Release v6.0 - NEET Home Screen Widget, UI Refinements & Analytics
+
+### 1. NEET Home Screen Widget
+- **Live Syllabus Overview**: Dedicated Glance / RemoteViews AppWidget displaying live completion metrics for Chapters, PYQs, and NCERT read progress out of total milestones.
+- **One-Tap Quick Launch**: Direct tap interaction on widget to jump straight to NEET details and tracker.
+
+### 2. Streamlined Detail Page Cycling
+- **Tab-Style Time Horizon Switching**: Simplified period cycling to clean, direct tab-click switching (Day / Week / Month) eliminating cumbersome multiple selection controls.
+
+### 3. Hamburger Button Visual Polish
+- **Removed White Halo / Circle**: Cleaned up the navigation drawer trigger icon button styling to blend seamlessly with custom theme background colors and transparency.
+
+### 4. Comprehensive Productivity Analytics
+- **Multi-Faceted Progress Metrics**: Refined analytics dashboard featuring completion breakdowns, subject progress, streak counts, and streamlined AI recommendations without clutter.
+
+---
 
 ---
 

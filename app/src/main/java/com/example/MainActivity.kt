@@ -33,7 +33,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.db.AppDatabase
 import com.example.data.repository.HabitRepository
 import com.example.ui.HabitViewModel
-import com.example.ui.screens.AnalyticsScreen
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.outlined.Insights
+import com.example.ui.screens.DetailScreen
 import com.example.ui.screens.PlanScreen
 import com.example.ui.screens.TrackerScreen
 import com.example.ui.theme.MyApplicationTheme
@@ -41,7 +43,7 @@ import com.example.ui.theme.MyApplicationTheme
 enum class MainNavigationTab {
   TRACKER,
   PLAN,
-  ANALYTICS
+  DETAIL
 }
 
 class MainActivity : ComponentActivity() {
@@ -70,12 +72,14 @@ class MainActivity : ComponentActivity() {
       val currentThemeColor by viewModel.selectedThemeColor.collectAsState()
       val currentFontColor by viewModel.selectedFontColor.collectAsState()
       val currentBackgroundUri by viewModel.selectedBackgroundImageUri.collectAsState()
+      val currentUiOpacity by viewModel.selectedUiOpacity.collectAsState()
 
       MyApplicationTheme(
         uiHex = currentUiHex,
         textHex = currentTextHex,
         themeColor = currentThemeColor,
         fontColor = currentFontColor,
+        uiOpacity = currentUiOpacity,
         backgroundImageUri = currentBackgroundUri
       ) {
         MainAppContent(
@@ -139,22 +143,22 @@ fun MainAppContent(
           modifier = Modifier.testTag("nav_item_plan")
         )
 
-        // Analytics Tab
+        // Detail Tab
         NavigationBarItem(
-          selected = currentTab == MainNavigationTab.ANALYTICS,
-          onClick = { currentTab = MainNavigationTab.ANALYTICS },
+          selected = currentTab == MainNavigationTab.DETAIL,
+          onClick = { currentTab = MainNavigationTab.DETAIL },
           colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
             indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
           ),
           icon = {
             Icon(
-              imageVector = if (currentTab == MainNavigationTab.ANALYTICS) Icons.Filled.Analytics
-              else Icons.Outlined.Analytics,
-              contentDescription = "Analytics"
+              imageVector = if (currentTab == MainNavigationTab.DETAIL) Icons.Filled.Insights
+              else Icons.Outlined.Insights,
+              contentDescription = "Detail"
             )
           },
-          label = { Text("Analytics", fontWeight = FontWeight.SemiBold) },
-          modifier = Modifier.testTag("nav_item_analytics")
+          label = { Text("Detail", fontWeight = FontWeight.SemiBold) },
+          modifier = Modifier.testTag("nav_item_detail")
         )
       }
     }
@@ -176,8 +180,8 @@ fun MainAppContent(
           modifier = Modifier.padding(innerPadding)
         )
       }
-      MainNavigationTab.ANALYTICS -> {
-        AnalyticsScreen(
+      MainNavigationTab.DETAIL -> {
+        DetailScreen(
           viewModel = viewModel,
           onNavigateToDate = { targetDate ->
             viewModel.selectDate(targetDate)

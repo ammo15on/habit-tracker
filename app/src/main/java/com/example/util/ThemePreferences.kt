@@ -31,6 +31,9 @@ class ThemePreferences(context: Context) {
   private val _backgroundImageUri = MutableStateFlow(loadBackgroundImageUri())
   val backgroundImageUri: StateFlow<String?> = _backgroundImageUri.asStateFlow()
 
+  private val _uiOpacity = MutableStateFlow(loadUiOpacity())
+  val uiOpacity: StateFlow<Float> = _uiOpacity.asStateFlow()
+
   private fun loadCustomUiHex(): String {
     return prefs.getString(KEY_CUSTOM_UI_HEX, "#3B82F6") ?: "#3B82F6"
   }
@@ -63,6 +66,10 @@ class ThemePreferences(context: Context) {
 
   private fun loadBackgroundImageUri(): String? {
     return prefs.getString(KEY_BACKGROUND_IMAGE_URI, null)
+  }
+
+  private fun loadUiOpacity(): Float {
+    return prefs.getFloat(KEY_UI_OPACITY, 0.25f)
   }
 
   fun setCustomUiHex(hex: String) {
@@ -102,6 +109,12 @@ class ThemePreferences(context: Context) {
     _backgroundImageUri.value = uriString
   }
 
+  fun setUiOpacity(opacity: Float) {
+    val clamped = opacity.coerceIn(0.05f, 1.0f)
+    prefs.edit().putFloat(KEY_UI_OPACITY, clamped).apply()
+    _uiOpacity.value = clamped
+  }
+
   companion object {
     private const val KEY_CUSTOM_UI_HEX = "key_custom_ui_hex"
     private const val KEY_CUSTOM_BG_HEX = "key_custom_bg_hex"
@@ -110,5 +123,6 @@ class ThemePreferences(context: Context) {
     private const val KEY_THEME_COLOR = "app_theme_color"
     private const val KEY_FONT_COLOR = "app_font_color"
     private const val KEY_BACKGROUND_IMAGE_URI = "app_bg_image_uri"
+    private const val KEY_UI_OPACITY = "app_ui_opacity"
   }
 }

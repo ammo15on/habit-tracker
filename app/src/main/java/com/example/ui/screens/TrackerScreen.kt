@@ -97,7 +97,6 @@ fun TrackerScreen(
   var showAddDialog by remember { mutableStateOf(false) }
   var showPresetsDialog by remember { mutableStateOf(false) }
   var showGoalDialog by remember { mutableStateOf(false) }
-  var showHamburgerMenu by remember { mutableStateOf(false) }
   var taskToEdit by remember { mutableStateOf<HabitTask?>(null) }
   var totalDragX by remember { mutableFloatStateOf(0f) }
   var expandedEventIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
@@ -491,50 +490,25 @@ fun TrackerScreen(
         }
       }
 
-      // Floating Actions: Hamburger Theme Menu + Add Task (+) Button
-      Column(
-        horizontalAlignment = Alignment.End,
+      // Floating Action: Add Task (+) Button
+      FloatingActionButton(
+        onClick = {
+          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+          showAddDialog = true
+        },
         modifier = Modifier
           .align(Alignment.BottomEnd)
           .padding(end = 20.dp, bottom = 16.dp)
+          .testTag("fab_add_task"),
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = CircleShape
       ) {
-        // Small hamburger icon just above plus icon for Theme, Data, Presets
-        SmallFloatingActionButton(
-          onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            showHamburgerMenu = true
-          },
-          modifier = Modifier
-            .padding(bottom = 12.dp)
-            .testTag("fab_theme_menu"),
-          containerColor = MaterialTheme.colorScheme.surfaceVariant,
-          contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-          shape = CircleShape
-        ) {
-          Icon(
-            imageVector = Icons.Default.Menu,
-            contentDescription = "App Settings and Menu",
-            modifier = Modifier.size(20.dp)
-          )
-        }
-
-        // Floating Add Task (+) Button
-        FloatingActionButton(
-          onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            showAddDialog = true
-          },
-          modifier = Modifier.testTag("fab_add_task"),
-          containerColor = MaterialTheme.colorScheme.primary,
-          contentColor = MaterialTheme.colorScheme.onPrimary,
-          shape = CircleShape
-        ) {
-          Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = "Add Task",
-            modifier = Modifier.size(28.dp)
-          )
-        }
+        Icon(
+          imageVector = Icons.Default.Add,
+          contentDescription = "Add Task",
+          modifier = Modifier.size(28.dp)
+        )
       }
     }
 
@@ -572,13 +546,6 @@ fun TrackerScreen(
     )
   }
 
-  // Hamburger Menu Dialog: Theme (Font Color + Background Image), Data (Export/Import), Presets
-  if (showHamburgerMenu) {
-    HamburgerMenuDialog(
-      viewModel = viewModel,
-      onDismiss = { showHamburgerMenu = false }
-    )
-  }
 
   // Edit Task Dialog (Change Name, Frequency of Days, Target Timer, Default status, Text/Image notes)
   taskToEdit?.let { task ->

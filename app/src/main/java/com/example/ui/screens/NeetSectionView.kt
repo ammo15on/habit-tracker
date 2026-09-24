@@ -72,6 +72,7 @@ import com.example.data.model.NeetChapter
 import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
 import com.example.ui.TaskTallyItem
+import com.example.ui.components.NeetProgressWidgetCard
 import com.example.ui.theme.RatingBestGreen
 import com.example.util.DateUtils
 
@@ -226,104 +227,12 @@ private fun NeetChaptersView(
     contentPadding = PaddingValues(bottom = 80.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp)
   ) {
-    // 1. Progress Summary Cards
+    // 1. Home Screen Widget Component (Chapters, PYQ, NCERT completed out of total)
     item {
-      Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-      ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-          Text(
-            text = "NEET Syllabus Overview",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-          )
-          Spacer(modifier = Modifier.height(10.dp))
-
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-          ) {
-            // Chapters Completed Card
-            Box(
-              modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(RatingBestGreen.copy(alpha = 0.12f))
-                .padding(10.dp)
-            ) {
-              Column {
-                Text("Completed", fontSize = 11.sp, color = RatingBestGreen, fontWeight = FontWeight.SemiBold)
-                Text(
-                  text = "$completedCount",
-                  style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = RatingBestGreen
-                  )
-                )
-                Text("of $totalCount chapters", fontSize = 10.sp, color = RatingBestGreen)
-              }
-            }
-
-            // To Complete Card
-            Box(
-              modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFEF4444).copy(alpha = 0.12f))
-                .padding(10.dp)
-            ) {
-              Column {
-                Text("To Complete", fontSize = 11.sp, color = Color(0xFFEF4444), fontWeight = FontWeight.SemiBold)
-                Text(
-                  text = "$toCompleteCount",
-                  style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFEF4444)
-                  )
-                )
-                Text("chapters left", fontSize = 10.sp, color = Color(0xFFEF4444))
-              }
-            }
-
-            // PYQ Done Card
-            Box(
-              modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF3B82F6).copy(alpha = 0.12f))
-                .padding(10.dp)
-            ) {
-              Column {
-                Text("PYQ Done", fontSize = 11.sp, color = Color(0xFF3B82F6), fontWeight = FontWeight.SemiBold)
-                Text(
-                  text = "$pyqDoneCount",
-                  style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF3B82F6)
-                  )
-                )
-                Text("chapters solved", fontSize = 10.sp, color = Color(0xFF3B82F6))
-              }
-            }
-          }
-
-          Spacer(modifier = Modifier.height(10.dp))
-
-          // Progress bar
-          val completionProgress = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
-          LinearProgressIndicator(
-            progress = { completionProgress },
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(8.dp)
-              .clip(RoundedCornerShape(4.dp)),
-            color = RatingBestGreen,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
-          )
-        }
-      }
+      NeetProgressWidgetCard(
+        chapters = chapters,
+        showPinButton = true
+      )
     }
 
     // 2. Filters & Add Chapter button

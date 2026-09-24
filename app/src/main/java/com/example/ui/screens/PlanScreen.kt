@@ -96,8 +96,8 @@ fun PlanScreen(
   var viewArchivedOnly by remember { mutableStateOf(false) }
 
   val today = DateUtils.today()
-  val activeTasks = plannedTasks.filter { !it.isArchived }
-  val archivedTasks = plannedTasks.filter { it.isArchived }
+  val activeTasks = plannedTasks.filter { !it.isArchived && it.date >= today }
+  val archivedTasks = plannedTasks.filter { it.isArchived && it.date >= today }
 
   val displayedTasks = if (viewArchivedOnly) archivedTasks else activeTasks
   val groupedTasks = displayedTasks.groupBy { it.date }.toSortedMap(compareBy { it })

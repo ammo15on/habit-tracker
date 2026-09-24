@@ -1,6 +1,6 @@
 {
   "name": "Habit Tracker",
-  "description": "Habit and task tracker with background timer tracking, day rating, interactive study schedules, and real-calendar aligned multi-tier analytics (v5.3).",
+  "description": "Habit & NEET study tracker with full-screen hamburger menu, past tasks archive, smooth day/week/month cycling, and AI study coach analytics (v6.0).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

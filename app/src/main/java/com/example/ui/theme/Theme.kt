@@ -26,6 +26,7 @@ fun MyApplicationTheme(
   textHex: String = "#FFFFFF",
   themeColor: AppThemeColor = AppThemeColor.SLATE,
   fontColor: AppFontColor = AppFontColor.DEFAULT,
+  uiOpacity: Float = 0.25f,
   backgroundImageUri: String? = null,
   darkTheme: Boolean = isSystemInDarkTheme(),
   content: @Composable () -> Unit,
@@ -34,28 +35,29 @@ fun MyApplicationTheme(
   val textColor = parseHexColor(textHex, Color.White)
   val onPrimaryColor = getContrastingTextColor(primaryColor)
 
-  // Pure transparent / deep dark foundation for glassmorphism
   val neutralBackground = Color(0xFF0B0D13)
-  val transparentSurface = Color(0x18FFFFFF) // 10% translucent white for cards
-  val transparentSurfaceVariant = Color(0x10FFFFFF)
+  val safeOpacity = uiOpacity.coerceIn(0.05f, 1.0f)
+  val surfaceAlpha = (safeOpacity * 0.40f).coerceIn(0.08f, 0.95f)
+  val surfaceColor = Color.White.copy(alpha = surfaceAlpha)
+  val surfaceVariantColor = Color.White.copy(alpha = (surfaceAlpha * 0.75f).coerceIn(0.05f, 0.85f))
 
   val colorScheme = darkColorScheme(
     primary = primaryColor,
     onPrimary = onPrimaryColor,
-    primaryContainer = primaryColor.copy(alpha = 0.22f),
+    primaryContainer = primaryColor.copy(alpha = (safeOpacity * 0.35f).coerceIn(0.12f, 0.75f)),
     onPrimaryContainer = if (getContrastingTextColor(primaryColor) == Color.White) primaryColor else Color.White,
     secondary = primaryColor.copy(alpha = 0.85f),
     onSecondary = onPrimaryColor,
-    secondaryContainer = Color(0x20FFFFFF),
+    secondaryContainer = Color.White.copy(alpha = (safeOpacity * 0.30f).coerceIn(0.10f, 0.65f)),
     onSecondaryContainer = textColor,
     background = neutralBackground,
     onBackground = textColor,
-    surface = transparentSurface,
+    surface = surfaceColor,
     onSurface = textColor,
-    surfaceVariant = transparentSurfaceVariant,
-    onSurfaceVariant = textColor.copy(alpha = 0.78f),
-    outline = Color(0x35FFFFFF),
-    outlineVariant = Color(0x20FFFFFF)
+    surfaceVariant = surfaceVariantColor,
+    onSurfaceVariant = textColor.copy(alpha = 0.82f),
+    outline = Color.White.copy(alpha = (safeOpacity * 0.40f).coerceIn(0.15f, 0.60f)),
+    outlineVariant = Color.White.copy(alpha = (safeOpacity * 0.25f).coerceIn(0.10f, 0.40f))
   )
 
   MaterialTheme(colorScheme = colorScheme, typography = Typography) {

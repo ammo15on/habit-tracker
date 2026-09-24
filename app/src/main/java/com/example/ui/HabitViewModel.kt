@@ -126,6 +126,18 @@ class HabitViewModel(
   val selectedBackgroundImageUri: StateFlow<String?> =
     themePreferences?.backgroundImageUri ?: _fallbackBgImageUri.asStateFlow()
 
+  private val _fallbackUiOpacity = MutableStateFlow(0.25f)
+  val selectedUiOpacity: StateFlow<Float> =
+    themePreferences?.uiOpacity ?: _fallbackUiOpacity.asStateFlow()
+
+  fun setUiOpacity(opacity: Float) {
+    if (themePreferences != null) {
+      themePreferences.setUiOpacity(opacity)
+    } else {
+      _fallbackUiOpacity.value = opacity.coerceIn(0.05f, 1.0f)
+    }
+  }
+
   fun setThemeColor(color: AppThemeColor) {
     if (themePreferences != null) {
       themePreferences.setThemeColor(color)
@@ -203,6 +215,19 @@ class HabitViewModel(
       if (existingCounters.isEmpty()) {
         repository.insertAllNeetTallyCounters(NeetTallyCounter.DEFAULT_COUNTERS)
       }
+      notifyNeetWidgetUpdated()
+    }
+
+    viewModelScope.launch {
+      repository.allNeetChapters.collect {
+        notifyNeetWidgetUpdated()
+      }
+    }
+  }
+
+  private fun notifyNeetWidgetUpdated() {
+    appContext?.let { ctx ->
+      com.example.widget.NeetProgressAppWidgetProvider.updateAllWidgets(ctx)
     }
   }
 
@@ -266,7 +291,19 @@ class HabitViewModel(
       initialValue = 0L
     )
 
-  // Analytics tab selection
+  // Detail screen tab selection & Timeline cycle mode
+  val selectedDetailTab = MutableStateFlow(DetailTab.TIMELINE)
+  val timelineCycleMode = MutableStateFlow(TimelineCycleMode.DAY)
+
+  fun cycleTimelineMode() {
+    timelineCycleMode.value = timelineCycleMode.value.next()
+  }
+
+  fun setTimelineMode(mode: TimelineCycleMode) {
+    timelineCycleMode.value = mode
+  }
+
+  // Analytics tab selection (legacy compatibility)
   val selectedAnalyticsTab = MutableStateFlow(AnalyticsTab.DAY)
 
   // Effective logs flow including live running session for today
@@ -496,6 +533,233 @@ class HabitViewModel(
     started = SharingStarted.WhileSubscribed(5000),
     initialValue = emptyList()
   )
+
+  // Past Tasks grouped by date (all dates prior to today)
+  val pastTasksGroups: StateFlow<List<PastDayTasksGroup>> = combine(
+    allTasksFlow,
+    effectiveLogsFlow,
+    allPlannedTasks
+  ) { tasks, logs, plannedTasks ->
+    val today = DateUtils.today()
+    val logsByDate = logs.groupBy { it.date }
+    val plannedByDate = plannedTasks.groupBy { it.date }
+    val tasksMap = tasks.associateBy { it.id }
+
+    // Collect all unique past dates where logs, planned tasks, or scheduled tasks exist
+    val pastDates = mutableSetOf<String>()
+    logsByDate.keys.filter { it < today }.forEach { pastDates.add(it) }
+    plannedByDate.keys.filter { it < today }.forEach { pastDates.add(it) }
+
+    // Also look at past 60 days to catch any scheduled tasks
+    var checkDate = DateUtils.getPreviousDay(today)
+    for (i in 0..59) {
+      val dayIdx = DateUtils.getDayOfWeekIndex(checkDate)
+      if (tasks.any { it.isScheduledFor(checkDate, dayIdx) }) {
+        pastDates.add(checkDate)
+      }
+      checkDate = DateUtils.getPreviousDay(checkDate)
+    }
+
+    pastDates.sortedDescending().mapNotNull { date ->
+      val dayLogs = logsByDate[date]?.associateBy { it.taskId } ?: emptyMap()
+      val dayOfWeekIdx = DateUtils.getDayOfWeekIndex(date)
+
+      // Scheduled tasks for this date
+      val scheduledTasks = tasks.filter { it.isScheduledFor(date, dayOfWeekIdx) }
+      val scheduledTaskIds = scheduledTasks.map { it.id }.toSet()
+
+      // Logged tasks that might not be in scheduled list
+      val loggedExtraTasks = (logsByDate[date] ?: emptyList())
+        .filter { !scheduledTaskIds.contains(it.taskId) }
+        .mapNotNull { log -> tasksMap[log.taskId] }
+
+      val allDayTasks = (scheduledTasks + loggedExtraTasks).distinctBy { it.id }
+
+      val items = allDayTasks.map { task ->
+        val log = dayLogs[task.id]
+        PastTaskUiItem(
+          taskId = task.id,
+          taskName = task.name,
+          date = date,
+          timeSpentSeconds = log?.timeSpentSeconds ?: 0L,
+          isCompleted = log?.isCompleted ?: false,
+          targetMinutes = task.targetTimeMinutes,
+          noteText = task.noteText
+        )
+      }
+
+      if (items.isNotEmpty()) {
+        PastDayTasksGroup(
+          date = date,
+          formattedDate = DateUtils.formatFullDate(date),
+          totalTasksCount = items.size,
+          completedTasksCount = items.count { it.isCompleted },
+          totalTimeSeconds = items.sumOf { it.timeSpentSeconds },
+          tasks = items
+        )
+      } else {
+        null
+      }
+    }
+  }.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.WhileSubscribed(5000),
+    initialValue = emptyList()
+  )
+
+  // Subject Time Breakdown (Physics, Chemistry, Botany, Zoology, General Habits)
+  val subjectTimeBreakdown: StateFlow<List<SubjectTimeBreakdown>> = combine(
+    allTasksFlow,
+    effectiveLogsFlow
+  ) { tasks, logs ->
+    val logsByTask = logs.groupBy { it.taskId }
+    var physicsSecs = 0L
+    var chemistrySecs = 0L
+    var botanySecs = 0L
+    var zoologySecs = 0L
+    var habitsSecs = 0L
+
+    for (task in tasks) {
+      val taskLogs = logsByTask[task.id] ?: emptyList()
+      val totalSecs = taskLogs.sumOf { it.timeSpentSeconds }
+      val nameLower = task.name.lowercase()
+
+      when {
+        nameLower.contains("physics") || nameLower.contains("kinematics") || nameLower.contains("optics") ||
+          nameLower.contains("thermo") || nameLower.contains("mechanics") || nameLower.contains("electro") ||
+          nameLower.contains("magnet") || nameLower.contains("current") || nameLower.contains("gravitation") ||
+          nameLower.contains("rotation") || nameLower.contains("modern phys") -> {
+          physicsSecs += totalSecs
+        }
+        nameLower.contains("chem") || nameLower.contains("organic") || nameLower.contains("inorganic") ||
+          nameLower.contains("physical chem") || nameLower.contains("equilibrium") || nameLower.contains("bonding") ||
+          nameLower.contains("p-block") || nameLower.contains("d-block") || nameLower.contains("goc") ||
+          nameLower.contains("haloalkane") || nameLower.contains("coordination") -> {
+          chemistrySecs += totalSecs
+        }
+        nameLower.contains("botany") || nameLower.contains("plant") || nameLower.contains("photosynthesis") ||
+          nameLower.contains("respiration in plant") || nameLower.contains("cell") || nameLower.contains("morphology") ||
+          nameLower.contains("anatomy") || nameLower.contains("genetics") || nameLower.contains("ecology") -> {
+          botanySecs += totalSecs
+        }
+        nameLower.contains("zoology") || nameLower.contains("animal") || nameLower.contains("human phys") ||
+          nameLower.contains("neural") || nameLower.contains("circulation") || nameLower.contains("digestion") ||
+          nameLower.contains("excretion") || nameLower.contains("reproduction") || nameLower.contains("evolution") -> {
+          zoologySecs += totalSecs
+        }
+        else -> {
+          habitsSecs += totalSecs
+        }
+      }
+    }
+
+    val grandTotal = physicsSecs + chemistrySecs + botanySecs + zoologySecs + habitsSecs
+    val denom = if (grandTotal > 0L) grandTotal.toFloat() else 1f
+
+    listOf(
+      SubjectTimeBreakdown("Physics", physicsSecs, DateUtils.formatTime(physicsSecs), if (grandTotal > 0) (physicsSecs / denom) * 100f else 0f),
+      SubjectTimeBreakdown("Chemistry", chemistrySecs, DateUtils.formatTime(chemistrySecs), if (grandTotal > 0) (chemistrySecs / denom) * 100f else 0f),
+      SubjectTimeBreakdown("Botany", botanySecs, DateUtils.formatTime(botanySecs), if (grandTotal > 0) (botanySecs / denom) * 100f else 0f),
+      SubjectTimeBreakdown("Zoology", zoologySecs, DateUtils.formatTime(zoologySecs), if (grandTotal > 0) (zoologySecs / denom) * 100f else 0f),
+      SubjectTimeBreakdown("Habits & Tasks", habitsSecs, DateUtils.formatTime(habitsSecs), if (grandTotal > 0) (habitsSecs / denom) * 100f else 0f)
+    )
+  }.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.WhileSubscribed(5000),
+    initialValue = emptyList()
+  )
+
+  // AI Chat and Analytics Assistant
+  val aiChatMessages = MutableStateFlow<List<AiChatMessage>>(
+    listOf(
+      AiChatMessage(
+        role = "model",
+        text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\nI can analyze your logged study hours, time percentage allocations, mock test score trends, NCERT chapter revisions, and PYQ progress. Ask me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"What is the best active recall strategy for NEET Biology?\""
+      )
+    )
+  )
+
+  val isAiLoading = MutableStateFlow(false)
+
+  fun sendAiQuestion(userQuestion: String) {
+    if (userQuestion.isBlank() || isAiLoading.value) return
+    val cleanQ = userQuestion.trim()
+    val updatedList = aiChatMessages.value + AiChatMessage(role = "user", text = cleanQ)
+    aiChatMessages.value = updatedList
+    isAiLoading.value = true
+
+    viewModelScope.launch {
+      val contextString = buildStudyContext()
+      val responseText = com.example.util.GeminiAiService.askGemini(cleanQ, contextString, updatedList)
+      aiChatMessages.value = aiChatMessages.value + AiChatMessage(role = "model", text = responseText)
+      isAiLoading.value = false
+    }
+  }
+
+  fun clearAiChat() {
+    aiChatMessages.value = listOf(
+      AiChatMessage(
+        role = "model",
+        text = "💬 Chat reset. Ask me anything about your NEET test marks, weak chapters, time allocations, or spaced repetition strategies!"
+      )
+    )
+  }
+
+  fun buildStudyContext(): String {
+    val scores = allNeetScores.value
+    val chapters = allNeetChapters.value
+    val tallies = allNeetTallyCounters.value
+    val subjectTimes = subjectTimeBreakdown.value
+    val totalTime = tasksForSelectedDate.value.sumOf { it.timeSpentSeconds }
+
+    val sb = StringBuilder()
+    sb.appendLine("=== STUDENT STUDY METRICS & PROFILE ===")
+
+    // Time dedication breakdown
+    sb.appendLine("\n--- Study Time Dedication (Hours & %) ---")
+    subjectTimes.forEach { sub ->
+      val hours = sub.seconds / 3600.0
+      val hoursStr = String.format(Locale.getDefault(), "%.1fh", hours)
+      sb.appendLine("• ${sub.name}: $hoursStr (${DateUtils.formatTime(sub.seconds)}) -> ${String.format(Locale.getDefault(), "%.1f", sub.percentage)}%")
+    }
+
+    // NEET Chapter Progress
+    sb.appendLine("\n--- NEET Chapters Completion (Total: ${chapters.size}) ---")
+    val completedCount = chapters.count { it.isCompleted }
+    val pyqCount = chapters.count { it.isPyqDone }
+    val revCount = chapters.count { it.isRevisionDone }
+    sb.appendLine("• Completed Chapters: $completedCount / ${chapters.size}")
+    sb.appendLine("• PYQs Solved Chapters: $pyqCount / ${chapters.size}")
+    sb.appendLine("• Revised Chapters: $revCount / ${chapters.size}")
+
+    val pendingChapters = chapters.filter { !it.isCompleted }.take(10).map { "${it.name} (${it.subject})" }
+    if (pendingChapters.isNotEmpty()) {
+      sb.appendLine("• Sample Incomplete Chapters: ${pendingChapters.joinToString(", ")}")
+    }
+
+    // Mock Test Scores
+    sb.appendLine("\n--- Mock Test Performance (Recent Tests: ${scores.size}) ---")
+    if (scores.isEmpty()) {
+      sb.appendLine("• No mock tests logged yet.")
+    } else {
+      scores.takeLast(5).forEach { sc ->
+        sb.appendLine("• Test '${sc.testName}' on ${sc.date}: Total=${sc.totalScore}/720 (Physics=${sc.physicsScore}/180, Chem=${sc.chemistryScore}/180, Botany=${sc.botanyScore}/180, Zoology=${sc.zoologyScore}/180)")
+      }
+      val avgTotal = scores.map { it.totalScore }.average().toInt()
+      val avgPhysics = scores.map { it.physicsScore }.average().toInt()
+      val avgChem = scores.map { it.chemistryScore }.average().toInt()
+      val avgBio = scores.map { it.botanyScore + it.zoologyScore }.average().toInt()
+      sb.appendLine("• Averages: Total=$avgTotal/720 | Physics=$avgPhysics/180 | Chem=$avgChem/180 | Bio=$avgBio/360")
+    }
+
+    // Tally Counters
+    sb.appendLine("\n--- Tally Counters & Practice Goals ---")
+    tallies.forEach { t ->
+      sb.appendLine("• ${t.title}: ${t.count} / ${t.target} ${t.unit}")
+    }
+
+    return sb.toString()
+  }
 
   // Navigation across days
   fun selectDate(date: String) {
@@ -890,36 +1154,42 @@ class HabitViewModel(
         notes = notes.trim()
       )
       repository.insertNeetChapter(chapter)
+      notifyNeetWidgetUpdated()
     }
   }
 
   fun updateNeetChapter(chapter: NeetChapter) {
     viewModelScope.launch {
       repository.updateNeetChapter(chapter)
+      notifyNeetWidgetUpdated()
     }
   }
 
   fun toggleChapterCompleted(chapter: NeetChapter) {
     viewModelScope.launch {
       repository.updateNeetChapter(chapter.copy(isCompleted = !chapter.isCompleted))
+      notifyNeetWidgetUpdated()
     }
   }
 
   fun toggleChapterPyq(chapter: NeetChapter) {
     viewModelScope.launch {
       repository.updateNeetChapter(chapter.copy(isPyqDone = !chapter.isPyqDone))
+      notifyNeetWidgetUpdated()
     }
   }
 
   fun toggleChapterRevision(chapter: NeetChapter) {
     viewModelScope.launch {
       repository.updateNeetChapter(chapter.copy(isRevisionDone = !chapter.isRevisionDone))
+      notifyNeetWidgetUpdated()
     }
   }
 
   fun deleteNeetChapter(chapter: NeetChapter) {
     viewModelScope.launch {
       repository.deleteNeetChapter(chapter)
+      notifyNeetWidgetUpdated()
     }
   }
 
