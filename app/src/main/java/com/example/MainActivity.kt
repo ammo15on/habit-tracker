@@ -4,8 +4,22 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.mutableFloatStateOf
+import com.example.ui.components.HamburgerMenuDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -98,6 +112,7 @@ class MainActivity : ComponentActivity() {
       val currentFontColor by viewModel.selectedFontColor.collectAsState()
       val currentBackgroundUri by viewModel.selectedBackgroundImageUri.collectAsState()
       val currentUiOpacity by viewModel.selectedUiOpacity.collectAsState()
+      val currentTextSizeScale by viewModel.selectedTextSizeScale.collectAsState()
       val activeTab by activeTabState.collectAsState()
 
       MyApplicationTheme(
@@ -107,6 +122,7 @@ class MainActivity : ComponentActivity() {
         themeColor = currentThemeColor,
         fontColor = currentFontColor,
         uiOpacity = currentUiOpacity,
+        textSizeScale = currentTextSizeScale,
         backgroundImageUri = currentBackgroundUri
       ) {
         MainAppContent(
@@ -140,98 +156,155 @@ fun MainAppContent(
   currentTab: MainNavigationTab = MainNavigationTab.TRACKER,
   onTabChanged: (MainNavigationTab) -> Unit = {}
 ) {
-  Scaffold(
-    modifier = Modifier.fillMaxSize(),
-    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-    bottomBar = {
-      NavigationBar(
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        tonalElevation = 0.dp,
-        modifier = Modifier.testTag("main_bottom_nav")
-      ) {
-        // Tracker Tab
-        NavigationBarItem(
-          selected = currentTab == MainNavigationTab.TRACKER,
-          onClick = { onTabChanged(MainNavigationTab.TRACKER) },
-          colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-          ),
-          icon = {
-            Icon(
-              imageVector = if (currentTab == MainNavigationTab.TRACKER) Icons.Filled.CheckCircle
-              else Icons.Outlined.CheckCircleOutline,
-              contentDescription = "Tracker"
-            )
-          },
-          label = { Text("Tracker", fontWeight = FontWeight.SemiBold) },
-          modifier = Modifier.testTag("nav_item_tracker")
-        )
+  val isBottomBarVisible by viewModel.isBottomBarVisible.collectAsState()
+  val isHamburgerOpen by viewModel.isHamburgerMenuOpen.collectAsState()
 
-        // Plan Tab
-        NavigationBarItem(
-          selected = currentTab == MainNavigationTab.PLAN,
-          onClick = { onTabChanged(MainNavigationTab.PLAN) },
-          colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-          ),
-          icon = {
-            Icon(
-              imageVector = if (currentTab == MainNavigationTab.PLAN) Icons.Filled.CalendarMonth
-              else Icons.Outlined.CalendarMonth,
-              contentDescription = "Plan"
-            )
-          },
-          label = { Text("Plan", fontWeight = FontWeight.SemiBold) },
-          modifier = Modifier.testTag("nav_item_plan")
-        )
-
-        // Detail Tab
-        NavigationBarItem(
-          selected = currentTab == MainNavigationTab.DETAIL,
-          onClick = { onTabChanged(MainNavigationTab.DETAIL) },
-          colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-          ),
-          icon = {
-            Icon(
-              imageVector = if (currentTab == MainNavigationTab.DETAIL) Icons.Filled.Insights
-              else Icons.Outlined.Insights,
-              contentDescription = "Detail"
-            )
-          },
-          label = { Text("Detail", fontWeight = FontWeight.SemiBold) },
-          modifier = Modifier.testTag("nav_item_detail")
-        )
+  // NestedScrollConnection: hides bottom menu when scrolling down on ANY screen!
+  val nestedScrollConnection = remember {
+    object : NestedScrollConnection {
+      override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        viewModel.onScrollDelta(available.y)
+        return Offset.Zero
       }
     }
-  ) { innerPadding ->
-    when (currentTab) {
-      MainNavigationTab.TRACKER -> {
-        TrackerScreen(
-          viewModel = viewModel,
-          modifier = Modifier.padding(innerPadding)
-        )
-      }
-      MainNavigationTab.PLAN -> {
-        PlanScreen(
-          viewModel = viewModel,
-          onJumpToTask = { plannedTask ->
-            viewModel.jumpToPlannedTask(plannedTask)
-            onTabChanged(MainNavigationTab.TRACKER)
+  }
+
+  // Left-edge swipe detector: swiping from the left edge opens hamburger menu from ANY screen!
+  var touchStartX by remember { mutableFloatStateOf(0f) }
+  var totalDragX by remember { mutableFloatStateOf(0f) }
+  val density = androidx.compose.ui.platform.LocalDensity.current
+  val edgeThresholdPx = remember(density) { with(density) { 48.dp.toPx() } }
+
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .nestedScroll(nestedScrollConnection)
+      .pointerInput(Unit) {
+        detectHorizontalDragGestures(
+          onDragStart = { offset ->
+            touchStartX = offset.x
+            totalDragX = 0f
           },
-          modifier = Modifier.padding(innerPadding)
-        )
-      }
-      MainNavigationTab.DETAIL -> {
-        DetailScreen(
-          viewModel = viewModel,
-          onNavigateToDate = { targetDate ->
-            viewModel.selectDate(targetDate)
-            onTabChanged(MainNavigationTab.TRACKER)
+          onDragEnd = {
+            if (touchStartX <= edgeThresholdPx && totalDragX > 45f) {
+              viewModel.openHamburgerMenu()
+            }
+            totalDragX = 0f
           },
-          modifier = Modifier.padding(innerPadding)
+          onDragCancel = { totalDragX = 0f },
+          onHorizontalDrag = { _, dragAmount ->
+            totalDragX += dragAmount
+          }
         )
       }
+  ) {
+    Scaffold(
+      modifier = Modifier.fillMaxSize(),
+      containerColor = androidx.compose.ui.graphics.Color.Transparent,
+      bottomBar = {
+        AnimatedVisibility(
+          visible = isBottomBarVisible,
+          enter = slideInVertically { it } + fadeIn(),
+          exit = slideOutVertically { it } + fadeOut()
+        ) {
+          NavigationBar(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            tonalElevation = 0.dp,
+            modifier = Modifier.testTag("main_bottom_nav")
+          ) {
+            // Tracker Tab
+            NavigationBarItem(
+              selected = currentTab == MainNavigationTab.TRACKER,
+              onClick = { onTabChanged(MainNavigationTab.TRACKER) },
+              colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+              ),
+              icon = {
+                Icon(
+                  imageVector = if (currentTab == MainNavigationTab.TRACKER) Icons.Filled.CheckCircle
+                  else Icons.Outlined.CheckCircleOutline,
+                  contentDescription = "Tracker"
+                )
+              },
+              label = { Text("Tracker", fontWeight = FontWeight.SemiBold) },
+              modifier = Modifier.testTag("nav_item_tracker")
+            )
+
+            // Plan Tab
+            NavigationBarItem(
+              selected = currentTab == MainNavigationTab.PLAN,
+              onClick = { onTabChanged(MainNavigationTab.PLAN) },
+              colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+              ),
+              icon = {
+                Icon(
+                  imageVector = if (currentTab == MainNavigationTab.PLAN) Icons.Filled.CalendarMonth
+                  else Icons.Outlined.CalendarMonth,
+                  contentDescription = "Plan"
+                )
+              },
+              label = { Text("Plan", fontWeight = FontWeight.SemiBold) },
+              modifier = Modifier.testTag("nav_item_plan")
+            )
+
+            // Detail Tab
+            NavigationBarItem(
+              selected = currentTab == MainNavigationTab.DETAIL,
+              onClick = { onTabChanged(MainNavigationTab.DETAIL) },
+              colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+              ),
+              icon = {
+                Icon(
+                  imageVector = if (currentTab == MainNavigationTab.DETAIL) Icons.Filled.Insights
+                  else Icons.Outlined.Insights,
+                  contentDescription = "Detail"
+                )
+              },
+              label = { Text("Detail", fontWeight = FontWeight.SemiBold) },
+              modifier = Modifier.testTag("nav_item_detail")
+            )
+          }
+        }
+      }
+    ) { innerPadding ->
+      when (currentTab) {
+        MainNavigationTab.TRACKER -> {
+          TrackerScreen(
+            viewModel = viewModel,
+            modifier = Modifier.padding(innerPadding)
+          )
+        }
+        MainNavigationTab.PLAN -> {
+          PlanScreen(
+            viewModel = viewModel,
+            onJumpToTask = { plannedTask ->
+              viewModel.jumpToPlannedTask(plannedTask)
+              onTabChanged(MainNavigationTab.TRACKER)
+            },
+            modifier = Modifier.padding(innerPadding)
+          )
+        }
+        MainNavigationTab.DETAIL -> {
+          DetailScreen(
+            viewModel = viewModel,
+            onNavigateToDate = { targetDate ->
+              viewModel.selectDate(targetDate)
+              onTabChanged(MainNavigationTab.TRACKER)
+            },
+            modifier = Modifier.padding(innerPadding)
+          )
+        }
+      }
+    }
+
+    // Global Hamburger Menu Dialog (accessible from any screen & left edge swipe)
+    if (isHamburgerOpen) {
+      HamburgerMenuDialog(
+        viewModel = viewModel,
+        onDismiss = { viewModel.closeHamburgerMenu() }
+      )
     }
   }
 }

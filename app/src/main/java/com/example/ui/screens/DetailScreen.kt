@@ -24,9 +24,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -142,6 +146,8 @@ fun DetailScreen(
   val subjectTimeBreakdown by viewModel.subjectTimeBreakdown.collectAsStateWithLifecycle()
   val aiChatMessages by viewModel.aiChatMessages.collectAsStateWithLifecycle()
   val isAiLoading by viewModel.isAiLoading.collectAsStateWithLifecycle()
+  val aiSuggestions by viewModel.dynamicAiSuggestions.collectAsStateWithLifecycle()
+  val aiChatDraft by viewModel.aiChatDraft.collectAsStateWithLifecycle()
 
   var showHamburgerMenu by remember { mutableStateOf(false) }
   var selectedDateForTasks by remember { mutableStateOf<String?>(null) }
@@ -390,6 +396,9 @@ fun DetailScreen(
             days = daysAnalytics,
             chatMessages = aiChatMessages,
             isLoading = isAiLoading,
+            suggestions = aiSuggestions,
+            draftText = aiChatDraft,
+            onDraftChange = { viewModel.setAiChatDraft(it) },
             onSendQuestion = { question ->
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
               viewModel.sendAiQuestion(question)
@@ -570,10 +579,14 @@ private fun AnalyticsSectionView(
   days: List<DaySummary>,
   chatMessages: List<AiChatMessage>,
   isLoading: Boolean,
+  suggestions: List<String>,
+  draftText: String,
+  onDraftChange: (String) -> Unit,
   onSendQuestion: (String) -> Unit,
   onClearChat: () -> Unit
 ) {
-  var userInputText by remember { mutableStateOf("") }
+  val haptic = LocalHapticFeedback.current
+  var userInputText by remember(draftText) { mutableStateOf(draftText) }
   val listState = rememberLazyListState()
 
   val totalChapters = chapters.size
@@ -586,7 +599,12 @@ private fun AnalyticsSectionView(
 
   val totalStudySeconds = days.sumOf { it.totalTimeSeconds }
 
-  Column(modifier = Modifier.fillMaxSize()) {
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .imePadding()
+      .navigationBarsPadding()
+  ) {
     LazyColumn(
       state = listState,
       modifier = Modifier
@@ -1023,7 +1041,7 @@ private fun AnalyticsSectionView(
       }
     }
 
-    // Question Input Bar
+    // Dynamic Progressive Chat Bar & AI Suggestions Line (v6.2)
     Row(
       modifier = Modifier
         .fillMaxWidth()
@@ -1031,28 +1049,145 @@ private fun AnalyticsSectionView(
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-      OutlinedTextField(
-        value = userInputText,
-        onValueChange = { userInputText = it },
-        placeholder = { Text("Ask AI Coach about chapters, revision, test strategy...", fontSize = 12.sp) },
-        singleLine = true,
-        modifier = Modifier.weight(1f),
-        shape = RoundedCornerShape(12.dp)
-      )
+      val charCount = userInputText.length
+      val isExpanded = charCount > 0
 
-      Button(
-        onClick = {
-          if (userInputText.isNotBlank()) {
-            onSendQuestion(userInputText)
-            userInputText = ""
+      // Magnifying Glass / Expanding Input Field on the Bottom Left
+      if (!isExpanded) {
+        // Small compact magnifying glass icon button
+        Box(
+          modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f), CircleShape)
+            .clickable {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              userInputText = " "
+              onDraftChange(" ")
+            },
+          contentAlignment = Alignment.Center
+        ) {
+          Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = "Ask AI Coach",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+          )
+        }
+      } else {
+        // Progressively growing chat box as letters are written
+        val inputModifier = if (charCount >= 16) {
+          Modifier.weight(1f)
+        } else {
+          Modifier.width((130 + charCount * 12).coerceAtMost(280).dp)
+        }
+
+        OutlinedTextField(
+          value = userInputText,
+          onValueChange = { newText ->
+            userInputText = newText
+            onDraftChange(newText)
+          },
+          leadingIcon = {
+            Icon(
+              imageVector = Icons.Default.Search,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(18.dp)
+            )
+          },
+          trailingIcon = {
+            if (userInputText.isNotBlank()) {
+              IconButton(
+                onClick = {
+                  userInputText = ""
+                  onDraftChange("")
+                },
+                modifier = Modifier.size(20.dp)
+              ) {
+                Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(14.dp))
+              }
+            }
+          },
+          placeholder = { Text("Ask AI Coach...", fontSize = 11.sp, maxLines = 1) },
+          singleLine = true,
+          textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+          shape = RoundedCornerShape(22.dp),
+          modifier = inputModifier.height(50.dp)
+        )
+      }
+
+      // In the SAME LINE as magnifying glass: AI suggestions (universal + personalized from user data)
+      if (charCount < 16) {
+        LazyRow(
+          modifier = Modifier.weight(1f),
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          contentPadding = PaddingValues(end = 4.dp)
+        ) {
+          items(suggestions) { suggestion ->
+            Box(
+              modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                .clickable {
+                  haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                  onSendQuestion(suggestion)
+                  userInputText = ""
+                  onDraftChange("")
+                }
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                  imageVector = Icons.Default.AutoAwesome,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                  text = suggestion,
+                  style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 1
+                )
+              }
+            }
           }
-        },
-        enabled = userInputText.isNotBlank() && !isLoading,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.size(48.dp),
-        contentPadding = PaddingValues(0.dp)
-      ) {
-        Icon(Icons.Default.Send, contentDescription = "Send", modifier = Modifier.size(20.dp))
+        }
+      }
+
+      // Send Button when text is present
+      if (userInputText.isNotBlank()) {
+        IconButton(
+          onClick = {
+            if (userInputText.isNotBlank()) {
+              val query = userInputText.trim()
+              userInputText = ""
+              onDraftChange("")
+              onSendQuestion(query)
+            }
+          },
+          enabled = userInputText.isNotBlank() && !isLoading,
+          modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(
+              if (userInputText.isNotBlank() && !isLoading) MaterialTheme.colorScheme.primary
+              else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            )
+        ) {
+          Icon(
+            imageVector = Icons.Default.Send,
+            contentDescription = "Send",
+            tint = if (userInputText.isNotBlank() && !isLoading) MaterialTheme.colorScheme.onPrimary
+                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.size(18.dp)
+          )
+        }
       }
     }
   }

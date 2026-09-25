@@ -1,13 +1,14 @@
-# Habit & Study Tracker (Android) - v6.1
+# Habit & Study Tracker (Android) - v6.2
 
-A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widget, and productivity analytics.
+A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widget, progressive AI study coaching, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v6.1 & Version History)
+## 📱 Pre-Built APKs (v6.2 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v6.1 Latest Release**: [`apk/habit-tracker-v6.1.apk`](apk/habit-tracker-v6.1.apk)
+- **v6.2 Latest Release**: [`apk/habit-tracker-v6.2.apk`](apk/habit-tracker-v6.2.apk)
+- **v6.1 Release**: [`apk/habit-tracker-v6.1.apk`](apk/habit-tracker-v6.1.apk)
 - **v6.0 Release**: [`apk/habit-tracker-v6.apk`](apk/habit-tracker-v6.apk)
 - **v5.4 Release**: [`apk/habit-tracker-v5.4.apk`](apk/habit-tracker-v5.4.apk)
 - **v5.3 Release**: [`apk/habit-tracker-v5.3.apk`](apk/habit-tracker-v5.3.apk)
@@ -19,7 +20,32 @@ The compiled Android application packages are available directly in the reposito
 - **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `6.1` (Version Code 11)
+- **Version**: `6.2` (Version Code 12)
+
+---
+
+## 🚀 Release v6.2 - UI Styling Consistency, Wallpaper Opacity, Scroll-Hide Bottom Nav, Edge-Swipe Menu, Text Scaling & Progressive AI Chat
+
+### 1. Settings & Hub Clean Glass Styling (No Cloudy Boxes)
+- **Unified Transparent Glass**: Completely redesigned the **Settings & Hub** drawer and dialog pages (`Past Tasks`, `Theme & Styling`, `Data Backup`, `Presets`) to follow the app's clean obsidian glassmorphism with delicate slate borders (`BorderStroke(1.dp, outlineVariant)`), eradicating all cloudy white/black box fills.
+- **Version Identifier**: Updated visual branding badges and metadata to **v6.2**.
+
+### 2. Wallpaper Opacity & Transparency Control
+- **Direct Wallpaper Transparency**: The UI transparency effect slider now directly controls the opacity/alpha of your custom background wallpaper image alongside container translucency, giving full control over image visibility.
+
+### 3. Scroll-Aware Auto-Hiding Bottom Menu
+- **Maximized Vertical Space**: Added root-level `NestedScrollConnection` and animated transitions (`slideInVertically` / `slideOutVertically`) that hide the bottom navigation bar on downward scrolling across all screens (`Tracker`, `Plan`, `Detail`) and reveal it on upward scroll.
+
+### 4. Edge-Swipe Gesture for Hamburger Menu
+- **Universal Left-Edge Swipe**: Users can swipe inwards from the left screen edge on ANY screen to instantly open the Settings & Hub menu.
+
+### 5. Settings Text Size Control Function
+- **Dynamic Text Scaling**: Added a dedicated **Text Size & Font Scale** controller in Settings with an interactive slider (80% to 135%), quick preset chips (*Small 85%*, *Default 100%*, *Large 115%*, *XL 130%*), and a live preview card. Scaling applies seamlessly across all screens and persists across app restarts.
+
+### 6. Progressive Magnifying Glass AI Chat & Personalized Suggestions
+- **Expanding Search Bar**: Replaced the static full-width chat input with a compact magnifying glass icon on the bottom left that smoothly expands in width as you type.
+- **Same-Line Dynamic Suggestions**: In the exact same line alongside the magnifying glass, dynamic suggestion chips offer **personalized prompts derived from real student data** (uncompleted chapters, mock score breakdowns, subject time ratios) and universal high-yield NEET strategies.
+- **Keyboard Handling & Draft Preservation**: The chat bar moves up above the software keyboard using `imePadding()`, and typed text is preserved as a draft across screen navigation and app pauses.
 
 ---
 
@@ -177,7 +203,11 @@ The compiled Android application packages are available directly in the reposito
 
 ```
 ├── apk/
-│   ├── habit-tracker-v5.3.apk    # Latest v5.3 APK release
+│   ├── habit-tracker-v6.2.apk    # Latest v6.2 APK release
+│   ├── habit-tracker-v6.1.apk    # Historical v6.1 APK
+│   ├── habit-tracker-v6.apk      # Historical v6.0 APK
+│   ├── habit-tracker-v5.4.apk    # Historical v5.4 APK
+│   ├── habit-tracker-v5.3.apk    # Historical v5.3 APK
 │   ├── habit-tracker-v5.1.apk    # Historical v5.1 APK
 │   ├── habit-tracker-v5.apk      # Historical v5 APK
 │   ├── habit-tracker-v3.apk      # Historical v3 APK

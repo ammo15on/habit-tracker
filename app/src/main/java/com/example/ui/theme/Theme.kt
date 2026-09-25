@@ -28,6 +28,7 @@ fun MyApplicationTheme(
   themeColor: AppThemeColor = AppThemeColor.SLATE,
   fontColor: AppFontColor = AppFontColor.DEFAULT,
   uiOpacity: Float = 0.25f,
+  textSizeScale: Float = 1.0f,
   backgroundImageUri: String? = null,
   darkTheme: Boolean = isSystemInDarkTheme(),
   content: @Composable () -> Unit,
@@ -65,30 +66,42 @@ fun MyApplicationTheme(
     outlineVariant = Color(0xFF475569).copy(alpha = (safeOpacity * 0.35f).coerceIn(0.15f, 0.50f))
   )
 
-  MaterialTheme(colorScheme = colorScheme, typography = Typography) {
-    if (!backgroundImageUri.isNullOrBlank()) {
-      Box(modifier = Modifier.fillMaxSize()) {
-        AsyncImage(
-          model = backgroundImageUri,
-          contentDescription = "App Background",
-          modifier = Modifier.fillMaxSize(),
-          contentScale = ContentScale.Crop
-        )
-        // Neutral subtle dark gradient scrim for text readability WITHOUT tinting with UI colors
+  val currentDensity = androidx.compose.ui.platform.LocalDensity.current
+  val scaledDensity = androidx.compose.ui.unit.Density(
+    density = currentDensity.density,
+    fontScale = currentDensity.fontScale * textSizeScale.coerceIn(0.80f, 1.35f)
+  )
+
+  androidx.compose.runtime.CompositionLocalProvider(
+    androidx.compose.ui.platform.LocalDensity provides scaledDensity
+  ) {
+    MaterialTheme(colorScheme = colorScheme, typography = Typography) {
+      if (!backgroundImageUri.isNullOrBlank()) {
+        Box(modifier = Modifier.fillMaxSize().background(neutralBackground)) {
+          // Transparency effect directly controls opacity of background image!
+          AsyncImage(
+            model = backgroundImageUri,
+            contentDescription = "App Background",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alpha = safeOpacity.coerceIn(0.10f, 1.0f)
+          )
+          // Subtle dark scrim so text remains crystal clear at any wallpaper opacity
+          Box(
+            modifier = Modifier
+              .fillMaxSize()
+              .background(Color.Black.copy(alpha = (1f - safeOpacity * 0.70f).coerceIn(0.15f, 0.85f)))
+          )
+          content()
+        }
+      } else {
         Box(
           modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.25f))
-        )
-        content()
-      }
-    } else {
-      Box(
-        modifier = Modifier
-          .fillMaxSize()
-          .background(neutralBackground)
-      ) {
-        content()
+            .background(neutralBackground)
+        ) {
+          content()
+        }
       }
     }
   }

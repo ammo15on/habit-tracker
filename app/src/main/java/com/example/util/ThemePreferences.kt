@@ -34,6 +34,12 @@ class ThemePreferences(context: Context) {
   private val _uiOpacity = MutableStateFlow(loadUiOpacity())
   val uiOpacity: StateFlow<Float> = _uiOpacity.asStateFlow()
 
+  private val _textSizeScale = MutableStateFlow(loadTextSizeScale())
+  val textSizeScale: StateFlow<Float> = _textSizeScale.asStateFlow()
+
+  private val _aiChatDraft = MutableStateFlow(loadAiChatDraft())
+  val aiChatDraft: StateFlow<String> = _aiChatDraft.asStateFlow()
+
   private fun loadCustomUiHex(): String {
     return prefs.getString(KEY_CUSTOM_UI_HEX, "#3B82F6") ?: "#3B82F6"
   }
@@ -70,6 +76,14 @@ class ThemePreferences(context: Context) {
 
   private fun loadUiOpacity(): Float {
     return prefs.getFloat(KEY_UI_OPACITY, 0.25f)
+  }
+
+  private fun loadTextSizeScale(): Float {
+    return prefs.getFloat(KEY_TEXT_SIZE_SCALE, 1.0f)
+  }
+
+  private fun loadAiChatDraft(): String {
+    return prefs.getString(KEY_AI_CHAT_DRAFT, "") ?: ""
   }
 
   fun setCustomUiHex(hex: String) {
@@ -115,6 +129,17 @@ class ThemePreferences(context: Context) {
     _uiOpacity.value = clamped
   }
 
+  fun setTextSizeScale(scale: Float) {
+    val clamped = scale.coerceIn(0.80f, 1.35f)
+    prefs.edit().putFloat(KEY_TEXT_SIZE_SCALE, clamped).apply()
+    _textSizeScale.value = clamped
+  }
+
+  fun setAiChatDraft(draft: String) {
+    prefs.edit().putString(KEY_AI_CHAT_DRAFT, draft).apply()
+    _aiChatDraft.value = draft
+  }
+
   companion object {
     private const val KEY_CUSTOM_UI_HEX = "key_custom_ui_hex"
     private const val KEY_CUSTOM_BG_HEX = "key_custom_bg_hex"
@@ -124,5 +149,7 @@ class ThemePreferences(context: Context) {
     private const val KEY_FONT_COLOR = "app_font_color"
     private const val KEY_BACKGROUND_IMAGE_URI = "app_bg_image_uri"
     private const val KEY_UI_OPACITY = "app_ui_opacity"
+    private const val KEY_TEXT_SIZE_SCALE = "app_text_size_scale"
+    private const val KEY_AI_CHAT_DRAFT = "app_ai_chat_draft"
   }
 }

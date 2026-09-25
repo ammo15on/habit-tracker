@@ -55,6 +55,34 @@ class HabitViewModel(
   // Current selected date for tracker screen
   val selectedDate = MutableStateFlow(DateUtils.today())
 
+  // Global Bottom Navigation visibility (hides smoothly on downward scrolling)
+  val isBottomBarVisible = MutableStateFlow(true)
+
+  fun setBottomBarVisible(visible: Boolean) {
+    if (isBottomBarVisible.value != visible) {
+      isBottomBarVisible.value = visible
+    }
+  }
+
+  fun onScrollDelta(delta: Float) {
+    if (delta < -8f && isBottomBarVisible.value) {
+      isBottomBarVisible.value = false
+    } else if (delta > 8f && !isBottomBarVisible.value) {
+      isBottomBarVisible.value = true
+    }
+  }
+
+  // Global Hamburger Menu state (can be triggered by left edge swipe or header button)
+  val isHamburgerMenuOpen = MutableStateFlow(false)
+
+  fun openHamburgerMenu() {
+    isHamburgerMenuOpen.value = true
+  }
+
+  fun closeHamburgerMenu() {
+    isHamburgerMenuOpen.value = false
+  }
+
   // Custom Hexadecimal Color States
   private val _fallbackUiHex = MutableStateFlow("#3B82F6")
   val selectedUiHex: StateFlow<String> =
@@ -130,11 +158,23 @@ class HabitViewModel(
   val selectedUiOpacity: StateFlow<Float> =
     themePreferences?.uiOpacity ?: _fallbackUiOpacity.asStateFlow()
 
+  private val _fallbackTextSizeScale = MutableStateFlow(1.0f)
+  val selectedTextSizeScale: StateFlow<Float> =
+    themePreferences?.textSizeScale ?: _fallbackTextSizeScale.asStateFlow()
+
   fun setUiOpacity(opacity: Float) {
     if (themePreferences != null) {
       themePreferences.setUiOpacity(opacity)
     } else {
       _fallbackUiOpacity.value = opacity.coerceIn(0.05f, 1.0f)
+    }
+  }
+
+  fun setTextSizeScale(scale: Float) {
+    if (themePreferences != null) {
+      themePreferences.setTextSizeScale(scale)
+    } else {
+      _fallbackTextSizeScale.value = scale.coerceIn(0.80f, 1.35f)
     }
   }
 
@@ -680,10 +720,81 @@ class HabitViewModel(
   )
 
   val isAiLoading = MutableStateFlow(false)
+  private val _fallbackAiChatDraft = MutableStateFlow("")
+  val aiChatDraft: StateFlow<String> =
+    themePreferences?.aiChatDraft ?: _fallbackAiChatDraft.asStateFlow()
+
+  fun setAiChatDraft(draft: String) {
+    if (themePreferences != null) {
+      themePreferences.setAiChatDraft(draft)
+    } else {
+      _fallbackAiChatDraft.value = draft
+    }
+  }
+
+  // Dynamic AI Suggestions (Universal + Personalized from actual student data)
+  val dynamicAiSuggestions: StateFlow<List<String>> = combine(
+    allNeetChapters,
+    allNeetScores,
+    subjectTimeBreakdown,
+    daysAnalytics
+  ) { chapters, scores, subjectTimes, days ->
+    val list = mutableListOf<String>()
+
+    // 1. Personalized Suggestions from Chapters:
+    val incompleteChapters = chapters.filter { !it.isCompleted }
+    if (incompleteChapters.isNotEmpty()) {
+      val sample = incompleteChapters.firstOrNull()
+      if (sample != null) {
+        list.add("How to finish \"${sample.name}\" (${sample.subject}) quickly?")
+      }
+    }
+    val unrevisedChapters = chapters.filter { it.isCompleted && !it.isRevisionDone }
+    if (unrevisedChapters.isNotEmpty()) {
+      list.add("Spaced repetition schedule for ${unrevisedChapters.size} completed chapters")
+    }
+
+    // 2. Personalized Suggestions from Scores:
+    if (scores.isNotEmpty()) {
+      val latest = scores.maxByOrNull { it.date }
+      if (latest != null) {
+        list.add("My latest mock score is ${latest.totalScore}/720. How to score 650+?")
+        val subjects = listOf("Physics" to latest.physicsScore, "Chemistry" to latest.chemistryScore, "Botany" to latest.botanyScore, "Zoology" to latest.zoologyScore)
+        val lowestSub = subjects.minByOrNull { it.second }
+        if (lowestSub != null) {
+          list.add("Improve ${lowestSub.first} marks from ${lowestSub.second}/180")
+        }
+      }
+    }
+
+    // 3. Personalized Suggestions from Time Breakdown:
+    val lowTimeSubject = subjectTimes.filter { it.name != "Habits & Tasks" }.minByOrNull { it.percentage }
+    if (lowTimeSubject != null && lowTimeSubject.percentage < 25f && lowTimeSubject.seconds > 0L) {
+      list.add("Balance study hours for ${lowTimeSubject.name} (${String.format(Locale.getDefault(), "%.0f", lowTimeSubject.percentage)}% total)")
+    }
+
+    // 4. Universal High-Yield NEET suggestions:
+    list.add("Analyze my NEET readiness & weekly consistency")
+    list.add("Top high-yield NCERT Biology topics to revise")
+    list.add("Physics formula memorization & problem-solving strategy")
+    list.add("How to avoid negative marking in mock tests?")
+
+    list.distinct()
+  }.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.WhileSubscribed(5000),
+    initialValue = listOf(
+      "Analyze my NEET readiness & weekly consistency",
+      "Top high-yield NCERT Biology topics to revise",
+      "Physics formula memorization & problem-solving strategy",
+      "Spaced repetition schedule for completed chapters"
+    )
+  )
 
   fun sendAiQuestion(userQuestion: String) {
     if (userQuestion.isBlank() || isAiLoading.value) return
     val cleanQ = userQuestion.trim()
+    setAiChatDraft("")
     val updatedList = aiChatMessages.value + AiChatMessage(role = "user", text = cleanQ)
     aiChatMessages.value = updatedList
     isAiLoading.value = true

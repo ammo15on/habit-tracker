@@ -163,12 +163,29 @@ fun HamburgerMenuDialog(
       modifier = Modifier
         .fillMaxSize()
         .testTag("hamburger_full_screen_dialog"),
-      color = Color(0xFF0B0D13)
+      color = MaterialTheme.colorScheme.background
     ) {
-      Crossfade(
-        targetState = currentPage,
-        label = "HamburgerPageTransition"
-      ) { page ->
+      Box(modifier = Modifier.fillMaxSize()) {
+        if (!currentBgImageUri.isNullOrBlank()) {
+          val currentUiOpacity by viewModel.selectedUiOpacity.collectAsStateWithLifecycle()
+          AsyncImage(
+            model = currentBgImageUri,
+            contentDescription = "Menu Background",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alpha = currentUiOpacity.coerceIn(0.10f, 1.0f)
+          )
+          Box(
+            modifier = Modifier
+              .fillMaxSize()
+              .background(Color.Black.copy(alpha = (1f - currentUiOpacity * 0.70f).coerceIn(0.20f, 0.85f)))
+          )
+        }
+
+        Crossfade(
+          targetState = currentPage,
+          label = "HamburgerPageTransition"
+        ) { page ->
         when (page) {
           HamburgerPage.MAIN_MENU -> {
             HamburgerMainMenuScreen(
@@ -222,6 +239,7 @@ fun HamburgerMenuDialog(
           }
         }
       }
+      }
     }
   }
 
@@ -271,7 +289,7 @@ private fun HamburgerMainMenuScreen(
                 .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
               Text(
-                text = "v6.0",
+                text = "v6.2",
                 style = MaterialTheme.typography.labelSmall.copy(
                   fontWeight = FontWeight.Bold,
                   color = MaterialTheme.colorScheme.primary
@@ -286,11 +304,11 @@ private fun HamburgerMainMenuScreen(
           }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-          containerColor = Color(0xFF0B0D13)
+          containerColor = Color.Transparent
         )
       )
     },
-    containerColor = Color(0xFF0B0D13)
+    containerColor = Color.Transparent
   ) { padding ->
     LazyColumn(
       modifier = Modifier
@@ -317,7 +335,7 @@ private fun HamburgerMainMenuScreen(
           title = "Tasks (Past History)",
           subtitle = "All past tasks grouped by date with collapse/expand and completion filters",
           badgeText = "$pastDaysCount days",
-          containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+          containerColor = Color.Transparent,
           iconTint = MaterialTheme.colorScheme.primary,
           onClick = { onNavigateTo(HamburgerPage.TASKS) }
         )
@@ -330,7 +348,7 @@ private fun HamburgerMainMenuScreen(
           title = "Theme & Colors",
           subtitle = "Customize UI Accent, Text Color, Hex Color Chart, and Background Wallpaper",
           badgeText = currentUiHex,
-          containerColor = parseHexColor(currentUiHex, MaterialTheme.colorScheme.primary).copy(alpha = 0.15f),
+          containerColor = Color.Transparent,
           iconTint = parseHexColor(currentUiHex, MaterialTheme.colorScheme.primary),
           onClick = { onNavigateTo(HamburgerPage.THEME) }
         )
@@ -343,7 +361,7 @@ private fun HamburgerMainMenuScreen(
           title = "Data & Backup",
           subtitle = "1-Tap Share, JSON clipboard copy, and restore backups instantly",
           badgeText = "Export / Import",
-          containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f),
+          containerColor = Color.Transparent,
           iconTint = MaterialTheme.colorScheme.secondary,
           onClick = { onNavigateTo(HamburgerPage.DATA) }
         )
@@ -356,7 +374,7 @@ private fun HamburgerMainMenuScreen(
           title = "Presets & Templates",
           subtitle = "Save habit templates and schedule them across multiple dates",
           badgeText = "$presetsCount presets",
-          containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.25f),
+          containerColor = Color.Transparent,
           iconTint = MaterialTheme.colorScheme.tertiary,
           onClick = { onNavigateTo(HamburgerPage.PRESETS) }
         )
@@ -382,7 +400,7 @@ private fun HamburgerRowCard(
   title: String,
   subtitle: String,
   badgeText: String? = null,
-  containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+  containerColor: Color = Color.Transparent,
   iconTint: Color = MaterialTheme.colorScheme.primary,
   onClick: () -> Unit
 ) {
@@ -393,7 +411,7 @@ private fun HamburgerRowCard(
       .clickable { onClick() },
     shape = RoundedCornerShape(18.dp),
     colors = CardDefaults.cardColors(containerColor = containerColor),
-    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
   ) {
     Row(
       modifier = Modifier
@@ -512,11 +530,11 @@ private fun PastTasksFullScreenPage(
           }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-          containerColor = Color(0xFF0B0D13)
+          containerColor = Color.Transparent
         )
       )
     },
-    containerColor = Color(0xFF0B0D13)
+    containerColor = Color.Transparent
   ) { padding ->
     Column(
       modifier = Modifier
@@ -828,6 +846,7 @@ private fun ThemeFullScreenPage(
   }
 
   val currentUiOpacity by viewModel.selectedUiOpacity.collectAsStateWithLifecycle()
+  val currentTextSizeScale by viewModel.selectedTextSizeScale.collectAsStateWithLifecycle()
 
   Scaffold(
     topBar = {
@@ -838,10 +857,10 @@ private fun ThemeFullScreenPage(
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
           }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFF0B0D13))
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
       )
     },
-    containerColor = Color(0xFF0B0D13)
+    containerColor = Color.Transparent
   ) { padding ->
     Column(
       modifier = Modifier
@@ -970,8 +989,8 @@ private fun ThemeFullScreenPage(
           modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.06f))
-            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+            .background(Color.Transparent)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
             .padding(10.dp),
           verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -1010,7 +1029,7 @@ private fun ThemeFullScreenPage(
         }
       }
 
-      // 4. UI Opacity / Transparency Control Setting
+      // 4. Text Size Control Function (v6.2)
       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
           modifier = Modifier.fillMaxWidth(),
@@ -1020,7 +1039,103 @@ private fun ThemeFullScreenPage(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("UI Card Opacity / Transparency", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+            Text("Text Size & Font Scale", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+          }
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+              .padding(horizontal = 8.dp, vertical = 3.dp)
+          ) {
+            Text(
+              text = "${(currentTextSizeScale * 100).toInt()}%",
+              style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+              )
+            )
+          }
+        }
+
+        Text(
+          text = "Scale text size dynamically across all screens, habit timers, notes, and metrics:",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Slider(
+          value = currentTextSizeScale,
+          onValueChange = { viewModel.setTextSizeScale(it) },
+          valueRange = 0.80f..1.35f,
+          steps = 11,
+          modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+          listOf(0.85f to "Small (85%)", 1.00f to "Default (100%)", 1.15f to "Large (115%)", 1.30f to "XL (130%)").forEach { (scaleVal, label) ->
+            val isSelected = kotlin.math.abs(currentTextSizeScale - scaleVal) < 0.05f
+            OutlinedButton(
+              onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.setTextSizeScale(scaleVal)
+              },
+              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+              shape = RoundedCornerShape(8.dp),
+              colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else Color.Transparent
+              ),
+              border = androidx.compose.foundation.BorderStroke(
+                if (isSelected) 1.5.dp else 0.8.dp,
+                if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f)
+              ),
+              modifier = Modifier.height(30.dp)
+            ) {
+              Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+              )
+            }
+          }
+        }
+
+        // Live text preview card
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(12.dp),
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        ) {
+          Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+              text = "Live Text Preview",
+              style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+              color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+              text = "NEET Biology & Physics revision active • 04h 30m logged today",
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurface
+            )
+          }
+        }
+      }
+
+      // 5. Transparency Effect (Controls Background Image Opacity)
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Transparency & Background Opacity", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
           }
           Box(
             modifier = Modifier
@@ -1039,7 +1154,7 @@ private fun ThemeFullScreenPage(
         }
 
         Text(
-          text = "Adjust the transparency level of UI cards, tiles, and containers over your background:",
+          text = "Controls the opacity level of your background wallpaper image and UI glass containers:",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1084,7 +1199,7 @@ private fun ThemeFullScreenPage(
         }
       }
 
-      // 5. Background Wallpaper Image
+      // 6. Background Wallpaper Image
       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Icon(Icons.Default.Image, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
@@ -1095,8 +1210,8 @@ private fun ThemeFullScreenPage(
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
-          border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
           Column(modifier = Modifier.padding(14.dp)) {
             if (!currentBgImageUri.isNullOrBlank()) {
@@ -1110,7 +1225,8 @@ private fun ThemeFullScreenPage(
                   model = currentBgImageUri,
                   contentDescription = "Current Background",
                   modifier = Modifier.fillMaxWidth(),
-                  contentScale = ContentScale.Crop
+                  contentScale = ContentScale.Crop,
+                  alpha = currentUiOpacity.coerceIn(0.10f, 1.0f)
                 )
               }
               Spacer(modifier = Modifier.height(10.dp))
@@ -1171,10 +1287,10 @@ private fun DataFullScreenPage(
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
           }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFF0B0D13))
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
       )
     },
-    containerColor = Color(0xFF0B0D13)
+    containerColor = Color.Transparent
   ) { padding ->
     Column(
       modifier = Modifier
@@ -1211,10 +1327,10 @@ private fun PresetsFullScreenPage(
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
           }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFF0B0D13))
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
       )
     },
-    containerColor = Color(0xFF0B0D13)
+    containerColor = Color.Transparent
   ) { padding ->
     Column(
       modifier = Modifier
