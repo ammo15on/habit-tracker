@@ -59,7 +59,8 @@ data class AiChatMessage(
   val text: String,
   val timestamp: Long = System.currentTimeMillis(),
   val isError: Boolean = false,
-  val modelMode: String = "on_device" // "on_device" or "cloud"
+  val modelMode: String = "on_device", // "on_device" or "cloud"
+  val isPinned: Boolean = false
 )
 
 enum class AnalyticsTab {

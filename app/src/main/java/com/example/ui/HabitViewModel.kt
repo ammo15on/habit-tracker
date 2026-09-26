@@ -74,6 +74,7 @@ class HabitViewModel(
 
   // Global Hamburger Menu state (can be triggered by left edge swipe or header button)
   val isHamburgerMenuOpen = MutableStateFlow(false)
+  val isHamburgerOpen: StateFlow<Boolean> get() = isHamburgerMenuOpen
 
   fun openHamburgerMenu() {
     isHamburgerMenuOpen.value = true
@@ -83,72 +84,83 @@ class HabitViewModel(
     isHamburgerMenuOpen.value = false
   }
 
+  fun openHamburger() = openHamburgerMenu()
+  fun closeHamburger() = closeHamburgerMenu()
+
   // Custom Hexadecimal Color States
   private val _fallbackUiHex = MutableStateFlow("#3B82F6")
   val selectedUiHex: StateFlow<String> =
-    themePreferences?.customUiHex ?: _fallbackUiHex.asStateFlow()
+    themePreferences?.customColorHex ?: _fallbackUiHex.asStateFlow()
+  val selectedColorHex: StateFlow<String> get() = selectedUiHex
 
   private val _fallbackBgHex = MutableStateFlow("#121212")
-  val selectedBgHex: StateFlow<String> =
-    themePreferences?.customBgHex ?: _fallbackBgHex.asStateFlow()
+  val selectedBgHex: StateFlow<String> = _fallbackBgHex.asStateFlow()
 
   private val _fallbackTextHex = MutableStateFlow("#FFFFFF")
   val selectedTextHex: StateFlow<String> =
-    themePreferences?.customTextHex ?: _fallbackTextHex.asStateFlow()
+    themePreferences?.customFontColorHex ?: _fallbackTextHex.asStateFlow()
+  val selectedFontHex: StateFlow<String> get() = selectedTextHex
 
   fun setCustomUiHex(hex: String) {
     if (themePreferences != null) {
-      themePreferences.setCustomUiHex(hex)
+      themePreferences.setCustomColorHex(hex)
     } else {
       _fallbackUiHex.value = hex
     }
   }
 
+  fun setCustomColorHex(hex: String) = setCustomUiHex(hex)
+
   fun setCustomBgHex(hex: String) {
-    if (themePreferences != null) {
-      themePreferences.setCustomBgHex(hex)
-    } else {
-      _fallbackBgHex.value = hex
-    }
+    _fallbackBgHex.value = hex
   }
 
   fun setCustomTextHex(hex: String) {
     if (themePreferences != null) {
-      themePreferences.setCustomTextHex(hex)
+      themePreferences.setCustomFontColorHex(hex)
     } else {
       _fallbackTextHex.value = hex
     }
   }
 
-  // App Goal state (Count of days left to future target date)
-  private val _fallbackGoal = MutableStateFlow<AppGoal?>(null)
-  val goal: StateFlow<AppGoal?> =
-    goalPreferences?.goal ?: _fallbackGoal.asStateFlow()
+  fun setCustomFontColorHex(hex: String) = setCustomTextHex(hex)
 
-  fun setGoal(title: String, targetDate: String) {
+  // App Goal state (Count of days left to future target date)
+  private val _fallbackAppGoal = MutableStateFlow(AppGoal())
+  val appGoal: StateFlow<AppGoal> =
+    goalPreferences?.goal ?: _fallbackAppGoal.asStateFlow()
+
+  val goal: StateFlow<AppGoal?> = appGoal.map { g ->
+    if (g.title.isNotBlank() || g.examDate.isNotBlank()) g else null
+  }.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.Eagerly,
+    initialValue = if (goalPreferences?.goal?.value?.title?.isNotBlank() == true) goalPreferences.goal.value else null
+  )
+
+  fun updateGoal(newGoal: AppGoal) {
     if (goalPreferences != null) {
-      goalPreferences.setGoal(title, targetDate)
+      goalPreferences.updateGoal(newGoal)
     } else {
-      _fallbackGoal.value = AppGoal(title, targetDate)
+      _fallbackAppGoal.value = newGoal
     }
   }
 
+  fun setGoal(title: String, targetDate: String) {
+    val current = appGoal.value
+    updateGoal(current.copy(title = title, examDate = targetDate))
+  }
+
   fun clearGoal() {
-    if (goalPreferences != null) {
-      goalPreferences.clearGoal()
-    } else {
-      _fallbackGoal.value = null
-    }
+    updateGoal(AppGoal(title = "", examDate = ""))
   }
 
   // App Theme Selection State (Slate, Indigo, Blue, Cyan, Purple, Rose, Crimson, Amber, Golden, Obsidian, Graphite, Emerald)
   private val _fallbackThemeColor = MutableStateFlow(AppThemeColor.SLATE)
-  val selectedThemeColor: StateFlow<AppThemeColor> =
-    themePreferences?.themeColor ?: _fallbackThemeColor.asStateFlow()
+  val selectedThemeColor: StateFlow<AppThemeColor> = _fallbackThemeColor.asStateFlow()
 
   private val _fallbackFontColor = MutableStateFlow(com.example.ui.theme.AppFontColor.DEFAULT)
-  val selectedFontColor: StateFlow<com.example.ui.theme.AppFontColor> =
-    themePreferences?.fontColor ?: _fallbackFontColor.asStateFlow()
+  val selectedFontColor: StateFlow<com.example.ui.theme.AppFontColor> = _fallbackFontColor.asStateFlow()
 
   private val _fallbackBgImageUri = MutableStateFlow<String?>(null)
   val selectedBackgroundImageUri: StateFlow<String?> =
@@ -179,19 +191,11 @@ class HabitViewModel(
   }
 
   fun setThemeColor(color: AppThemeColor) {
-    if (themePreferences != null) {
-      themePreferences.setThemeColor(color)
-    } else {
-      _fallbackThemeColor.value = color
-    }
+    _fallbackThemeColor.value = color
   }
 
   fun setFontColor(color: com.example.ui.theme.AppFontColor) {
-    if (themePreferences != null) {
-      themePreferences.setFontColor(color)
-    } else {
-      _fallbackFontColor.value = color
-    }
+    _fallbackFontColor.value = color
   }
 
   fun setBackgroundImageUri(uri: String?) {
@@ -202,6 +206,8 @@ class HabitViewModel(
     }
   }
 
+  fun setBackgroundImage(uri: String?) = setBackgroundImageUri(uri)
+
   // Active running timer state (Background-enabled via TimerManager)
   val activeTimerState: StateFlow<com.example.util.ActiveTimerState> = com.example.util.TimerManager.activeTimerState
   val runningTaskId: StateFlow<Long?> = com.example.util.TimerManager.runningTaskId
@@ -211,9 +217,12 @@ class HabitViewModel(
   private val allTasksFlow = repository.allTasks
   private val allRatingsFlow = repository.allRatings
   private val allLogsFlow = repository.allLogs
-  val allTasksState: StateFlow<List<HabitTask>> = repository.allTasks
+  val allTasks: StateFlow<List<HabitTask>> = repository.allTasks
     .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+  val allTasksState: StateFlow<List<HabitTask>> get() = allTasks
   val allLogsState: StateFlow<List<HabitTaskLog>> = repository.allLogs
+    .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+  val allRatingsState: StateFlow<List<DayRating>> = repository.allRatings
     .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
   val allNeetScores: StateFlow<List<NeetTestScore>> = repository.allNeetScores
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -223,6 +232,7 @@ class HabitViewModel(
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val presets: StateFlow<List<TaskPreset>> = repository.allTaskPresets
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+  val allTaskPresets: StateFlow<List<TaskPreset>> get() = presets
   val allPlanEvents: StateFlow<List<com.example.data.model.PlanEvent>> = repository.allPlanEvents
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val allNeetChapters: StateFlow<List<NeetChapter>> = repository.allNeetChapters
@@ -720,24 +730,29 @@ class HabitViewModel(
     .map { entities ->
       val mapped = entities.map { entity ->
         AiChatMessage(
+          id = entity.id,
           role = entity.role,
           text = entity.text,
           timestamp = entity.timestamp,
-          isError = entity.isError
+          isError = entity.isError,
+          modelMode = if (entity.isCloud) "cloud" else "on_device",
+          isPinned = entity.isPinned
         )
       }
       if (mapped.isEmpty()) {
         listOf(
           AiChatMessage(
+            id = -1L,
             role = "model",
-            text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\nI can analyze your logged study hours, time percentage allocations, mock test score trends, NCERT chapter revisions, and PYQ progress. Ask me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"What is the best active recall strategy for NEET Biology?\"",
+            text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\nI analyze your tasks, logged study hours, time percentage allocations, mock test trends, NCERT chapter revisions, PYQ, Exercise, and A&R progress. Ask me anything like:\n• \"Weekly summary of my tasks and study hours\"\n• \"What am I missing and what should I work on next?\"\n• \"NEET updated syllabus and deleted topics\"\n• \"How to study Modern Physics / Organic Chemistry?\"",
             timestamp = 0L // oldest to stay at the very bottom
           )
         )
       } else {
         mapped + AiChatMessage(
+          id = -1L,
           role = "model",
-          text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\nI can analyze your logged study hours, time percentage allocations, mock test score trends, NCERT chapter revisions, and PYQ progress. Ask me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"What is the best active recall strategy for NEET Biology?\"",
+          text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\nI analyze your tasks, logged study hours, time percentage allocations, mock test trends, NCERT chapter revisions, PYQ, Exercise, and A&R progress. Ask me anything like:\n• \"Weekly summary of my tasks and study hours\"\n• \"What am I missing and what should I work on next?\"\n• \"NEET updated syllabus and deleted topics\"\n• \"How to study Modern Physics / Organic Chemistry?\"",
           timestamp = 0L // oldest to stay at the very bottom
         )
       }
@@ -746,6 +761,41 @@ class HabitViewModel(
       started = SharingStarted.WhileSubscribed(5000),
       initialValue = emptyList()
     )
+
+  fun togglePinAiChat(id: Long) {
+    if (id <= 0) return
+    viewModelScope.launch {
+      val current = aiChatMessages.value.find { it.id == id }
+      if (current != null) {
+        repository.updateAiChatPin(id, !current.isPinned)
+      }
+    }
+  }
+
+  fun pinAiChats(ids: List<Long>, isPinned: Boolean) {
+    val validIds = ids.filter { it > 0 }
+    if (validIds.isEmpty()) return
+    viewModelScope.launch {
+      repository.updateAiChatsPin(validIds, isPinned)
+    }
+  }
+
+  fun deleteAiChats(ids: List<Long>) {
+    val validIds = ids.filter { it > 0 }
+    if (validIds.isEmpty()) return
+    viewModelScope.launch {
+      repository.deleteAiChatsByIds(validIds)
+      refreshSuggestions()
+    }
+  }
+
+  fun deleteAiChat(id: Long) {
+    if (id <= 0) return
+    viewModelScope.launch {
+      repository.deleteAiChatById(id)
+      refreshSuggestions()
+    }
+  }
 
   val isAiLoading = MutableStateFlow(false)
   private val _fallbackAiChatDraft = MutableStateFlow("")
@@ -803,10 +853,10 @@ class HabitViewModel(
     }
 
     // 4. Universal High-Yield NEET suggestions:
-    list.add("Analyze my NEET readiness & weekly consistency")
-    list.add("Top high-yield NCERT Biology topics to revise")
-    list.add("Physics formula memorization & problem-solving strategy")
-    list.add("How to avoid negative marking in mock tests?")
+    list.add("Generate my weekly study & tasks summary")
+    list.add("What tasks and chapters am I missing or neglecting?")
+    list.add("NEET 2026/2027 officially deleted topics and syllabus update")
+    list.add("Active recall and error notebook system for mock tests")
 
     val uniqueList = list.distinct()
     // Implement smart shuffling or rotation on trigger to keep suggestions active and dynamic!
@@ -820,10 +870,10 @@ class HabitViewModel(
     scope = viewModelScope,
     started = SharingStarted.WhileSubscribed(5000),
     initialValue = listOf(
-      "Analyze my NEET readiness & weekly consistency",
-      "Top high-yield NCERT Biology topics to revise",
-      "Physics formula memorization & problem-solving strategy",
-      "Spaced repetition schedule for completed chapters"
+      "Generate my weekly study & tasks summary",
+      "What tasks and chapters am I missing or neglecting?",
+      "NEET 2026/2027 officially deleted topics and syllabus update",
+      "Active recall and error notebook system for mock tests"
     )
   )
 
@@ -851,13 +901,28 @@ class HabitViewModel(
         val currentHistory = aiChatMessages.value
         com.example.util.GeminiAiService.askGemini(cleanQ, contextString, currentHistory)
       } else {
-        // On-Device Model
+        // On-Device Model with Motorola Edge 70 Fusion / AI Core enhanced logic
+        val tasks = allTasksState.value
+        val logs = allLogsState.value
+        val ratings = allRatingsState.value
+        val plannedTasks = allPlannedTasks.value
         val chapters = allNeetChapters.value
         val scores = allNeetScores.value
+        val tallies = allNeetTallyCounters.value
         val subjectTimes = subjectTimeBreakdown.value
-        // Simulate a slight on-device computation delay (600ms) for realistic feel
-        delay(600)
-        com.example.util.OnDeviceModelEngine.generateResponse(cleanQ, chapters, scores, subjectTimes)
+
+        delay(400) // slight on-device computation delay
+        com.example.util.OnDeviceModelEngine.generateResponse(
+          question = cleanQ,
+          tasks = tasks,
+          logs = logs,
+          ratings = ratings,
+          plannedTasks = plannedTasks,
+          chapters = chapters,
+          scores = scores,
+          tallies = tallies,
+          subjectTimes = subjectTimes
+        )
       }
 
       // 3. Insert model response to local Room DB
@@ -887,12 +952,74 @@ class HabitViewModel(
     val chapters = allNeetChapters.value
     val tallies = allNeetTallyCounters.value
     val subjectTimes = subjectTimeBreakdown.value
-    val totalTime = tasksForSelectedDate.value.sumOf { it.timeSpentSeconds }
+    val tasks = allTasksState.value
+    val logs = allLogsState.value
+    val ratings = allRatingsState.value
+    val planned = allPlannedTasks.value
+
+    val today = DateUtils.today()
+    val past7Days = (0..6).map { DateUtils.offsetDate(today, -it) }
+    val past30Days = (0..29).map { DateUtils.offsetDate(today, -it) }
+
+    val logs7Days = logs.filter { it.date in past7Days }
+    val logs30Days = logs.filter { it.date in past30Days }
 
     val sb = StringBuilder()
-    sb.appendLine("=== STUDENT STUDY METRICS & PROFILE ===")
+    sb.appendLine("=== STUDENT COMPREHENSIVE STUDY & TASKS PROFILE ===")
 
-    // Time dedication breakdown
+    // 1. ACTIVE TASKS & HABITS
+    sb.appendLine("\n--- Active Tasks & Habits (Total: ${tasks.size}) ---")
+    if (tasks.isEmpty()) {
+      sb.appendLine("• No daily tasks configured.")
+    } else {
+      tasks.forEach { t ->
+        val allTimeForTask = logs.filter { it.taskId == t.id }.sumOf { it.timeSpentSeconds }
+        val weekCompletions = logs7Days.count { it.taskId == t.id && it.isCompleted }
+        val weekTime = logs7Days.filter { it.taskId == t.id }.sumOf { it.timeSpentSeconds }
+        sb.appendLine("• [${t.name}]: Target=${t.targetTimeMinutes}m | Total Logged=${DateUtils.formatTime(allTimeForTask)} | Past 7 Days: $weekCompletions completed (${DateUtils.formatTime(weekTime)})")
+      }
+    }
+
+    // 2. WEEKLY SUMMARY & TASKS AUDIT (PAST 7 DAYS)
+    val totalTime7Days = logs7Days.sumOf { it.timeSpentSeconds }
+    val completedTasks7Days = logs7Days.count { it.isCompleted }
+    val missedTasks7Days = tasks.filter { t -> logs7Days.none { it.taskId == t.id && it.isCompleted } }
+    sb.appendLine("\n--- Weekly Tasks Performance (Past 7 Days) ---")
+    sb.appendLine("• Total Study & Task Time: ${DateUtils.formatTime(totalTime7Days)} (${String.format(Locale.getDefault(), "%.1f", totalTime7Days / 3600.0)} hours)")
+    sb.appendLine("• Total Task Completions: $completedTasks7Days")
+    if (missedTasks7Days.isNotEmpty()) {
+      sb.appendLine("• ⚠️ Neglected/Missed Tasks This Week: ${missedTasks7Days.joinToString(", ") { it.name }}")
+    } else {
+      sb.appendLine("• ✅ All active tasks had activity this week!")
+    }
+
+    // 3. MONTHLY SUMMARY (PAST 30 DAYS)
+    val totalTime30Days = logs30Days.sumOf { it.timeSpentSeconds }
+    val completedTasks30Days = logs30Days.count { it.isCompleted }
+    sb.appendLine("\n--- Monthly Tasks Performance (Past 30 Days) ---")
+    sb.appendLine("• 30-Day Total Study Time: ${DateUtils.formatTime(totalTime30Days)} (${String.format(Locale.getDefault(), "%.1f", totalTime30Days / 3600.0)} hours)")
+    sb.appendLine("• 30-Day Task Completions: $completedTasks30Days")
+
+    // 4. DAY RATINGS & CONSISTENCY (Past 7 & 30 Days)
+    val ratings7 = ratings.filter { it.date in past7Days }
+    val best7 = ratings7.count { it.ratingType == com.example.data.model.RatingType.BEST }
+    val avg7 = ratings7.count { it.ratingType == com.example.data.model.RatingType.AVERAGE }
+    val worst7 = ratings7.count { it.ratingType == com.example.data.model.RatingType.WORST }
+    sb.appendLine("\n--- Day Ratings & Consistency ---")
+    sb.appendLine("• Past 7 Days Ratings: $best7 Best (😊), $avg7 Average (😐), $worst7 Worst (😞)")
+
+    // 5. SCHEDULED & PLANNED TASKS
+    val pendingPlanned = planned.filter { !it.isCompleted }
+    sb.appendLine("\n--- Upcoming & Scheduled Tasks (Pending: ${pendingPlanned.size}) ---")
+    if (pendingPlanned.isEmpty()) {
+      sb.appendLine("• No pending scheduled tasks.")
+    } else {
+      pendingPlanned.take(8).forEach { pt ->
+        sb.appendLine("• [${pt.date}] ${pt.title} - Target: ${pt.targetTimeMinutes}m ${if (pt.notes.isNotBlank()) "- ${pt.notes}" else ""}")
+      }
+    }
+
+    // 6. TIME DEDICATION BREAKDOWN
     sb.appendLine("\n--- Study Time Dedication (Hours & %) ---")
     subjectTimes.forEach { sub ->
       val hours = sub.seconds / 3600.0
@@ -900,21 +1027,29 @@ class HabitViewModel(
       sb.appendLine("• ${sub.name}: $hoursStr (${DateUtils.formatTime(sub.seconds)}) -> ${String.format(Locale.getDefault(), "%.1f", sub.percentage)}%")
     }
 
-    // NEET Chapter Progress
+    // 7. NEET CHAPTER PROGRESS (COMPLETED, PYQ, NCERT, EXERCISE, A&R)
     sb.appendLine("\n--- NEET Chapters Completion (Total: ${chapters.size}) ---")
     val completedCount = chapters.count { it.isCompleted }
     val pyqCount = chapters.count { it.isPyqDone }
     val revCount = chapters.count { it.isRevisionDone }
+    val exerciseCount = chapters.count { it.isExerciseDone }
+    val arCount = chapters.count { it.isArDone }
     sb.appendLine("• Completed Chapters: $completedCount / ${chapters.size}")
+    sb.appendLine("• NCERT Read & Revised: $revCount / ${chapters.size}")
     sb.appendLine("• PYQs Solved Chapters: $pyqCount / ${chapters.size}")
-    sb.appendLine("• Revised Chapters: $revCount / ${chapters.size}")
+    sb.appendLine("• Chapter Exercises Solved: $exerciseCount / ${chapters.size}")
+    sb.appendLine("• Assertion & Reason (A&R) Practiced: $arCount / ${chapters.size}")
 
-    val pendingChapters = chapters.filter { !it.isCompleted }.take(10).map { "${it.name} (${it.subject})" }
+    val pendingChapters = chapters.filter { !it.isCompleted }.take(8).map { "${it.name} (${it.subject})" }
     if (pendingChapters.isNotEmpty()) {
       sb.appendLine("• Sample Incomplete Chapters: ${pendingChapters.joinToString(", ")}")
     }
+    val chaptersMissingPractice = chapters.filter { it.isCompleted && (!it.isPyqDone || !it.isExerciseDone || !it.isArDone) }.take(6)
+    if (chaptersMissingPractice.isNotEmpty()) {
+      sb.appendLine("• Chapters read but missing PYQ/Exercise/A&R: ${chaptersMissingPractice.joinToString(", ") { it.name }}")
+    }
 
-    // Mock Test Scores
+    // 8. MOCK TEST SCORES
     sb.appendLine("\n--- Mock Test Performance (Recent Tests: ${scores.size}) ---")
     if (scores.isEmpty()) {
       sb.appendLine("• No mock tests logged yet.")
@@ -929,7 +1064,7 @@ class HabitViewModel(
       sb.appendLine("• Averages: Total=$avgTotal/720 | Physics=$avgPhysics/180 | Chem=$avgChem/180 | Bio=$avgBio/360")
     }
 
-    // Tally Counters
+    // 9. TALLY COUNTERS
     sb.appendLine("\n--- Tally Counters & Practice Goals ---")
     tallies.forEach { t ->
       sb.appendLine("• ${t.title}: ${t.count} / ${t.target} ${t.unit}")
@@ -943,6 +1078,8 @@ class HabitViewModel(
     flushActiveTimer()
     selectedDate.value = date
   }
+
+  fun setSelectedDate(date: String) = selectDate(date)
 
   fun goToPreviousDay() {
     flushActiveTimer()
@@ -1318,6 +1455,8 @@ class HabitViewModel(
     isCompleted: Boolean = false,
     isPyqDone: Boolean = false,
     isRevisionDone: Boolean = false,
+    isExerciseDone: Boolean = false,
+    isArDone: Boolean = false,
     notes: String = ""
   ) {
     if (name.isBlank()) return
@@ -1328,6 +1467,8 @@ class HabitViewModel(
         isCompleted = isCompleted,
         isPyqDone = isPyqDone,
         isRevisionDone = isRevisionDone,
+        isExerciseDone = isExerciseDone,
+        isArDone = isArDone,
         notes = notes.trim()
       )
       repository.insertNeetChapter(chapter)
@@ -1359,6 +1500,20 @@ class HabitViewModel(
   fun toggleChapterRevision(chapter: NeetChapter) {
     viewModelScope.launch {
       repository.updateNeetChapter(chapter.copy(isRevisionDone = !chapter.isRevisionDone))
+      notifyNeetWidgetUpdated()
+    }
+  }
+
+  fun toggleChapterExercise(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.updateNeetChapter(chapter.copy(isExerciseDone = !chapter.isExerciseDone))
+      notifyNeetWidgetUpdated()
+    }
+  }
+
+  fun toggleChapterAr(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.updateNeetChapter(chapter.copy(isArDone = !chapter.isArDone))
       notifyNeetWidgetUpdated()
     }
   }
@@ -1582,6 +1737,196 @@ class HabitViewModel(
   }
 
   // Data Export & Import (Pure Android JSON)
+  suspend fun exportAllDataToJson(): String = exportDataToJson()
+
+  suspend fun exportSelectedDataToJson(
+    exportGoals: Boolean = true,
+    exportEventsAndTasks: Boolean = true,
+    exportHabitsAndLogs: Boolean = true,
+    exportTallies: Boolean = true,
+    exportTestMarks: Boolean = true,
+    exportChapters: Boolean = true,
+    exportAnalyticsAndChat: Boolean = true
+  ): String {
+    val root = org.json.JSONObject()
+    root.put("version", "6.4")
+    root.put("exportedAt", System.currentTimeMillis())
+    root.put("exportDate", DateUtils.today())
+
+    if (exportGoals) {
+      val goalObj = org.json.JSONObject()
+      val g = appGoal.value
+      goalObj.put("title", g.title)
+      goalObj.put("examDate", g.examDate)
+      goalObj.put("dailyStudyHoursTarget", g.dailyStudyHoursTarget)
+      goalObj.put("motivationQuote", g.motivationQuote)
+      root.put("goal", goalObj)
+    }
+
+    if (exportHabitsAndLogs) {
+      val tasks = repository.allTasks.first()
+      val tasksArray = org.json.JSONArray()
+      tasks.forEach { t ->
+        val obj = org.json.JSONObject().apply {
+          put("id", t.id)
+          put("name", t.name)
+          put("targetDate", t.targetDate ?: "")
+          put("repeatDaysMask", t.repeatDaysMask)
+          put("targetTimeMinutes", t.targetTimeMinutes)
+          put("isDefault", t.isDefault)
+          put("isStarred", t.isStarred)
+          put("targetDates", t.targetDates ?: "")
+          put("startDate", t.startDate ?: "")
+          put("endDate", t.endDate ?: "")
+          put("noteText", t.noteText)
+          put("reminderTime", t.reminderTime ?: "")
+        }
+        tasksArray.put(obj)
+      }
+      root.put("tasks", tasksArray)
+
+      val logs = repository.allLogs.first()
+      val logsArray = org.json.JSONArray()
+      logs.forEach { l ->
+        val obj = org.json.JSONObject().apply {
+          put("id", l.id)
+          put("taskId", l.taskId)
+          put("date", l.date)
+          put("timeSpentSeconds", l.timeSpentSeconds)
+          put("isCompleted", l.isCompleted)
+        }
+        logsArray.put(obj)
+      }
+      root.put("logs", logsArray)
+
+      val ratings = repository.allRatings.first()
+      val ratingsArray = org.json.JSONArray()
+      ratings.forEach { r ->
+        val obj = org.json.JSONObject().apply {
+          put("date", r.date)
+          put("rating", r.rating)
+        }
+        ratingsArray.put(obj)
+      }
+      root.put("ratings", ratingsArray)
+    }
+
+    if (exportEventsAndTasks) {
+      val planned = repository.allPlannedTasks.first()
+      val plannedArray = org.json.JSONArray()
+      planned.forEach { p ->
+        val obj = org.json.JSONObject().apply {
+          put("id", p.id)
+          put("title", p.title)
+          put("date", p.date)
+          put("targetTimeMinutes", p.targetTimeMinutes)
+          put("notes", p.notes)
+          put("isStarred", p.isStarred)
+          put("isArchived", p.isArchived)
+          put("isCompleted", p.isCompleted)
+        }
+        plannedArray.put(obj)
+      }
+      root.put("plannedTasks", plannedArray)
+
+      val events = repository.allPlanEvents.first()
+      val eventsArray = org.json.JSONArray()
+      events.forEach { e ->
+        val obj = org.json.JSONObject().apply {
+          put("id", e.id)
+          put("title", e.title)
+          put("startDate", e.startDate)
+          put("endDate", e.endDate)
+          put("taskTitle", e.taskTitle)
+          put("taskTargetMinutes", e.taskTargetMinutes)
+          put("notes", e.notes)
+        }
+        eventsArray.put(obj)
+      }
+      root.put("events", eventsArray)
+    }
+
+    if (exportTallies) {
+      val tallies = repository.allNeetTallyCounters.first()
+      val talliesArray = org.json.JSONArray()
+      tallies.forEach { t ->
+        val obj = org.json.JSONObject().apply {
+          put("id", t.id)
+          put("title", t.title)
+          put("count", t.count)
+          put("target", t.target)
+          put("unit", t.unit)
+        }
+        talliesArray.put(obj)
+      }
+      root.put("tallies", talliesArray)
+    }
+
+    if (exportTestMarks) {
+      val scores = repository.allNeetScores.first()
+      val scoresArray = org.json.JSONArray()
+      scores.forEach { s ->
+        val obj = org.json.JSONObject().apply {
+          put("id", s.id)
+          put("testName", s.testName)
+          put("date", s.date)
+          put("physicsScore", s.physicsScore)
+          put("chemistryScore", s.chemistryScore)
+          put("botanyScore", s.botanyScore)
+          put("zoologyScore", s.zoologyScore)
+          put("totalScore", s.totalScore)
+        }
+        scoresArray.put(obj)
+      }
+      root.put("testScores", scoresArray)
+    }
+
+    if (exportChapters) {
+      val chapters = repository.allNeetChapters.first()
+      val chaptersArray = org.json.JSONArray()
+      chapters.forEach { c ->
+        val obj = org.json.JSONObject().apply {
+          put("id", c.id)
+          put("name", c.name)
+          put("subject", c.subject)
+          put("isCompleted", c.isCompleted)
+          put("isPyqDone", c.isPyqDone)
+          put("isRevisionDone", c.isRevisionDone)
+          put("isExerciseDone", c.isExerciseDone)
+          put("isArDone", c.isArDone)
+          put("notes", c.notes)
+        }
+        chaptersArray.put(obj)
+      }
+      root.put("chapters", chaptersArray)
+    }
+
+    if (exportAnalyticsAndChat) {
+      val chats = repository.allAiChats.first()
+      val chatsArray = org.json.JSONArray()
+      chats.forEach { ch ->
+        val obj = org.json.JSONObject().apply {
+          put("id", ch.id)
+          put("role", ch.role)
+          put("text", ch.text)
+          put("timestamp", ch.timestamp)
+          put("isCloud", ch.isCloud)
+          put("isPinned", ch.isPinned)
+        }
+        chatsArray.put(obj)
+      }
+      root.put("aiChatHistory", chatsArray)
+    }
+
+    return root.toString(2)
+  }
+
+  fun resetAllData() {
+    viewModelScope.launch {
+      repository.resetAllData()
+    }
+  }
+
   suspend fun exportDataToJson(): String {
     val root = org.json.JSONObject()
 

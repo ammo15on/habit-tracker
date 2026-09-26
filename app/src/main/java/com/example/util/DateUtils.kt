@@ -29,6 +29,10 @@ object DateUtils {
     return offsetDay(dateStr, amount)
   }
 
+  fun offsetDate(dateStr: String, days: Int): String {
+    return offsetDay(dateStr, days)
+  }
+
   private fun offsetDay(dateStr: String, amount: Int): String {
     val sdf = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
     val cal = Calendar.getInstance()

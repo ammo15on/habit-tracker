@@ -12,6 +12,8 @@ data class NeetChapter(
   val isCompleted: Boolean = false,
   val isPyqDone: Boolean = false,
   val isRevisionDone: Boolean = false,
+  val isExerciseDone: Boolean = false,
+  val isArDone: Boolean = false,
   val notes: String = ""
 ) {
   companion object {

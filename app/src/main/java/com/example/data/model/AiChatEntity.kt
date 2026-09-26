@@ -10,5 +10,6 @@ data class AiChatEntity(
   val text: String,
   val timestamp: Long = System.currentTimeMillis(),
   val isError: Boolean = false,
-  val isCloud: Boolean = false
+  val isCloud: Boolean = false,
+  val isPinned: Boolean = false
 )

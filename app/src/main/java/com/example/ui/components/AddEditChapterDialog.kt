@@ -50,7 +50,7 @@ fun AddEditChapterDialog(
   chapter: NeetChapter? = null,
   initialSubject: String = "Botany",
   onDismiss: () -> Unit,
-  onSave: (name: String, subject: String, isCompleted: Boolean, isPyqDone: Boolean, isRevisionDone: Boolean, notes: String) -> Unit,
+  onSave: (name: String, subject: String, isCompleted: Boolean, isPyqDone: Boolean, isRevisionDone: Boolean, isExerciseDone: Boolean, isArDone: Boolean, notes: String) -> Unit,
   onDelete: (() -> Unit)? = null
 ) {
   val isEditing = chapter != null
@@ -59,6 +59,8 @@ fun AddEditChapterDialog(
   var isCompleted by remember { mutableStateOf(chapter?.isCompleted ?: false) }
   var isPyqDone by remember { mutableStateOf(chapter?.isPyqDone ?: false) }
   var isRevisionDone by remember { mutableStateOf(chapter?.isRevisionDone ?: false) }
+  var isExerciseDone by remember { mutableStateOf(chapter?.isExerciseDone ?: false) }
+  var isArDone by remember { mutableStateOf(chapter?.isArDone ?: false) }
   var notes by remember { mutableStateOf(chapter?.notes ?: "") }
 
   AlertDialog(
@@ -190,11 +192,51 @@ fun AddEditChapterDialog(
           )
           Spacer(modifier = Modifier.width(6.dp))
           Column {
-            Text("NCERT & Revision Done", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("NCERT Read & Revised", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Text(
-              text = if (isRevisionDone) "✓ Read NCERT line by line & notes revised" else "NCERT reading pending",
+              text = if (isRevisionDone) "✓ Read NCERT line by line" else "NCERT reading pending",
               style = MaterialTheme.typography.bodySmall,
               color = if (isRevisionDone) RatingBestGreen else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+
+        // Checkmark 4: Exercise Done
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Checkbox(
+            checked = isExerciseDone,
+            onCheckedChange = { isExerciseDone = it }
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Column {
+            Text("Chapter Exercise", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(
+              text = if (isExerciseDone) "✓ Textbook/coaching exercise solved" else "Exercises pending",
+              style = MaterialTheme.typography.bodySmall,
+              color = if (isExerciseDone) RatingBestGreen else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+
+        // Checkmark 5: A&R (Assertion & Reason) Done
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Checkbox(
+            checked = isArDone,
+            onCheckedChange = { isArDone = it }
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Column {
+            Text("Assertion & Reason (A&R)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(
+              text = if (isArDone) "✓ A&R question practice completed" else "A&R practice pending",
+              style = MaterialTheme.typography.bodySmall,
+              color = if (isArDone) RatingBestGreen else MaterialTheme.colorScheme.onSurfaceVariant
             )
           }
         }
@@ -221,7 +263,7 @@ fun AddEditChapterDialog(
       Button(
         onClick = {
           if (name.isNotBlank()) {
-            onSave(name.trim(), subject, isCompleted, isPyqDone, isRevisionDone, notes.trim())
+            onSave(name.trim(), subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, notes.trim())
           }
         },
         enabled = name.isNotBlank(),

@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Delete
@@ -46,6 +48,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material3.Button
@@ -53,6 +56,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -111,9 +116,10 @@ enum class HamburgerPage {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HamburgerMenuDialog(
+fun HamburgerMenuContent(
   viewModel: HabitViewModel,
-  onDismiss: () -> Unit
+  onDismiss: () -> Unit,
+  modifier: Modifier = Modifier
 ) {
   var currentPage by remember { mutableStateOf(HamburgerPage.MAIN_MENU) }
   val currentBgImageUri by viewModel.selectedBackgroundImageUri.collectAsStateWithLifecycle()
@@ -127,6 +133,79 @@ fun HamburgerMenuDialog(
     }
   }
 
+  Surface(
+    modifier = modifier
+      .fillMaxSize()
+      .testTag("hamburger_full_screen_dialog"),
+    color = MaterialTheme.colorScheme.background
+  ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+      if (!currentBgImageUri.isNullOrBlank()) {
+        AsyncImage(
+          model = currentBgImageUri,
+          contentDescription = null,
+          modifier = Modifier.fillMaxSize(),
+          contentScale = ContentScale.Crop
+        )
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF090B10).copy(alpha = currentUiOpacity.coerceIn(0.2f, 0.95f)))
+        )
+      }
+
+      Crossfade(
+        targetState = currentPage,
+        label = "HamburgerPageTransition"
+      ) { page ->
+        when (page) {
+          HamburgerPage.MAIN_MENU -> {
+            HamburgerMainMenuScreen(
+              onNavigate = { currentPage = it },
+              onClose = onDismiss
+            )
+          }
+          HamburgerPage.THEME -> {
+            ThemeFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.GOAL -> {
+            GoalFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.TASKS -> {
+            PastTasksFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.PRESETS -> {
+            PresetsFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.DATA -> {
+            DataFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun HamburgerMenuDialog(
+  viewModel: HabitViewModel,
+  onDismiss: () -> Unit
+) {
   Dialog(
     onDismissRequest = onDismiss,
     properties = DialogProperties(
@@ -134,72 +213,10 @@ fun HamburgerMenuDialog(
       decorFitsSystemWindows = false
     )
   ) {
-    Surface(
-      modifier = Modifier
-        .fillMaxSize()
-        .testTag("hamburger_full_screen_dialog"),
-      color = MaterialTheme.colorScheme.background
-    ) {
-      Box(modifier = Modifier.fillMaxSize()) {
-        if (!currentBgImageUri.isNullOrBlank()) {
-          AsyncImage(
-            model = currentBgImageUri,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-          )
-          Box(
-            modifier = Modifier
-              .fillMaxSize()
-              .background(Color(0xFF090B10).copy(alpha = currentUiOpacity.coerceIn(0.2f, 0.95f)))
-          )
-        }
-
-        Crossfade(
-          targetState = currentPage,
-          label = "HamburgerPageTransition"
-        ) { page ->
-          when (page) {
-            HamburgerPage.MAIN_MENU -> {
-              HamburgerMainMenuScreen(
-                onNavigate = { currentPage = it },
-                onClose = onDismiss
-              )
-            }
-            HamburgerPage.THEME -> {
-              ThemeFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-            HamburgerPage.GOAL -> {
-              GoalFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-            HamburgerPage.TASKS -> {
-              PastTasksFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-            HamburgerPage.PRESETS -> {
-              PresetsFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-            HamburgerPage.DATA -> {
-              DataFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-          }
-        }
-      }
-    }
+    HamburgerMenuContent(
+      viewModel = viewModel,
+      onDismiss = onDismiss
+    )
   }
 }
 
@@ -361,7 +378,7 @@ private fun ThemeFullScreenPage(
   val photoPickerLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.GetContent()
   ) { uri: Uri? ->
-    viewModel.setBackgroundImage(uri)
+    viewModel.setBackgroundImage(uri?.toString())
   }
 
   var customHexInput by remember { mutableStateOf(currentHex) }
@@ -828,10 +845,31 @@ private fun DataFullScreenPage(
   viewModel: HabitViewModel,
   onBack: () -> Unit
 ) {
+  val context = LocalContext.current
   val clipboardManager = LocalClipboardManager.current
   val coroutineScope = rememberCoroutineScope()
   var showResetConfirm by remember { mutableStateOf(false) }
   var statusMessage by remember { mutableStateOf("") }
+
+  // Selection states for granular export
+  var exportGoals by remember { mutableStateOf(true) }
+  var exportEventsAndTasks by remember { mutableStateOf(true) }
+  var exportHabitsAndLogs by remember { mutableStateOf(true) }
+  var exportTallies by remember { mutableStateOf(true) }
+  var exportTestMarks by remember { mutableStateOf(true) }
+  var exportChapters by remember { mutableStateOf(true) }
+  var exportAnalyticsAndChat by remember { mutableStateOf(true) }
+
+  val allSelected = exportGoals && exportEventsAndTasks && exportHabitsAndLogs &&
+    exportTallies && exportTestMarks && exportChapters && exportAnalyticsAndChat
+
+  val anySelected = exportGoals || exportEventsAndTasks || exportHabitsAndLogs ||
+    exportTallies || exportTestMarks || exportChapters || exportAnalyticsAndChat
+
+  val selectedCount = listOf(
+    exportGoals, exportEventsAndTasks, exportHabitsAndLogs,
+    exportTallies, exportTestMarks, exportChapters, exportAnalyticsAndChat
+  ).count { it }
 
   Scaffold(
     topBar = {
@@ -847,83 +885,283 @@ private fun DataFullScreenPage(
     },
     containerColor = Color.Transparent
   ) { padding ->
-    Column(
+    LazyColumn(
       modifier = Modifier
         .fillMaxSize()
         .padding(padding)
-        .padding(16.dp),
+        .padding(horizontal = 16.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-      Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-      ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-          Text("Backup & Export", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-          Text("Copy your complete tracker data in JSON format for safe backup.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-          Button(
-            onClick = {
-              coroutineScope.launch {
-                val json = viewModel.exportAllDataToJson()
-                clipboardManager.setText(AnnotatedString(json))
-                statusMessage = "Backup copied to clipboard!"
+      item {
+        Card(
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+          Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Column {
+                Text("Select Data to Export", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                  text = "$selectedCount of 7 categories selected",
+                  fontSize = 12.sp,
+                  color = MaterialTheme.colorScheme.primary
+                )
               }
-            },
-            modifier = Modifier.fillMaxWidth()
-          ) {
-            Icon(Icons.Default.FileDownload, contentDescription = null)
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Copy JSON Data to Clipboard")
+              TextButton(
+                onClick = {
+                  val target = !allSelected
+                  exportGoals = target
+                  exportEventsAndTasks = target
+                  exportHabitsAndLogs = target
+                  exportTallies = target
+                  exportTestMarks = target
+                  exportChapters = target
+                  exportAnalyticsAndChat = target
+                }
+              ) {
+                Text(if (allSelected) "Deselect All" else "Select All", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+              }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            // Option 1: Goals
+            ExportCheckboxRow(
+              title = "🎯 Target & Goal Settings",
+              subtitle = "Target exam date, daily hours target, motivation mantra",
+              checked = exportGoals,
+              onCheckedChange = { exportGoals = it }
+            )
+
+            // Option 2: Events & Tasks
+            ExportCheckboxRow(
+              title = "📅 Events & Planned Tasks",
+              subtitle = "Scheduled calendar events, exam timelines, specific-day planned tasks",
+              checked = exportEventsAndTasks,
+              onCheckedChange = { exportEventsAndTasks = it }
+            )
+
+            // Option 3: Habit Tasks & Logs
+            ExportCheckboxRow(
+              title = "⏱️ Habit Tasks & Daily Logs",
+              subtitle = "All habit timers, daily study logs, time spent, and day ratings",
+              checked = exportHabitsAndLogs,
+              onCheckedChange = { exportHabitsAndLogs = it }
+            )
+
+            // Option 4: Tally
+            ExportCheckboxRow(
+              title = "🔢 Tally Counters",
+              subtitle = "All tally counters, target counts, and recorded tallies",
+              checked = exportTallies,
+              onCheckedChange = { exportTallies = it }
+            )
+
+            // Option 5: Test Marks
+            ExportCheckboxRow(
+              title = "📝 NEET Test Marks & Scores",
+              subtitle = "All mock test records, subject breakdown (Phy, Chem, Bio), total scores",
+              checked = exportTestMarks,
+              onCheckedChange = { exportTestMarks = it }
+            )
+
+            // Option 6: Chapters
+            ExportCheckboxRow(
+              title = "📚 NEET Chapters & Progress",
+              subtitle = "Botany, Zoology, Physics & Chemistry chapters, NCERT, PYQ, Exercise & A&R",
+              checked = exportChapters,
+              onCheckedChange = { exportChapters = it }
+            )
+
+            // Option 7: Analytics & AI Chat
+            ExportCheckboxRow(
+              title = "💬 Analytics & AI Chat History",
+              subtitle = "Saved questions, answers, pinned notes, and cloud/on-device chat records",
+              checked = exportAnalyticsAndChat,
+              onCheckedChange = { exportAnalyticsAndChat = it }
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Action: Copy JSON
+            Button(
+              onClick = {
+                if (!anySelected) {
+                  statusMessage = "Please select at least one category to export."
+                  return@Button
+                }
+                coroutineScope.launch {
+                  val json = viewModel.exportSelectedDataToJson(
+                    exportGoals = exportGoals,
+                    exportEventsAndTasks = exportEventsAndTasks,
+                    exportHabitsAndLogs = exportHabitsAndLogs,
+                    exportTallies = exportTallies,
+                    exportTestMarks = exportTestMarks,
+                    exportChapters = exportChapters,
+                    exportAnalyticsAndChat = exportAnalyticsAndChat
+                  )
+                  clipboardManager.setText(AnnotatedString(json))
+                  statusMessage = "Selected data ($selectedCount categories) copied to clipboard!"
+                }
+              },
+              enabled = anySelected,
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Copy Selected JSON to Clipboard")
+            }
+
+            // Action: Share / Export File
+            OutlinedButton(
+              onClick = {
+                if (!anySelected) {
+                  statusMessage = "Please select at least one category to export."
+                  return@OutlinedButton
+                }
+                coroutineScope.launch {
+                  val json = viewModel.exportSelectedDataToJson(
+                    exportGoals = exportGoals,
+                    exportEventsAndTasks = exportEventsAndTasks,
+                    exportHabitsAndLogs = exportHabitsAndLogs,
+                    exportTallies = exportTallies,
+                    exportTestMarks = exportTestMarks,
+                    exportChapters = exportChapters,
+                    exportAnalyticsAndChat = exportAnalyticsAndChat
+                  )
+                  try {
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                      type = "text/plain"
+                      putExtra(Intent.EXTRA_SUBJECT, "HabitTracker_Export_${DateUtils.today()}.json")
+                      putExtra(Intent.EXTRA_TEXT, json)
+                    }
+                    val shareChooser = Intent.createChooser(sendIntent, "Export Tracker Data")
+                    context.startActivity(shareChooser)
+                  } catch (e: Exception) {
+                    clipboardManager.setText(AnnotatedString(json))
+                    statusMessage = "Shared data copied to clipboard!"
+                  }
+                }
+              },
+              enabled = anySelected,
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Share / Export File")
+            }
           }
         }
       }
 
-      Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.4f))
-      ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-          Text("Factory Reset", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFFEF4444))
-          Text("Clear all study logs, ratings, mock scores, and habit timers to start fresh.", fontSize = 13.sp)
-          Button(
-            onClick = { showResetConfirm = true },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
-            modifier = Modifier.fillMaxWidth()
-          ) {
-            Text("Reset All Data")
+      item {
+        Card(
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.4f))
+        ) {
+          Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Factory Reset", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFFEF4444))
+            Text("Clear all study logs, ratings, mock scores, and habit timers to start fresh.", fontSize = 13.sp)
+            Button(
+              onClick = { showResetConfirm = true },
+              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text("Reset All Data")
+            }
           }
         }
       }
 
       if (statusMessage.isNotBlank()) {
-        Text(statusMessage, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-      }
-
-      if (showResetConfirm) {
-        androidx.compose.material3.AlertDialog(
-          onDismissRequest = { showResetConfirm = false },
-          title = { Text("Confirm Data Reset") },
-          text = { Text("Are you sure you want to delete all logged progress and reset the app to defaults?") },
-          confirmButton = {
-            TextButton(
-              onClick = {
-                viewModel.resetAllData()
-                showResetConfirm = false
-                statusMessage = "All data reset to initial defaults."
-              }
+        item {
+          Card(
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Row(
+              modifier = Modifier.padding(12.dp),
+              verticalAlignment = Alignment.CenterVertically
             ) {
-              Text("Yes, Reset", color = Color(0xFFEF4444))
-            }
-          },
-          dismissButton = {
-            TextButton(onClick = { showResetConfirm = false }) {
-              Text("Cancel")
+              Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+              )
+              Spacer(modifier = Modifier.width(8.dp))
+              Text(
+                text = statusMessage,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
+              )
             }
           }
-        )
+        }
       }
+
+      item {
+        Spacer(modifier = Modifier.height(24.dp))
+      }
+    }
+
+    if (showResetConfirm) {
+      androidx.compose.material3.AlertDialog(
+        onDismissRequest = { showResetConfirm = false },
+        title = { Text("Confirm Data Reset") },
+        text = { Text("Are you sure you want to delete all logged progress and reset the app to defaults?") },
+        confirmButton = {
+          TextButton(
+            onClick = {
+              viewModel.resetAllData()
+              showResetConfirm = false
+              statusMessage = "All data reset to initial defaults."
+            }
+          ) {
+            Text("Yes, Reset", color = Color(0xFFEF4444))
+          }
+        },
+        dismissButton = {
+          TextButton(onClick = { showResetConfirm = false }) {
+            Text("Cancel")
+          }
+        }
+      )
+    }
+  }
+}
+
+@Composable
+private fun ExportCheckboxRow(
+  title: String,
+  subtitle: String,
+  checked: Boolean,
+  onCheckedChange: (Boolean) -> Unit
+) {
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(8.dp))
+      .clickable { onCheckedChange(!checked) }
+      .padding(vertical = 4.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Checkbox(
+      checked = checked,
+      onCheckedChange = onCheckedChange,
+      colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+    )
+    Spacer(modifier = Modifier.width(6.dp))
+    Column(modifier = Modifier.weight(1f)) {
+      Text(title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+      Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
     }
   }
 }

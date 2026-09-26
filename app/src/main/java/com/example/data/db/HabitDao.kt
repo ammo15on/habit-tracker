@@ -210,12 +210,57 @@ interface HabitDao {
   suspend fun deleteTaskPresetById(id: Long)
 
   // AI Chat History
-  @Query("SELECT * FROM ai_chat_history ORDER BY timestamp DESC, id DESC")
+  @Query("SELECT * FROM ai_chat_history ORDER BY isPinned DESC, timestamp DESC, id DESC")
   fun getAllAiChats(): Flow<List<com.example.data.model.AiChatEntity>>
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertAiChat(chat: com.example.data.model.AiChatEntity): Long
 
+  @Query("UPDATE ai_chat_history SET isPinned = :isPinned WHERE id = :id")
+  suspend fun updateAiChatPin(id: Long, isPinned: Boolean)
+
+  @Query("UPDATE ai_chat_history SET isPinned = :isPinned WHERE id IN (:ids)")
+  suspend fun updateAiChatsPin(ids: List<Long>, isPinned: Boolean)
+
+  @Query("DELETE FROM ai_chat_history WHERE id = :id")
+  suspend fun deleteAiChatById(id: Long)
+
+  @Query("DELETE FROM ai_chat_history WHERE id IN (:ids)")
+  suspend fun deleteAiChatsByIds(ids: List<Long>)
+
   @Query("DELETE FROM ai_chat_history")
   suspend fun clearAiChatHistory()
+
+  @Query("UPDATE neet_chapters SET isExerciseDone = :isDone WHERE id = :id")
+  suspend fun updateChapterExercise(id: Long, isDone: Boolean)
+
+  @Query("UPDATE neet_chapters SET isArDone = :isDone WHERE id = :id")
+  suspend fun updateChapterAr(id: Long, isDone: Boolean)
+
+  @Query("DELETE FROM habit_tasks")
+  suspend fun deleteAllTasks()
+
+  @Query("DELETE FROM habit_task_logs")
+  suspend fun deleteAllLogs()
+
+  @Query("DELETE FROM day_ratings")
+  suspend fun deleteAllRatings()
+
+  @Query("DELETE FROM neet_test_scores")
+  suspend fun deleteAllNeetScores()
+
+  @Query("DELETE FROM planned_tasks")
+  suspend fun deleteAllPlannedTasks()
+
+  @Query("DELETE FROM plan_events")
+  suspend fun deleteAllPlanEvents()
+
+  @Query("DELETE FROM task_presets")
+  suspend fun deleteAllTaskPresets()
+
+  @Query("DELETE FROM neet_chapters")
+  suspend fun deleteAllNeetChapters()
+
+  @Query("DELETE FROM neet_tally_counters")
+  suspend fun deleteAllNeetTallyCounters()
 }

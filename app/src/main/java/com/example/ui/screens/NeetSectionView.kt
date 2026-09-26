@@ -92,6 +92,8 @@ fun NeetSectionView(
   onToggleChapterCompleted: (NeetChapter) -> Unit,
   onToggleChapterPyq: (NeetChapter) -> Unit,
   onToggleChapterRevision: (NeetChapter) -> Unit,
+  onToggleChapterExercise: (NeetChapter) -> Unit = {},
+  onToggleChapterAr: (NeetChapter) -> Unit = {},
   onAddChapterClick: () -> Unit,
   onEditChapterClick: (NeetChapter) -> Unit,
   onDeleteChapterClick: (NeetChapter) -> Unit,
@@ -162,6 +164,8 @@ fun NeetSectionView(
           onToggleCompleted = onToggleChapterCompleted,
           onTogglePyq = onToggleChapterPyq,
           onToggleRevision = onToggleChapterRevision,
+          onToggleExercise = onToggleChapterExercise,
+          onToggleAr = onToggleChapterAr,
           onAddChapterClick = onAddChapterClick,
           onEditChapterClick = onEditChapterClick,
           onDeleteChapterClick = onDeleteChapterClick
@@ -191,7 +195,7 @@ fun NeetSectionView(
 }
 
 // ----------------------------------------------------------------------------
-// 1. NEET CHAPTERS COMPONENT (Completed, To Complete, PYQ Done with tick marks)
+// 1. NEET CHAPTERS COMPONENT (Completed, To Complete, PYQ, Exercise & A&R)
 // ----------------------------------------------------------------------------
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -200,6 +204,8 @@ private fun NeetChaptersView(
   onToggleCompleted: (NeetChapter) -> Unit,
   onTogglePyq: (NeetChapter) -> Unit,
   onToggleRevision: (NeetChapter) -> Unit,
+  onToggleExercise: (NeetChapter) -> Unit,
+  onToggleAr: (NeetChapter) -> Unit,
   onAddChapterClick: () -> Unit,
   onEditChapterClick: (NeetChapter) -> Unit,
   onDeleteChapterClick: (NeetChapter) -> Unit
@@ -218,6 +224,8 @@ private fun NeetChaptersView(
       "To Complete" -> !chapter.isCompleted
       "Completed" -> chapter.isCompleted
       "PYQ Done" -> chapter.isPyqDone
+      "Exercise Done" -> chapter.isExerciseDone
+      "A&R Done" -> chapter.isArDone
       else -> true
     }
     matchesSubject && matchesStatus
@@ -280,12 +288,12 @@ private fun NeetChaptersView(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Status Filter chips
+        // Status Filter chips (includes Exercise & A&R)
         FlowRow(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-          listOf("All", "To Complete", "Completed", "PYQ Done").forEach { st ->
+          listOf("All", "To Complete", "Completed", "PYQ Done", "Exercise Done", "A&R Done").forEach { st ->
             FilterChip(
               selected = (selectedStatusFilter == st),
               onClick = { selectedStatusFilter = st },
@@ -331,6 +339,8 @@ private fun NeetChaptersView(
           onToggleCompleted = { onToggleCompleted(chapter) },
           onTogglePyq = { onTogglePyq(chapter) },
           onToggleRevision = { onToggleRevision(chapter) },
+          onToggleExercise = { onToggleExercise(chapter) },
+          onToggleAr = { onToggleAr(chapter) },
           onEdit = { onEditChapterClick(chapter) },
           onDelete = { onDeleteChapterClick(chapter) }
         )
@@ -339,12 +349,15 @@ private fun NeetChaptersView(
   }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChapterItemCard(
   chapter: NeetChapter,
   onToggleCompleted: () -> Unit,
   onTogglePyq: () -> Unit,
   onToggleRevision: () -> Unit,
+  onToggleExercise: () -> Unit,
+  onToggleAr: () -> Unit,
   onEdit: () -> Unit,
   onDelete: () -> Unit
 ) {
@@ -425,36 +438,50 @@ private fun ChapterItemCard(
 
       Spacer(modifier = Modifier.height(10.dp))
 
-      // 3 Tick Mark Buttons with clear visual indicators
-      Row(
+      // 5 Interactive Chips: Completed, NCERT Read, PYQ, Exercise, A&R
+      FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
       ) {
-        // 1. Chapter Completed Tick
+        // 1. Chapter Completed
         TickButton(
           label = if (chapter.isCompleted) "✓ Completed" else "To Complete",
           isChecked = chapter.isCompleted,
           activeColor = RatingBestGreen,
-          onClick = onToggleCompleted,
-          modifier = Modifier.weight(1f)
+          onClick = onToggleCompleted
         )
 
-        // 2. PYQ Done Tick
-        TickButton(
-          label = if (chapter.isPyqDone) "✓ PYQ Done" else "PYQ Done",
-          isChecked = chapter.isPyqDone,
-          activeColor = Color(0xFF2563EB),
-          onClick = onTogglePyq,
-          modifier = Modifier.weight(1f)
-        )
-
-        // 3. NCERT / Revision Tick
+        // 2. NCERT Read / Revision
         TickButton(
           label = if (chapter.isRevisionDone) "✓ NCERT" else "NCERT Read",
           isChecked = chapter.isRevisionDone,
           activeColor = Color(0xFFD97706),
-          onClick = onToggleRevision,
-          modifier = Modifier.weight(1f)
+          onClick = onToggleRevision
+        )
+
+        // 3. PYQ Done
+        TickButton(
+          label = if (chapter.isPyqDone) "✓ PYQ Done" else "PYQ",
+          isChecked = chapter.isPyqDone,
+          activeColor = Color(0xFF2563EB),
+          onClick = onTogglePyq
+        )
+
+        // 4. Exercise Done
+        TickButton(
+          label = if (chapter.isExerciseDone) "✓ Exercise" else "Exercise",
+          isChecked = chapter.isExerciseDone,
+          activeColor = Color(0xFF8B5CF6),
+          onClick = onToggleExercise
+        )
+
+        // 5. A&R (Assertion & Reason) Done
+        TickButton(
+          label = if (chapter.isArDone) "✓ A&R Done" else "A&R",
+          isChecked = chapter.isArDone,
+          activeColor = Color(0xFFEC4899),
+          onClick = onToggleAr
         )
       }
     }
