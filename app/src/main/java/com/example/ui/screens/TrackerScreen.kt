@@ -151,9 +151,37 @@ fun TrackerScreen(
         modifier = Modifier
           .fillMaxSize()
           .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
       ) {
+        // 0. Top Header: Hamburger on top left corner
+        item(key = "top_tracker_hamburger") {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            IconButton(
+              onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.openHamburgerMenu()
+              },
+              modifier = Modifier
+                .size(40.dp)
+                .testTag("btn_tracker_hamburger")
+            ) {
+              Icon(
+                imageVector = Icons.Default.Menu,
+                contentDescription = "Open Settings & Hub",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(24.dp)
+              )
+            }
+          }
+        }
+
         // 1. Top Bar Header: (X) Previous Day  |  (Total Time)  |  (Y) Next Day
         item(key = "top_day_nav") {
           DayNavigationHeader(

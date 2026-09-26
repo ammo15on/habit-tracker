@@ -8,112 +8,102 @@ data class NeetChapter(
   @PrimaryKey(autoGenerate = true)
   val id: Long = 0,
   val name: String,
-  val subject: String, // "Botany", "Zoology", "Physics", "Chemistry"
-  val classLevel: Int = 11, // 11 or 12
-  val isCompleted: Boolean = false, // Chapter completed (true) vs To Complete (false)
-  val isPyqDone: Boolean = false, // PYQ done tick mark
-  val isRevisionDone: Boolean = false, // Notes / Revision read tick mark
-  val notes: String = "",
-  val orderIndex: Int = 0
+  val subject: String, // Botany, Zoology, Physics, Chemistry
+  val isCompleted: Boolean = false,
+  val isPyqDone: Boolean = false,
+  val isRevisionDone: Boolean = false,
+  val notes: String = ""
 ) {
   companion object {
     val SUBJECTS = listOf("Botany", "Zoology", "Physics", "Chemistry")
-
     val DEFAULT_CHAPTERS = listOf(
-      // ==================== BOTANY CLASS 11 ====================
-      NeetChapter(name = "The Living World", subject = "Botany", classLevel = 11),
-      NeetChapter(name = "Biological Classification", subject = "Botany", classLevel = 11),
-      NeetChapter(name = "Plant Kingdom", subject = "Botany", classLevel = 11),
-      NeetChapter(name = "Morphology of Flowering Plants", subject = "Botany", classLevel = 11),
-      NeetChapter(name = "Anatomy of Flowering Plants", subject = "Botany", classLevel = 11),
-      NeetChapter(name = "Cell: The Unit of Life", subject = "Botany", classLevel = 11, isCompleted = true, isPyqDone = true),
-      NeetChapter(name = "Cell Cycle & Cell Division", subject = "Botany", classLevel = 11, isCompleted = true, isPyqDone = true),
-      NeetChapter(name = "Photosynthesis in Higher Plants", subject = "Botany", classLevel = 11),
-      NeetChapter(name = "Respiration in Plants", subject = "Botany", classLevel = 11),
-      NeetChapter(name = "Plant Growth & Development", subject = "Botany", classLevel = 11),
+      // Botany
+      NeetChapter(name = "The Living World", subject = "Botany"),
+      NeetChapter(name = "Biological Classification", subject = "Botany"),
+      NeetChapter(name = "Plant Kingdom", subject = "Botany"),
+      NeetChapter(name = "Morphology of Flowering Plants", subject = "Botany"),
+      NeetChapter(name = "Anatomy of Flowering Plants", subject = "Botany"),
+      NeetChapter(name = "Cell: The Unit of Life", subject = "Botany"),
+      NeetChapter(name = "Cell Cycle and Cell Division", subject = "Botany"),
+      NeetChapter(name = "Photosynthesis in Higher Plants", subject = "Botany"),
+      NeetChapter(name = "Respiration in Plants", subject = "Botany"),
+      NeetChapter(name = "Plant Growth and Development", subject = "Botany"),
+      NeetChapter(name = "Sexual Reproduction in Flowering Plants", subject = "Botany"),
+      NeetChapter(name = "Principles of Inheritance and Variation", subject = "Botany"),
+      NeetChapter(name = "Molecular Basis of Inheritance", subject = "Botany"),
+      NeetChapter(name = "Microbes in Human Welfare", subject = "Botany"),
+      NeetChapter(name = "Organisms and Populations", subject = "Botany"),
+      NeetChapter(name = "Ecosystem", subject = "Botany"),
+      NeetChapter(name = "Biodiversity and Conservation", subject = "Botany"),
 
-      // ==================== BOTANY CLASS 12 ====================
-      NeetChapter(name = "Sexual Reproduction in Flowering Plants", subject = "Botany", classLevel = 12),
-      NeetChapter(name = "Principles of Inheritance & Variation", subject = "Botany", classLevel = 12),
-      NeetChapter(name = "Molecular Basis of Inheritance", subject = "Botany", classLevel = 12),
-      NeetChapter(name = "Microbes in Human Welfare", subject = "Botany", classLevel = 12),
-      NeetChapter(name = "Organisms & Populations", subject = "Botany", classLevel = 12),
-      NeetChapter(name = "Ecosystem", subject = "Botany", classLevel = 12),
-      NeetChapter(name = "Biodiversity & Conservation", subject = "Botany", classLevel = 12),
+      // Zoology
+      NeetChapter(name = "Animal Kingdom", subject = "Zoology"),
+      NeetChapter(name = "Structural Organisation in Animals", subject = "Zoology"),
+      NeetChapter(name = "Biomolecules", subject = "Zoology"),
+      NeetChapter(name = "Breathing and Exchange of Gases", subject = "Zoology"),
+      NeetChapter(name = "Body Fluids and Circulation", subject = "Zoology"),
+      NeetChapter(name = "Excretory Products and their Elimination", subject = "Zoology"),
+      NeetChapter(name = "Locomotion and Movement", subject = "Zoology"),
+      NeetChapter(name = "Neural Control and Coordination", subject = "Zoology"),
+      NeetChapter(name = "Chemical Coordination and Integration", subject = "Zoology"),
+      NeetChapter(name = "Human Reproduction", subject = "Zoology"),
+      NeetChapter(name = "Reproductive Health", subject = "Zoology"),
+      NeetChapter(name = "Evolution", subject = "Zoology"),
+      NeetChapter(name = "Human Health and Disease", subject = "Zoology"),
+      NeetChapter(name = "Biotechnology: Principles and Processes", subject = "Zoology"),
+      NeetChapter(name = "Biotechnology and its Applications", subject = "Zoology"),
 
-      // ==================== ZOOLOGY CLASS 11 ====================
-      NeetChapter(name = "Animal Kingdom", subject = "Zoology", classLevel = 11),
-      NeetChapter(name = "Structural Organisation in Animals", subject = "Zoology", classLevel = 11),
-      NeetChapter(name = "Biomolecules", subject = "Zoology", classLevel = 11),
-      NeetChapter(name = "Breathing & Exchange of Gases", subject = "Zoology", classLevel = 11),
-      NeetChapter(name = "Body Fluids & Circulation", subject = "Zoology", classLevel = 11),
-      NeetChapter(name = "Excretory Products & their Elimination", subject = "Zoology", classLevel = 11),
-      NeetChapter(name = "Locomotion & Movement", subject = "Zoology", classLevel = 11),
-      NeetChapter(name = "Neural Control & Coordination", subject = "Zoology", classLevel = 11),
-      NeetChapter(name = "Chemical Coordination & Integration", subject = "Zoology", classLevel = 11),
+      // Physics
+      NeetChapter(name = "Units and Measurements", subject = "Physics"),
+      NeetChapter(name = "Motion in a Straight Line", subject = "Physics"),
+      NeetChapter(name = "Motion in a Plane", subject = "Physics"),
+      NeetChapter(name = "Laws of Motion", subject = "Physics"),
+      NeetChapter(name = "Work, Energy and Power", subject = "Physics"),
+      NeetChapter(name = "System of Particles and Rotational Motion", subject = "Physics"),
+      NeetChapter(name = "Gravitation", subject = "Physics"),
+      NeetChapter(name = "Mechanical Properties of Solids", subject = "Physics"),
+      NeetChapter(name = "Mechanical Properties of Fluids", subject = "Physics"),
+      NeetChapter(name = "Thermal Properties of Matter", subject = "Physics"),
+      NeetChapter(name = "Thermodynamics", subject = "Physics"),
+      NeetChapter(name = "Kinetic Theory", subject = "Physics"),
+      NeetChapter(name = "Oscillations", subject = "Physics"),
+      NeetChapter(name = "Waves", subject = "Physics"),
+      NeetChapter(name = "Electric Charges and Fields", subject = "Physics"),
+      NeetChapter(name = "Electrostatic Potential and Capacitance", subject = "Physics"),
+      NeetChapter(name = "Current Electricity", subject = "Physics"),
+      NeetChapter(name = "Moving Charges and Magnetism", subject = "Physics"),
+      NeetChapter(name = "Magnetism and Matter", subject = "Physics"),
+      NeetChapter(name = "Electromagnetic Induction", subject = "Physics"),
+      NeetChapter(name = "Alternating Current", subject = "Physics"),
+      NeetChapter(name = "Electromagnetic Waves", subject = "Physics"),
+      NeetChapter(name = "Ray Optics and Optical Instruments", subject = "Physics"),
+      NeetChapter(name = "Wave Optics", subject = "Physics"),
+      NeetChapter(name = "Dual Nature of Radiation and Matter", subject = "Physics"),
+      NeetChapter(name = "Atoms", subject = "Physics"),
+      NeetChapter(name = "Nuclei", subject = "Physics"),
+      NeetChapter(name = "Semiconductor Electronics", subject = "Physics"),
 
-      // ==================== ZOOLOGY CLASS 12 ====================
-      NeetChapter(name = "Human Reproduction", subject = "Zoology", classLevel = 12, isCompleted = true, isPyqDone = true),
-      NeetChapter(name = "Reproductive Health", subject = "Zoology", classLevel = 12, isCompleted = true),
-      NeetChapter(name = "Evolution", subject = "Zoology", classLevel = 12),
-      NeetChapter(name = "Human Health & Disease", subject = "Zoology", classLevel = 12),
-      NeetChapter(name = "Biotechnology: Principles & Processes", subject = "Zoology", classLevel = 12),
-      NeetChapter(name = "Biotechnology & its Applications", subject = "Zoology", classLevel = 12),
-
-      // ==================== PHYSICS CLASS 11 ====================
-      NeetChapter(name = "Units & Measurements", subject = "Physics", classLevel = 11, isCompleted = true, isPyqDone = true),
-      NeetChapter(name = "Motion in a Straight Line", subject = "Physics", classLevel = 11, isCompleted = true),
-      NeetChapter(name = "Motion in a Plane", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Laws of Motion", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Work, Energy & Power", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "System of Particles & Rotational Motion", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Gravitation", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Mechanical Properties of Solids", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Mechanical Properties of Fluids", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Thermal Properties of Matter", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Thermodynamics", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Kinetic Theory", subject = "Physics", classLevel = 11),
-      NeetChapter(name = "Oscillations & Waves", subject = "Physics", classLevel = 11),
-
-      // ==================== PHYSICS CLASS 12 ====================
-      NeetChapter(name = "Electric Charges & Fields", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Electrostatic Potential & Capacitance", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Current Electricity", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Moving Charges & Magnetism", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Magnetism & Matter", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Electromagnetic Induction", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Alternating Current", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Electromagnetic Waves", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Ray Optics & Optical Instruments", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Wave Optics", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Dual Nature of Radiation & Matter", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Atoms", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Nuclei", subject = "Physics", classLevel = 12),
-      NeetChapter(name = "Semiconductor Electronics", subject = "Physics", classLevel = 12),
-
-      // ==================== CHEMISTRY CLASS 11 ====================
-      NeetChapter(name = "Some Basic Concepts of Chemistry (Mole)", subject = "Chemistry", classLevel = 11, isCompleted = true, isPyqDone = true),
-      NeetChapter(name = "Structure of Atom", subject = "Chemistry", classLevel = 11, isCompleted = true),
-      NeetChapter(name = "Classification of Elements & Periodicity", subject = "Chemistry", classLevel = 11),
-      NeetChapter(name = "Chemical Bonding & Molecular Structure", subject = "Chemistry", classLevel = 11),
-      NeetChapter(name = "Chemical Thermodynamics", subject = "Chemistry", classLevel = 11),
-      NeetChapter(name = "Equilibrium", subject = "Chemistry", classLevel = 11),
-      NeetChapter(name = "Redox Reactions", subject = "Chemistry", classLevel = 11),
-      NeetChapter(name = "Organic Chemistry: Some Basic Principles & Techniques", subject = "Chemistry", classLevel = 11),
-      NeetChapter(name = "Hydrocarbons", subject = "Chemistry", classLevel = 11),
-
-      // ==================== CHEMISTRY CLASS 12 ====================
-      NeetChapter(name = "Solutions", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "Electrochemistry", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "Chemical Kinetics", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "The d- and f-Block Elements", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "Coordination Compounds", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "Haloalkanes & Haloarenes", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "Alcohols, Phenols & Ethers", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "Aldehydes, Ketones & Carboxylic Acids", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "Amines", subject = "Chemistry", classLevel = 12),
-      NeetChapter(name = "Biomolecules (Chemistry)", subject = "Chemistry", classLevel = 12)
+      // Chemistry
+      NeetChapter(name = "Some Basic Concepts of Chemistry", subject = "Chemistry"),
+      NeetChapter(name = "Structure of Atom", subject = "Chemistry"),
+      NeetChapter(name = "Classification of Elements and Periodicity", subject = "Chemistry"),
+      NeetChapter(name = "Chemical Bonding and Molecular Structure", subject = "Chemistry"),
+      NeetChapter(name = "Chemical Thermodynamics", subject = "Chemistry"),
+      NeetChapter(name = "Equilibrium", subject = "Chemistry"),
+      NeetChapter(name = "Redox Reactions", subject = "Chemistry"),
+      NeetChapter(name = "p-Block Elements", subject = "Chemistry"),
+      NeetChapter(name = "Organic Chemistry: Some Basic Principles", subject = "Chemistry"),
+      NeetChapter(name = "Hydrocarbons", subject = "Chemistry"),
+      NeetChapter(name = "Solutions", subject = "Chemistry"),
+      NeetChapter(name = "Electrochemistry", subject = "Chemistry"),
+      NeetChapter(name = "Chemical Kinetics", subject = "Chemistry"),
+      NeetChapter(name = "d and f Block Elements", subject = "Chemistry"),
+      NeetChapter(name = "Coordination Compounds", subject = "Chemistry"),
+      NeetChapter(name = "Haloalkanes and Haloarenes", subject = "Chemistry"),
+      NeetChapter(name = "Alcohols, Phenols and Ethers", subject = "Chemistry"),
+      NeetChapter(name = "Aldehydes, Ketones and Carboxylic Acids", subject = "Chemistry"),
+      NeetChapter(name = "Amines", subject = "Chemistry"),
+      NeetChapter(name = "Biomolecules (Chemistry)", subject = "Chemistry")
     )
   }
 }
-

@@ -151,6 +151,25 @@ object DateUtils {
     }
   }
 
+  fun formatTimestamp(millis: Long): String {
+    val now = Calendar.getInstance()
+    val msgCal = Calendar.getInstance().apply { timeInMillis = millis }
+    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val timeStr = timeFormat.format(Date(millis))
+    return if (now.get(Calendar.YEAR) == msgCal.get(Calendar.YEAR) &&
+      now.get(Calendar.DAY_OF_YEAR) == msgCal.get(Calendar.DAY_OF_YEAR)
+    ) {
+      "Today $timeStr"
+    } else if (now.get(Calendar.YEAR) == msgCal.get(Calendar.YEAR) &&
+      now.get(Calendar.DAY_OF_YEAR) - msgCal.get(Calendar.DAY_OF_YEAR) == 1
+    ) {
+      "Yesterday $timeStr"
+    } else {
+      val dateFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+      dateFormat.format(Date(millis))
+    }
+  }
+
   fun daysBetween(fromStr: String, toStr: String): Long {
     val sdf = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
     return try {

@@ -1,6 +1,6 @@
 {
   "name": "Habit Tracker",
-  "description": "Habit & NEET study tracker with home widget, transparent glass UI, background image opacity control, scroll-hide bottom menu, edge-swipe hamburger menu, text size scaling, and progressive AI chat coach with personalized suggestions (v6.2).",
+  "description": "Habit & NEET study tracker with home widget, transparent glass UI, background image opacity control, scroll-hide bottom menu, edge-swipe hamburger menu, text size scaling, on-device AI model computation with cloud query option, timestamped chat history (newer on top), and dynamic suggestions (v6.2.1).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

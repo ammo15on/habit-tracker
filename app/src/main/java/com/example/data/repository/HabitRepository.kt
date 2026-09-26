@@ -231,6 +231,17 @@ class HabitRepository(private val dao: HabitDao) {
 
   suspend fun deleteTaskPresetById(id: Long) = dao.deleteTaskPresetById(id)
 
+  // AI Chat Persistence
+  val allAiChatMessages: Flow<List<com.example.data.model.AiChatMessageEntity>> = dao.getAllAiChatMessages()
+
+  suspend fun insertAiChatMessage(msg: com.example.data.model.AiChatMessageEntity): Long {
+    return dao.insertAiChatMessage(msg)
+  }
+
+  suspend fun clearAllAiChatMessages() {
+    dao.clearAllAiChatMessages()
+  }
+
   // Batch insert helpers for import
   suspend fun importData(
     tasks: List<HabitTask>,

@@ -6,77 +6,50 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
-import com.example.R
 
 class TaskAlarmReceiver : BroadcastReceiver() {
-  companion object {
-    const val CHANNEL_ID = "habit_task_alarm_channel"
-    const val EXTRA_TASK_ID = "extra_task_id"
-    const val EXTRA_TASK_NAME = "extra_task_name"
-    const val EXTRA_TIME = "extra_time"
-  }
-
   override fun onReceive(context: Context, intent: Intent) {
-    val taskId = intent.getLongExtra(EXTRA_TASK_ID, 0L)
-    val taskName = intent.getStringExtra(EXTRA_TASK_NAME) ?: "Habit Task"
-    val timeStr = intent.getStringExtra(EXTRA_TIME) ?: ""
+    val taskName = intent.getStringExtra("task_name") ?: "Study & Habit Task"
+    val taskId = intent.getLongExtra("task_id", 0L)
 
-    val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-      ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    val notificationManager =
+      context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
+    val channelId = "habit_task_reminders"
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val audioAttributes = AudioAttributes.Builder()
-        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-        .setUsage(AudioAttributes.USAGE_ALARM)
-        .build()
-
       val channel = NotificationChannel(
-        CHANNEL_ID,
-        "Task Alarms & Reminders",
+        channelId,
+        "Task Reminders",
         NotificationManager.IMPORTANCE_HIGH
       ).apply {
-        description = "Sound and notifications for task alarms and reminders"
-        enableLights(true)
+        description = "Daily study task alerts and habit reminders"
         enableVibration(true)
-        vibrationPattern = longArrayOf(0, 600, 300, 600)
-        setSound(soundUri, audioAttributes)
       }
       notificationManager.createNotificationChannel(channel)
     }
 
     val openAppIntent = Intent(context, MainActivity::class.java).apply {
-      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
     }
     val pendingIntent = PendingIntent.getActivity(
       context,
-      (taskId % Int.MAX_VALUE).toInt(),
+      taskId.toInt(),
       openAppIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-      .setSmallIcon(R.drawable.ic_timer_notification)
-      .setContentTitle("⏰ Alarm: $taskName")
-      .setContentText("Time for your task ($timeStr)")
-      .setStyle(
-        NotificationCompat.BigTextStyle()
-          .setBigContentTitle("⏰ Alarm: $taskName")
-          .bigText("Scheduled alarm for $timeStr. Tap to open Habit Tracker.")
-      )
+    val notification = NotificationCompat.Builder(context, channelId)
+      .setSmallIcon(android.R.drawable.ic_dialog_info)
+      .setContentTitle("Task Reminder: $taskName")
+      .setContentText("Time to focus! Keep your NEET revision and habit streak alive.")
       .setPriority(NotificationCompat.PRIORITY_HIGH)
-      .setCategory(NotificationCompat.CATEGORY_ALARM)
-      .setSound(soundUri)
-      .setVibrate(longArrayOf(0, 600, 300, 600))
       .setAutoCancel(true)
       .setContentIntent(pendingIntent)
       .build()
 
-    notificationManager.notify((20000 + (taskId % 10000)).toInt(), notification)
+    notificationManager.notify((1000 + taskId).toInt(), notification)
   }
 }

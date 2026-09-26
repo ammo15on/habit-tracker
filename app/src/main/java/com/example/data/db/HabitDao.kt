@@ -208,4 +208,17 @@ interface HabitDao {
 
   @Query("DELETE FROM task_presets WHERE id = :id")
   suspend fun deleteTaskPresetById(id: Long)
+
+  // AI Chat History (Saved with timestamp, newer on top, older at bottom)
+  @Query("SELECT * FROM ai_chat_messages ORDER BY timestamp DESC, id DESC")
+  fun getAllAiChatMessages(): Flow<List<com.example.data.model.AiChatMessageEntity>>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAiChatMessage(message: com.example.data.model.AiChatMessageEntity): Long
+
+  @Query("DELETE FROM ai_chat_messages")
+  suspend fun clearAllAiChatMessages()
+
+  @Query("DELETE FROM ai_chat_messages WHERE id = :id")
+  suspend fun deleteAiChatMessageById(id: Long)
 }

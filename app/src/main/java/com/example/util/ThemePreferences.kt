@@ -2,8 +2,6 @@ package com.example.util
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.example.ui.theme.AppFontColor
-import com.example.ui.theme.AppThemeColor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,21 +10,11 @@ class ThemePreferences(context: Context) {
   private val prefs: SharedPreferences =
     context.getSharedPreferences("theme_preferences", Context.MODE_PRIVATE)
 
-  // Hexadecimal customizable colors (v5.3)
-  private val _customUiHex = MutableStateFlow(loadCustomUiHex())
-  val customUiHex: StateFlow<String> = _customUiHex.asStateFlow()
+  private val _customColorHex = MutableStateFlow(loadCustomColorHex())
+  val customColorHex: StateFlow<String> = _customColorHex.asStateFlow()
 
-  private val _customBgHex = MutableStateFlow(loadCustomBgHex())
-  val customBgHex: StateFlow<String> = _customBgHex.asStateFlow()
-
-  private val _customTextHex = MutableStateFlow(loadCustomTextHex())
-  val customTextHex: StateFlow<String> = _customTextHex.asStateFlow()
-
-  private val _themeColor = MutableStateFlow(loadThemeColor())
-  val themeColor: StateFlow<AppThemeColor> = _themeColor.asStateFlow()
-
-  private val _fontColor = MutableStateFlow(loadFontColor())
-  val fontColor: StateFlow<AppFontColor> = _fontColor.asStateFlow()
+  private val _customFontColorHex = MutableStateFlow(loadCustomFontColorHex())
+  val customFontColorHex: StateFlow<String> = _customFontColorHex.asStateFlow()
 
   private val _backgroundImageUri = MutableStateFlow(loadBackgroundImageUri())
   val backgroundImageUri: StateFlow<String?> = _backgroundImageUri.asStateFlow()
@@ -40,42 +28,23 @@ class ThemePreferences(context: Context) {
   private val _aiChatDraft = MutableStateFlow(loadAiChatDraft())
   val aiChatDraft: StateFlow<String> = _aiChatDraft.asStateFlow()
 
-  private fun loadCustomUiHex(): String {
+  private val _aiExecutionMode = MutableStateFlow(loadAiExecutionMode())
+  val aiExecutionMode: StateFlow<String> = _aiExecutionMode.asStateFlow()
+
+  private fun loadCustomColorHex(): String {
     return prefs.getString(KEY_CUSTOM_UI_HEX, "#3B82F6") ?: "#3B82F6"
   }
 
-  private fun loadCustomBgHex(): String {
-    return prefs.getString(KEY_CUSTOM_BG_HEX, "#121212") ?: "#121212"
-  }
-
-  private fun loadCustomTextHex(): String {
-    return prefs.getString(KEY_CUSTOM_TEXT_HEX, "#FFFFFF") ?: "#FFFFFF"
-  }
-
-  private fun loadThemeColor(): AppThemeColor {
-    val savedId = prefs.getString(KEY_THEME_COLOR, AppThemeColor.SLATE.name) ?: AppThemeColor.SLATE.name
-    return try {
-      AppThemeColor.valueOf(savedId)
-    } catch (_: Exception) {
-      AppThemeColor.SLATE
-    }
-  }
-
-  private fun loadFontColor(): AppFontColor {
-    val savedId = prefs.getString(KEY_FONT_COLOR, AppFontColor.DEFAULT.name) ?: AppFontColor.DEFAULT.name
-    return try {
-      AppFontColor.valueOf(savedId)
-    } catch (_: Exception) {
-      AppFontColor.DEFAULT
-    }
+  private fun loadCustomFontColorHex(): String {
+    return prefs.getString(KEY_CUSTOM_FONT_HEX, "#F8FAFC") ?: "#F8FAFC"
   }
 
   private fun loadBackgroundImageUri(): String? {
-    return prefs.getString(KEY_BACKGROUND_IMAGE_URI, null)
+    return prefs.getString(KEY_BG_IMAGE_URI, null)
   }
 
   private fun loadUiOpacity(): Float {
-    return prefs.getFloat(KEY_UI_OPACITY, 0.25f)
+    return prefs.getFloat(KEY_UI_OPACITY, 0.85f)
   }
 
   private fun loadTextSizeScale(): Float {
@@ -86,45 +55,27 @@ class ThemePreferences(context: Context) {
     return prefs.getString(KEY_AI_CHAT_DRAFT, "") ?: ""
   }
 
-  fun setCustomUiHex(hex: String) {
-    val cleanHex = if (hex.startsWith("#")) hex else "#$hex"
-    prefs.edit().putString(KEY_CUSTOM_UI_HEX, cleanHex).apply()
-    _customUiHex.value = cleanHex
+  private fun loadAiExecutionMode(): String {
+    return prefs.getString(KEY_AI_MODE, "on_device") ?: "on_device"
   }
 
-  fun setCustomBgHex(hex: String) {
-    val cleanHex = if (hex.startsWith("#")) hex else "#$hex"
-    prefs.edit().putString(KEY_CUSTOM_BG_HEX, cleanHex).apply()
-    _customBgHex.value = cleanHex
+  fun setCustomColorHex(hex: String) {
+    prefs.edit().putString(KEY_CUSTOM_UI_HEX, hex).apply()
+    _customColorHex.value = hex
   }
 
-  fun setCustomTextHex(hex: String) {
-    val cleanHex = if (hex.startsWith("#")) hex else "#$hex"
-    prefs.edit().putString(KEY_CUSTOM_TEXT_HEX, cleanHex).apply()
-    _customTextHex.value = cleanHex
+  fun setCustomFontColorHex(hex: String) {
+    prefs.edit().putString(KEY_CUSTOM_FONT_HEX, hex).apply()
+    _customFontColorHex.value = hex
   }
 
-  fun setThemeColor(color: AppThemeColor) {
-    prefs.edit().putString(KEY_THEME_COLOR, color.name).apply()
-    _themeColor.value = color
-  }
-
-  fun setFontColor(color: AppFontColor) {
-    prefs.edit().putString(KEY_FONT_COLOR, color.name).apply()
-    _fontColor.value = color
-  }
-
-  fun setBackgroundImageUri(uriString: String?) {
-    if (uriString != null) {
-      prefs.edit().putString(KEY_BACKGROUND_IMAGE_URI, uriString).apply()
-    } else {
-      prefs.edit().remove(KEY_BACKGROUND_IMAGE_URI).apply()
-    }
-    _backgroundImageUri.value = uriString
+  fun setBackgroundImageUri(uri: String?) {
+    prefs.edit().putString(KEY_BG_IMAGE_URI, uri).apply()
+    _backgroundImageUri.value = uri
   }
 
   fun setUiOpacity(opacity: Float) {
-    val clamped = opacity.coerceIn(0.05f, 1.0f)
+    val clamped = opacity.coerceIn(0.10f, 1.0f)
     prefs.edit().putFloat(KEY_UI_OPACITY, clamped).apply()
     _uiOpacity.value = clamped
   }
@@ -140,16 +91,18 @@ class ThemePreferences(context: Context) {
     _aiChatDraft.value = draft
   }
 
+  fun setAiExecutionMode(mode: String) {
+    prefs.edit().putString(KEY_AI_MODE, mode).apply()
+    _aiExecutionMode.value = mode
+  }
+
   companion object {
     private const val KEY_CUSTOM_UI_HEX = "key_custom_ui_hex"
-    private const val KEY_CUSTOM_BG_HEX = "key_custom_bg_hex"
-    private const val KEY_CUSTOM_TEXT_HEX = "key_custom_text_hex"
-
-    private const val KEY_THEME_COLOR = "app_theme_color"
-    private const val KEY_FONT_COLOR = "app_font_color"
-    private const val KEY_BACKGROUND_IMAGE_URI = "app_bg_image_uri"
-    private const val KEY_UI_OPACITY = "app_ui_opacity"
-    private const val KEY_TEXT_SIZE_SCALE = "app_text_size_scale"
-    private const val KEY_AI_CHAT_DRAFT = "app_ai_chat_draft"
+    private const val KEY_CUSTOM_FONT_HEX = "key_custom_font_hex"
+    private const val KEY_BG_IMAGE_URI = "key_bg_image_uri"
+    private const val KEY_UI_OPACITY = "key_ui_opacity"
+    private const val KEY_TEXT_SIZE_SCALE = "key_text_size_scale"
+    private const val KEY_AI_CHAT_DRAFT = "key_ai_chat_draft"
+    private const val KEY_AI_MODE = "key_ai_execution_mode"
   }
 }

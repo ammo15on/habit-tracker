@@ -10,19 +10,18 @@ data class TaskPreset(
   val name: String,
   val targetTimeMinutes: Int = 0,
   val noteText: String = "",
-  val noteImageUri: String? = null,
-  val createdAt: Long = System.currentTimeMillis()
+  val noteImageUri: String? = null
 ) {
   companion object {
     val DEFAULT_PRESETS = listOf(
-      "bot ncert read",
-      "bot q",
-      "zoo ncert read",
-      "zoo q",
-      "phy q",
-      "phy ch q",
-      "inorg ncert",
-      "org revision"
+      "Physics Practice",
+      "Organic Chemistry Mechanisms",
+      "Inorganic NCERT Line by Line",
+      "Botany Revision",
+      "Zoology Notes & Diagrams",
+      "Full Length Mock Test (3h 20m)",
+      "Daily Morning Meditation",
+      "Evening Physical Exercise"
     )
   }
 }

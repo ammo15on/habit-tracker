@@ -4,68 +4,73 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.UUID
 
-data class EventSubtask(
-  val id: String = UUID.randomUUID().toString(),
+data class PlanSubtask(
+  val id: String = java.util.UUID.randomUUID().toString(),
   val title: String,
-  val assignedDates: String = "", // Comma-separated yyyy-MM-dd. If blank/empty, appears everyday during event!
-  val isCompleted: Boolean = false
+  val isCompleted: Boolean = false,
+  val targetDate: String? = null, // Specific date if tied to day
+  val assignedDates: String = "" // Comma-separated dates e.g. "2026-09-24,2026-09-25"
 )
+
+typealias EventSubtask = PlanSubtask
 
 @Entity(tableName = "plan_events")
 data class PlanEvent(
   @PrimaryKey(autoGenerate = true)
   val id: Long = 0,
   val title: String,
-  val startDate: String, // yyyy-MM-dd
-  val endDate: String,   // yyyy-MM-dd
-  val taskTitle: String, // Task to do during this event
+  val startDate: String, // YYYY-MM-DD
+  val endDate: String, // YYYY-MM-DD
+  val taskTitle: String = "",
   val taskTargetMinutes: Int = 0,
   val notes: String = "",
-  val subtasksJson: String = "[]",
-  val createdAt: Long = System.currentTimeMillis()
+  val subtasksJson: String = "[]" // Serialized JSON list of PlanSubtask
 ) {
-  fun getSubtasks(): List<EventSubtask> {
-    if (subtasksJson.isBlank() || subtasksJson == "[]") return emptyList()
+  fun getSubtasks(): List<PlanSubtask> {
     return try {
+      val list = mutableListOf<PlanSubtask>()
       val arr = JSONArray(subtasksJson)
-      val list = mutableListOf<EventSubtask>()
       for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
+        val obj = arr.getJSONObject(i)
         list.add(
-          EventSubtask(
-            id = o.optString("id", UUID.randomUUID().toString()),
-            title = o.optString("title", ""),
-            assignedDates = o.optString("assignedDates", ""),
-            isCompleted = o.optBoolean("isCompleted", false)
+          PlanSubtask(
+            id = obj.optString("id", java.util.UUID.randomUUID().toString()),
+            title = obj.optString("title", ""),
+            isCompleted = obj.optBoolean("isCompleted", false),
+            targetDate = obj.optString("targetDate", null).takeIf { !it.isNullOrBlank() },
+            assignedDates = obj.optString("assignedDates", "")
           )
         )
       }
       list
-    } catch (e: Exception) {
+    } catch (_: Exception) {
       emptyList()
     }
   }
 
-  fun isSubtaskApplicableForDate(subtask: EventSubtask, date: String): Boolean {
-    if (startDate.isNotBlank() && endDate.isNotBlank()) {
-      if (date < startDate || date > endDate) return false
+  fun isSubtaskApplicableForDate(subtask: PlanSubtask, date: String): Boolean {
+    if (subtask.assignedDates.isNotBlank()) {
+      val datesList = subtask.assignedDates.split(",").map { it.trim() }
+      return datesList.contains(date)
     }
-    if (subtask.assignedDates.isBlank()) return true
-    val dates = subtask.assignedDates.split(",").map { it.trim() }
-    return dates.contains(date)
+    if (subtask.targetDate != null) {
+      return subtask.targetDate == date
+    }
+    return date >= startDate && date <= endDate
   }
 
   companion object {
-    fun serializeSubtasks(subtasks: List<EventSubtask>): String {
+    fun serializeSubtasks(subtasks: List<PlanSubtask>): String {
       val arr = JSONArray()
-      for (st in subtasks) {
-        val obj = JSONObject()
-        obj.put("id", st.id)
-        obj.put("title", st.title)
-        obj.put("assignedDates", st.assignedDates)
-        obj.put("isCompleted", st.isCompleted)
+      subtasks.forEach { st ->
+        val obj = JSONObject().apply {
+          put("id", st.id)
+          put("title", st.title)
+          put("isCompleted", st.isCompleted)
+          if (st.targetDate != null) put("targetDate", st.targetDate)
+          if (st.assignedDates.isNotBlank()) put("assignedDates", st.assignedDates)
+        }
         arr.put(obj)
       }
       return arr.toString()

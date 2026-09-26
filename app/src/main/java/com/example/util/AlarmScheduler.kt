@@ -5,25 +5,19 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.util.Log
-import com.example.data.model.HabitTask
 import java.util.Calendar
 
 object AlarmScheduler {
-  fun scheduleAlarm(context: Context, task: HabitTask) {
-    val reminder = task.reminderTime
-    if (reminder.isNullOrBlank()) {
-      cancelAlarm(context, task.id)
-      return
-    }
-
+  fun scheduleTaskReminder(context: Context, taskId: Long, taskName: String, timeStr: String) {
     try {
-      val parts = reminder.split(":")
+      val parts = timeStr.split(":")
       if (parts.size != 2) return
       val hour = parts[0].toIntOrNull() ?: return
       val minute = parts[1].toIntOrNull() ?: return
 
-      val cal = Calendar.getInstance().apply {
+      val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+
+      val calendar = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, hour)
         set(Calendar.MINUTE, minute)
         set(Calendar.SECOND, 0)
@@ -33,49 +27,64 @@ object AlarmScheduler {
         }
       }
 
-      val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
       val intent = Intent(context, TaskAlarmReceiver::class.java).apply {
-        putExtra(TaskAlarmReceiver.EXTRA_TASK_ID, task.id)
-        putExtra(TaskAlarmReceiver.EXTRA_TASK_NAME, task.name)
-        putExtra(TaskAlarmReceiver.EXTRA_TIME, reminder)
+        putExtra("task_id", taskId)
+        putExtra("task_name", taskName)
       }
 
       val pendingIntent = PendingIntent.getBroadcast(
         context,
-        (task.id % Int.MAX_VALUE).toInt(),
+        taskId.toInt(),
         intent,
-        PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
       )
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         if (alarmManager.canScheduleExactAlarms()) {
-          alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+          alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            calendar.timeInMillis,
+            pendingIntent
+          )
         } else {
-          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+          alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
         }
-      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
       } else {
-        alarmManager.setExact(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+        alarmManager.setExactAndAllowWhileIdle(
+          AlarmManager.RTC_WAKEUP,
+          calendar.timeInMillis,
+          pendingIntent
+        )
       }
-    } catch (e: Exception) {
-      Log.e("AlarmScheduler", "Failed to schedule alarm", e)
+    } catch (_: Exception) {
+      // Ignore security exceptions if permission not granted
+    }
+  }
+
+  fun cancelTaskReminder(context: Context, taskId: Long) {
+    try {
+      val intent = Intent(context, TaskAlarmReceiver::class.java)
+      val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        taskId.toInt(),
+        intent,
+        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+      )
+      if (pendingIntent != null) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+        alarmManager?.cancel(pendingIntent)
+      }
+    } catch (_: Exception) {}
+  }
+
+  fun scheduleAlarm(context: Context, task: com.example.data.model.HabitTask) {
+    val time = task.reminderTime
+    if (!time.isNullOrBlank()) {
+      scheduleTaskReminder(context, task.id, task.name, time)
     }
   }
 
   fun cancelAlarm(context: Context, taskId: Long) {
-    try {
-      val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-      val intent = Intent(context, TaskAlarmReceiver::class.java)
-      val pendingIntent = PendingIntent.getBroadcast(
-        context,
-        (taskId % Int.MAX_VALUE).toInt(),
-        intent,
-        PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-      )
-      alarmManager.cancel(pendingIntent)
-    } catch (e: Exception) {
-      Log.e("AlarmScheduler", "Failed to cancel alarm", e)
-    }
+    cancelTaskReminder(context, taskId)
   }
 }

@@ -4,20 +4,31 @@ import android.content.Context
 import android.net.Uri
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 
 object ImageStorageUtils {
-  fun copyUriToInternalStorage(context: Context, uri: Uri, prefix: String = "task_img"): String? {
+  fun saveImageToInternalStorage(context: Context, imageUri: Uri): String? {
+    return copyUriToInternalStorage(context, imageUri, "img")
+  }
+
+  fun copyUriToInternalStorage(context: Context, uri: Uri, prefix: String = "img"): String? {
     return try {
-      val imagesDir = File(context.filesDir, "task_media").apply { mkdirs() }
-      val targetFile = File(imagesDir, "${prefix}_${System.currentTimeMillis()}.jpg")
-      context.contentResolver.openInputStream(uri)?.use { input ->
-        FileOutputStream(targetFile).use { output ->
-          input.copyTo(output)
+      val contentResolver = context.contentResolver
+      val inputStream: InputStream? = contentResolver.openInputStream(uri)
+      if (inputStream != null) {
+        val fileName = "${prefix}_${System.currentTimeMillis()}.jpg"
+        val file = File(context.filesDir, fileName)
+        val outputStream = FileOutputStream(file)
+        inputStream.use { input ->
+          outputStream.use { output ->
+            input.copyTo(output)
+          }
         }
+        file.absolutePath
+      } else {
+        null
       }
-      targetFile.absolutePath
-    } catch (e: Exception) {
-      e.printStackTrace()
+    } catch (_: Exception) {
       null
     }
   }

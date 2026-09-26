@@ -54,10 +54,12 @@ data class SubjectTimeBreakdown(
 )
 
 data class AiChatMessage(
+  val id: Long = 0,
   val role: String, // "user" or "model"
   val text: String,
   val timestamp: Long = System.currentTimeMillis(),
-  val isError: Boolean = false
+  val isError: Boolean = false,
+  val modelMode: String = "on_device" // "on_device" or "cloud"
 )
 
 enum class AnalyticsTab {

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Timer
@@ -126,13 +127,30 @@ fun PlanScreen(
           verticalAlignment = Alignment.CenterVertically
         ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+              onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.openHamburgerMenu()
+              },
+              modifier = Modifier
+                .size(40.dp)
+                .testTag("btn_plan_hamburger")
+            ) {
+              Icon(
+                imageVector = Icons.Default.Menu,
+                contentDescription = "Open Settings & Hub",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(24.dp)
+              )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
             Icon(
               imageVector = Icons.Default.Event,
               contentDescription = null,
               tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(24.dp)
+              modifier = Modifier.size(22.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
               text = "Events",
               style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),

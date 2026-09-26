@@ -31,14 +31,19 @@ object GeminiAiService {
     chatHistory: List<AiChatMessage>
   ): String = withContext(Dispatchers.IO) {
     val apiKey = try {
-      BuildConfig.GEMINI_API_KEY
-    } catch (e: Exception) {
-      ""
+      val field = Class.forName("com.example.BuildConfig").getField("GEMINI_API_KEY")
+      field.get(null) as? String ?: ""
+    } catch (_: Exception) {
+      try {
+        System.getenv("GEMINI_API_KEY") ?: ""
+      } catch (_: Exception) {
+        ""
+      }
     }
 
     if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-      // Provide intelligent offline NEET study diagnostic and guidance
-      return@withContext generateLocalNeetGuidance(userQuestion, systemStudyContext)
+      // Return note with Gemini cloud guidance or fallback
+      return@withContext "☁️ **Cloud (Gemini 3.5 Flash)**\n\nTo use real-time Cloud AI reasoning, add your GEMINI_API_KEY to AI Studio Secrets. Generating high-precision analysis via On-Device Engine:\n\n" + generateLocalNeetGuidance(userQuestion, systemStudyContext)
     }
 
     try {
@@ -124,7 +129,7 @@ object GeminiAiService {
         } catch (e: Exception) {
           "HTTP ${response.code}"
         }
-        return@withContext "⚠️ API Notice ($errorMsg)\n\n" + generateLocalNeetGuidance(userQuestion, systemStudyContext)
+        return@withContext "☁️ **Cloud Notice** ($errorMsg)\n\n" + generateLocalNeetGuidance(userQuestion, systemStudyContext)
       }
 
       val jsonResponse = JSONObject(responseBodyString)
@@ -143,7 +148,7 @@ object GeminiAiService {
 
       generateLocalNeetGuidance(userQuestion, systemStudyContext)
     } catch (e: Exception) {
-      "⚠️ ${e.localizedMessage ?: "Connection error"}\n\n" + generateLocalNeetGuidance(userQuestion, systemStudyContext)
+      "☁️ **Cloud Connection Notice**: ${e.localizedMessage ?: "Network unreachable"}\n\n" + generateLocalNeetGuidance(userQuestion, systemStudyContext)
     }
   }
 

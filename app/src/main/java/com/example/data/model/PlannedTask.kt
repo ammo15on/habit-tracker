@@ -8,11 +8,10 @@ data class PlannedTask(
   @PrimaryKey(autoGenerate = true)
   val id: Long = 0,
   val title: String,
-  val date: String, // yyyy-MM-dd
-  val targetTimeMinutes: Int = 0, // Target timer in minutes
+  val date: String, // Format: YYYY-MM-DD
+  val targetTimeMinutes: Int = 0,
   val notes: String = "",
   val isStarred: Boolean = false,
   val isArchived: Boolean = false,
-  val isCompleted: Boolean = false,
-  val createdAt: Long = System.currentTimeMillis()
+  val isCompleted: Boolean = false
 )

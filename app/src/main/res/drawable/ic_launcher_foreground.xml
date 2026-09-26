@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="66dp"
-        android:height="66dp"
-        android:drawable="@drawable/habit_tracker_icon_1789813662065"
-        android:gravity="center" />
-</layer-list>
-
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M31,48 L45,62 L77,30 L83,36 L45,74 L25,54 Z" />
+</vector>

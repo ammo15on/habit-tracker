@@ -8,11 +8,11 @@ data class NeetTestScore(
   @PrimaryKey(autoGenerate = true)
   val id: Long = 0,
   val testName: String,
-  val date: String, // yyyy-MM-dd
-  val physicsScore: Int,
-  val chemistryScore: Int,
-  val botanyScore: Int,
-  val zoologyScore: Int,
+  val date: String, // Format: YYYY-MM-DD
+  val physicsScore: Int = 0,
+  val chemistryScore: Int = 0,
+  val botanyScore: Int = 0,
+  val zoologyScore: Int = 0,
   val maxPhysics: Int = 180,
   val maxChemistry: Int = 180,
   val maxBotany: Int = 180,
@@ -22,9 +22,6 @@ data class NeetTestScore(
   val totalScore: Int
     get() = physicsScore + chemistryScore + botanyScore + zoologyScore
 
-  val maxTotalScore: Int
+  val maxTotal: Int
     get() = maxPhysics + maxChemistry + maxBotany + maxZoology
-
-  val percentage: Float
-    get() = if (maxTotalScore > 0) (totalScore.toFloat() / maxTotalScore) * 100f else 0f
 }
