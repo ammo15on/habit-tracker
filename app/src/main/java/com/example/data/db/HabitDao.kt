@@ -221,4 +221,31 @@ interface HabitDao {
 
   @Query("DELETE FROM ai_chat_messages WHERE id = :id")
   suspend fun deleteAiChatMessageById(id: Long)
+
+  @Query("DELETE FROM habit_tasks")
+  suspend fun clearAllTasks()
+
+  @Query("DELETE FROM habit_task_logs")
+  suspend fun clearAllLogs()
+
+  @Query("DELETE FROM day_ratings")
+  suspend fun clearAllRatings()
+
+  @Query("DELETE FROM neet_test_scores")
+  suspend fun clearAllTestScores()
+
+  @Query("DELETE FROM planned_tasks")
+  suspend fun clearAllPlannedTasks()
+
+  @Query("DELETE FROM plan_events")
+  suspend fun clearAllPlanEvents()
+
+  @Query("DELETE FROM neet_chapters")
+  suspend fun clearAllNeetChapters()
+
+  @Query("DELETE FROM neet_tally_counters")
+  suspend fun clearAllNeetTallyCounters()
+
+  @Query("DELETE FROM task_presets")
+  suspend fun clearAllTaskPresets()
 }

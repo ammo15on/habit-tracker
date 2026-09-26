@@ -720,6 +720,15 @@ class HabitViewModel @JvmOverloads constructor(
   // AI Chat and Analytics Assistant (Saved in DB with Timestamp, Newer on Top)
   val isCloudModeSelected = MutableStateFlow(false)
 
+  val selectedAiModelMode: StateFlow<String> = themePreferences?.aiExecutionMode ?: MutableStateFlow("on_device").asStateFlow()
+
+  fun setAiModelMode(mode: String) {
+    if (themePreferences != null) {
+      themePreferences.setAiExecutionMode(mode)
+    }
+    isCloudModeSelected.value = (mode == "cloud")
+  }
+
   fun toggleAiQueryMode() {
     isCloudModeSelected.value = !isCloudModeSelected.value
   }
@@ -728,16 +737,16 @@ class HabitViewModel @JvmOverloads constructor(
     isCloudModeSelected.value = useCloud
   }
 
-  val aiChatMessages: StateFlow<List<AiChatMessage>> = repository.allChatMessages.map { entities ->
-    if (entities.isEmpty()) {
+  val aiChatMessages: StateFlow<List<AiChatMessage>> = repository.allAiChatMessages.map { entities ->
+    if (entities.size == 0) {
       listOf(
         AiChatMessage(
           id = -1L,
           role = "model",
           text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\n⚡ **On-Device Computation**: Instant, offline, and computes directly from your study logs.\n☁️ **Cloud (Gemini 3.5 Flash)**: Connects to cloud reasoning model when selected.\n\nAsk me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"Spaced repetition schedule for completed chapters\"",
           timestamp = System.currentTimeMillis(),
-          isCloud = false,
-          queryMode = "on_device"
+          modelMode = "on_device",
+          isError = false
         )
       )
     } else {
@@ -747,8 +756,8 @@ class HabitViewModel @JvmOverloads constructor(
           role = entity.role,
           text = entity.text,
           timestamp = entity.timestamp,
-          isCloud = entity.isCloud,
-          queryMode = entity.queryMode
+          modelMode = entity.modelMode,
+          isError = entity.isError
         )
       }
     }
@@ -761,8 +770,8 @@ class HabitViewModel @JvmOverloads constructor(
         role = "model",
         text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\n⚡ **On-Device Computation**: Instant, offline, and computes directly from your study logs.\n☁️ **Cloud (Gemini 3.5 Flash)**: Connects to cloud reasoning model when selected.\n\nAsk me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"Spaced repetition schedule for completed chapters\"",
         timestamp = System.currentTimeMillis(),
-        isCloud = false,
-        queryMode = "on_device"
+        modelMode = "on_device",
+        isError = false
       )
     )
   )
@@ -849,11 +858,13 @@ class HabitViewModel @JvmOverloads constructor(
     viewModelScope.launch {
       val userMsgTimestamp = System.currentTimeMillis()
       // 1. Save user question to DB (with timestamp and mode)
-      repository.insertChatMessage(
-        role = "user",
-        text = cleanQ,
-        isCloud = useCloud,
-        timestamp = userMsgTimestamp
+      repository.insertAiChatMessage(
+        com.example.data.model.AiChatMessageEntity(
+          role = "user",
+          text = cleanQ,
+          timestamp = userMsgTimestamp,
+          modelMode = if (useCloud) "cloud" else "on_device"
+        )
       )
 
       val contextString = buildStudyContext()
@@ -874,11 +885,13 @@ class HabitViewModel @JvmOverloads constructor(
 
       // 2. Save model answer to DB (with timestamp and mode)
       val modelMsgTimestamp = System.currentTimeMillis() + 10 // ensure slightly later timestamp
-      repository.insertChatMessage(
-        role = "model",
-        text = responseText,
-        isCloud = useCloud,
-        timestamp = modelMsgTimestamp
+      repository.insertAiChatMessage(
+        com.example.data.model.AiChatMessageEntity(
+          role = "model",
+          text = responseText,
+          timestamp = modelMsgTimestamp,
+          modelMode = if (useCloud) "cloud" else "on_device"
+        )
       )
 
       isAiLoading.value = false
@@ -887,7 +900,7 @@ class HabitViewModel @JvmOverloads constructor(
 
   fun clearAiChat() {
     viewModelScope.launch {
-      repository.clearAllChatMessages()
+      repository.clearAllAiChatMessages()
     }
   }
 
