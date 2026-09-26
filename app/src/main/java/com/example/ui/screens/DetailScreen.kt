@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import java.text.SimpleDateFormat
+import java.util.Locale
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -29,13 +34,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -153,7 +153,6 @@ fun DetailScreen(
   val isAiLoading by viewModel.isAiLoading.collectAsStateWithLifecycle()
   val aiSuggestions by viewModel.dynamicAiSuggestions.collectAsStateWithLifecycle()
   val aiChatDraft by viewModel.aiChatDraft.collectAsStateWithLifecycle()
-  val selectedAiModelMode by viewModel.selectedAiModelMode.collectAsStateWithLifecycle()
 
   var showHamburgerMenu by remember { mutableStateOf(false) }
   var selectedDateForTasks by remember { mutableStateOf<String?>(null) }
@@ -404,12 +403,10 @@ fun DetailScreen(
             isLoading = isAiLoading,
             suggestions = aiSuggestions,
             draftText = aiChatDraft,
-            selectedModelMode = selectedAiModelMode,
-            onModelModeChange = { viewModel.setAiModelMode(it) },
             onDraftChange = { viewModel.setAiChatDraft(it) },
-            onSendQuestion = { question ->
+            onSendQuestion = { question, askCloud ->
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              viewModel.sendAiQuestion(question)
+              viewModel.sendAiQuestion(question, askCloud)
             },
             onClearChat = { viewModel.clearAiChat() }
           )
@@ -589,25 +586,13 @@ private fun AnalyticsSectionView(
   isLoading: Boolean,
   suggestions: List<String>,
   draftText: String,
-  selectedModelMode: String = "on_device",
-  onModelModeChange: (String) -> Unit = {},
   onDraftChange: (String) -> Unit,
-  onSendQuestion: (String) -> Unit,
+  onSendQuestion: (String, Boolean) -> Unit,
   onClearChat: () -> Unit
 ) {
   val haptic = LocalHapticFeedback.current
   var userInputText by remember(draftText) { mutableStateOf(draftText) }
-  var isInputActive by remember { mutableStateOf(draftText.isNotBlank()) }
-  val focusRequester = remember { FocusRequester() }
-  val keyboardController = LocalSoftwareKeyboardController.current
   val listState = rememberLazyListState()
-
-  LaunchedEffect(isInputActive) {
-    if (isInputActive) {
-      focusRequester.requestFocus()
-      keyboardController?.show()
-    }
-  }
 
   val totalChapters = chapters.size
   val completedChapters = chapters.count { it.isCompleted }
@@ -1000,7 +985,7 @@ private fun AnalyticsSectionView(
         }
       }
 
-      // 6. AI STUDY COACH WITH ON-DEVICE & CLOUD MODEL SELECTION
+      // 6. AI STUDY COACH (Focused, Clean, NO "what to ask AI" suggestion chips!)
       item(key = "ai_coach_header") {
         Row(
           modifier = Modifier.fillMaxWidth(),
@@ -1016,81 +1001,22 @@ private fun AnalyticsSectionView(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-              text = "AI Assistant",
+              text = "AI Study Assistant",
               style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
               color = MaterialTheme.colorScheme.onSurface
             )
           }
 
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-          ) {
-            // Mode Selector Pill: On-Device Model
-            Box(
-              modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                  if (selectedModelMode == "on_device") MaterialTheme.colorScheme.primary
-                  else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-                .clickable { onModelModeChange("on_device") }
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                  imageVector = Icons.Default.Bolt,
-                  contentDescription = null,
-                  tint = if (selectedModelMode == "on_device") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                  modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                Text(
-                  text = "On-Device",
-                  style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
-                  color = if (selectedModelMode == "on_device") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-              }
-            }
-
-            // Mode Selector Pill: Cloud Model (Gemini)
-            Box(
-              modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                  if (selectedModelMode == "cloud") MaterialTheme.colorScheme.primary
-                  else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-                .clickable { onModelModeChange("cloud") }
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                  imageVector = Icons.Default.Cloud,
-                  contentDescription = null,
-                  tint = if (selectedModelMode == "cloud") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                  modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                Text(
-                  text = "Cloud",
-                  style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
-                  color = if (selectedModelMode == "cloud") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-              }
-            }
-
-            if (chatMessages.isNotEmpty()) {
-              IconButton(onClick = onClearChat, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Refresh, contentDescription = "Clear Chat", modifier = Modifier.size(15.dp))
-              }
+          if (chatMessages.isNotEmpty()) {
+            IconButton(onClick = onClearChat, modifier = Modifier.size(26.dp)) {
+              Icon(Icons.Default.Refresh, contentDescription = "Clear Chat", modifier = Modifier.size(16.dp))
             }
           }
         }
       }
 
-      // Chat Messages History (Persisted in Room, newer on top, older at bottom)
-      items(chatMessages, key = { it.id }) { message ->
+      // Chat Messages History
+      items(chatMessages) { message ->
         ChatMessageBubble(message = message)
       }
 
@@ -1111,7 +1037,7 @@ private fun AnalyticsSectionView(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-              text = if (selectedModelMode == "on_device") "Running On-Device AI Computation..." else "Asking Gemini Cloud Model...",
+              text = "Analyzing your study records...",
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1120,7 +1046,65 @@ private fun AnalyticsSectionView(
       }
     }
 
-    // Dynamic Progressive Chat Bar & AI Suggestions Line (v6.2.1)
+    val focusRequester = remember { FocusRequester() }
+    var isSearchFieldVisible by remember { mutableStateOf(false) }
+    var useCloudModel by remember { mutableStateOf(false) }
+    val isExpanded = isSearchFieldVisible || userInputText.isNotEmpty()
+
+    LaunchedEffect(isExpanded) {
+      if (isExpanded) {
+        try {
+          focusRequester.requestFocus()
+        } catch (e: Exception) {
+          // Safe guard against focus errors in pager transition
+        }
+      }
+    }
+
+    // Model Selection Toggle Row
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(top = 4.dp, bottom = 4.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+      Text(
+        text = "Model Mode:",
+        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
+
+      FilterChip(
+        selected = !useCloudModel,
+        onClick = { useCloudModel = false },
+        label = { Text("💻 On-Device Model", fontSize = 11.sp) },
+        leadingIcon = if (!useCloudModel) {
+          { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(12.dp)) }
+        } else null,
+        colors = FilterChipDefaults.filterChipColors(
+          selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+          selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        modifier = Modifier.testTag("chip_on_device")
+      )
+
+      FilterChip(
+        selected = useCloudModel,
+        onClick = { useCloudModel = true },
+        label = { Text("☁️ Cloud Model", fontSize = 11.sp) },
+        leadingIcon = if (useCloudModel) {
+          { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(12.dp)) }
+        } else null,
+        colors = FilterChipDefaults.filterChipColors(
+          selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+          selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        modifier = Modifier.testTag("chip_cloud")
+      )
+    }
+
+    // Dynamic Progressive Chat Bar & AI Suggestions Line (v6.3)
     Row(
       modifier = Modifier
         .fillMaxWidth()
@@ -1129,11 +1113,10 @@ private fun AnalyticsSectionView(
       horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
       val charCount = userInputText.length
-      val isExpanded = isInputActive || charCount > 0
 
-      // Magnifying Glass icon / Expanding Input Field on the Bottom Left
+      // Magnifying Glass / Expanding Input Field on the Bottom Left
       if (!isExpanded) {
-        // Small compact magnifying glass icon button - Clicking directly opens input & software keyboard!
+        // Small compact magnifying glass icon button
         Box(
           modifier = Modifier
             .size(44.dp)
@@ -1142,8 +1125,9 @@ private fun AnalyticsSectionView(
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f), CircleShape)
             .clickable {
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              isInputActive = true
-            },
+              isSearchFieldVisible = true
+            }
+            .testTag("btn_magnify_glass"),
           contentAlignment = Alignment.Center
         ) {
           Icon(
@@ -1154,11 +1138,11 @@ private fun AnalyticsSectionView(
           )
         }
       } else {
-        // Progressively growing chat box as letters are written with direct keyboard focus
+        // Progressively growing chat box as letters are written
         val inputModifier = if (charCount >= 16) {
           Modifier.weight(1f)
         } else {
-          Modifier.width((140 + charCount * 12).coerceAtMost(280).dp)
+          Modifier.width((130 + charCount * 12).coerceAtMost(280).dp)
         }
 
         OutlinedTextField(
@@ -1176,24 +1160,20 @@ private fun AnalyticsSectionView(
             )
           },
           trailingIcon = {
-            IconButton(
-              onClick = {
-                userInputText = ""
-                onDraftChange("")
-                isInputActive = false
-              },
-              modifier = Modifier.size(20.dp)
-            ) {
-              Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(14.dp))
+            if (userInputText.isNotBlank()) {
+              IconButton(
+                onClick = {
+                  userInputText = ""
+                  onDraftChange("")
+                  isSearchFieldVisible = false
+                },
+                modifier = Modifier.size(20.dp)
+              ) {
+                Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(14.dp))
+              }
             }
           },
-          placeholder = {
-            Text(
-              if (selectedModelMode == "on_device") "Ask On-Device AI..." else "Ask Cloud Gemini AI...",
-              fontSize = 11.sp,
-              maxLines = 1
-            )
-          },
+          placeholder = { Text("Ask AI Coach...", fontSize = 11.sp, maxLines = 1) },
           singleLine = true,
           textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
           shape = RoundedCornerShape(22.dp),
@@ -1203,7 +1183,7 @@ private fun AnalyticsSectionView(
         )
       }
 
-      // In the SAME LINE as magnifying glass: Dynamic AI suggestions (universal + personalized from user data)
+      // In the SAME LINE as magnifying glass: AI suggestions (universal + personalized from user data)
       if (charCount < 16) {
         LazyRow(
           modifier = Modifier.weight(1f),
@@ -1219,10 +1199,10 @@ private fun AnalyticsSectionView(
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
                 .clickable {
                   haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                  onSendQuestion(suggestion)
+                  onSendQuestion(suggestion, useCloudModel)
                   userInputText = ""
                   onDraftChange("")
-                  isInputActive = false
+                  isSearchFieldVisible = false
                 }
                 .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
@@ -1254,8 +1234,8 @@ private fun AnalyticsSectionView(
               val query = userInputText.trim()
               userInputText = ""
               onDraftChange("")
-              isInputActive = false
-              onSendQuestion(query)
+              isSearchFieldVisible = false
+              onSendQuestion(query, useCloudModel)
             }
           },
           enabled = userInputText.isNotBlank() && !isLoading,
@@ -1283,6 +1263,18 @@ private fun AnalyticsSectionView(
 @Composable
 private fun ChatMessageBubble(message: AiChatMessage) {
   val isUser = message.role == "user"
+  val formattedTime = remember(message.timestamp) {
+    if (message.timestamp == 0L) {
+      ""
+    } else {
+      try {
+        val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
+        sdf.format(java.util.Date(message.timestamp))
+      } catch (e: Exception) {
+        ""
+      }
+    }
+  }
 
   Row(
     modifier = Modifier.fillMaxWidth(),
@@ -1297,7 +1289,7 @@ private fun ChatMessageBubble(message: AiChatMessage) {
         contentAlignment = Alignment.Center
       ) {
         Icon(
-          imageVector = if (message.modelMode == "cloud") Icons.Default.Cloud else Icons.Default.Bolt,
+          imageVector = Icons.Default.Psychology,
           contentDescription = null,
           tint = MaterialTheme.colorScheme.primary,
           modifier = Modifier.size(18.dp)
@@ -1321,29 +1313,6 @@ private fun ChatMessageBubble(message: AiChatMessage) {
       border = if (!isUser) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)) else null
     ) {
       Column(modifier = Modifier.padding(12.dp)) {
-        // Timestamp & Mode Badge Header
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Text(
-            text = DateUtils.formatTimestamp(message.timestamp),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = if (isUser) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
-          )
-
-          if (!isUser) {
-            Text(
-              text = if (message.modelMode == "cloud") "☁️ Cloud Model" else "⚡ On-Device",
-              style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
-              color = MaterialTheme.colorScheme.primary
-            )
-          }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
         Text(
           text = message.text,
           style = MaterialTheme.typography.bodyMedium.copy(
@@ -1352,6 +1321,19 @@ private fun ChatMessageBubble(message: AiChatMessage) {
           ),
           color = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         )
+        if (formattedTime.isNotEmpty()) {
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = formattedTime,
+            style = MaterialTheme.typography.labelSmall.copy(
+              fontSize = 9.sp,
+              fontWeight = FontWeight.Normal
+            ),
+            color = if (isUser) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.65f)
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.align(Alignment.End)
+          )
+        }
       }
     }
   }

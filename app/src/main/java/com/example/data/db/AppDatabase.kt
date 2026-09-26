@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.data.model.AiChatMessageEntity
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
@@ -14,6 +13,8 @@ import com.example.data.model.NeetTestScore
 import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
 import com.example.data.model.TaskPreset
+
+import com.example.data.model.AiChatEntity
 
 @Database(
   entities = [
@@ -26,9 +27,9 @@ import com.example.data.model.TaskPreset
     NeetChapter::class,
     NeetTallyCounter::class,
     TaskPreset::class,
-    AiChatMessageEntity::class
+    AiChatEntity::class
   ],
-  version = 11,
+  version = 10,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

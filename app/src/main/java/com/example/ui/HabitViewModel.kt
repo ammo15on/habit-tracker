@@ -45,19 +45,12 @@ data class DayCompletedTaskItem(
 
 typealias CompletedDayTaskInfo = DayCompletedTaskItem
 
-class HabitViewModel @JvmOverloads constructor(
+class HabitViewModel(
   private val repository: HabitRepository,
   private val themePreferences: ThemePreferences? = null,
   private val goalPreferences: GoalPreferences? = null,
   private val appContext: Context? = null
 ) : ViewModel() {
-
-  constructor(application: android.app.Application) : this(
-    repository = HabitRepository(com.example.data.db.AppDatabase.getDatabase(application).habitDao()),
-    themePreferences = ThemePreferences(application),
-    goalPreferences = GoalPreferences(application),
-    appContext = application
-  )
 
   // Current selected date for tracker screen
   val selectedDate = MutableStateFlow(DateUtils.today())
@@ -81,87 +74,87 @@ class HabitViewModel @JvmOverloads constructor(
 
   // Global Hamburger Menu state (can be triggered by left edge swipe or header button)
   val isHamburgerMenuOpen = MutableStateFlow(false)
-  val isHamburgerOpen: StateFlow<Boolean> = isHamburgerMenuOpen.asStateFlow()
 
-  fun openHamburger() {
+  fun openHamburgerMenu() {
     isHamburgerMenuOpen.value = true
   }
 
-  fun closeHamburger() {
+  fun closeHamburgerMenu() {
     isHamburgerMenuOpen.value = false
   }
 
-  fun openHamburgerMenu() = openHamburger()
-  fun closeHamburgerMenu() = closeHamburger()
-
   // Custom Hexadecimal Color States
-  private val _fallbackColorHex = MutableStateFlow("#3B82F6")
-  val selectedColorHex: StateFlow<String> =
-    themePreferences?.customColorHex ?: _fallbackColorHex.asStateFlow()
-  val selectedUiHex: StateFlow<String> get() = selectedColorHex
+  private val _fallbackUiHex = MutableStateFlow("#3B82F6")
+  val selectedUiHex: StateFlow<String> =
+    themePreferences?.customUiHex ?: _fallbackUiHex.asStateFlow()
 
   private val _fallbackBgHex = MutableStateFlow("#121212")
-  val selectedBgHex: StateFlow<String> = _fallbackBgHex.asStateFlow()
+  val selectedBgHex: StateFlow<String> =
+    themePreferences?.customBgHex ?: _fallbackBgHex.asStateFlow()
 
-  private val _fallbackFontHex = MutableStateFlow("#F8FAFC")
-  val selectedFontHex: StateFlow<String> =
-    themePreferences?.customFontColorHex ?: _fallbackFontHex.asStateFlow()
-  val selectedTextHex: StateFlow<String> get() = selectedFontHex
+  private val _fallbackTextHex = MutableStateFlow("#FFFFFF")
+  val selectedTextHex: StateFlow<String> =
+    themePreferences?.customTextHex ?: _fallbackTextHex.asStateFlow()
 
-  fun setCustomColorHex(hex: String) {
+  fun setCustomUiHex(hex: String) {
     if (themePreferences != null) {
-      themePreferences.setCustomColorHex(hex)
+      themePreferences.setCustomUiHex(hex)
     } else {
-      _fallbackColorHex.value = hex
+      _fallbackUiHex.value = hex
     }
   }
 
-  fun setCustomFontColorHex(hex: String) {
+  fun setCustomBgHex(hex: String) {
     if (themePreferences != null) {
-      themePreferences.setCustomFontColorHex(hex)
+      themePreferences.setCustomBgHex(hex)
     } else {
-      _fallbackFontHex.value = hex
+      _fallbackBgHex.value = hex
     }
   }
 
-  fun setCustomUiHex(hex: String) = setCustomColorHex(hex)
-  fun setCustomBgHex(hex: String) { _fallbackBgHex.value = hex }
-  fun setCustomTextHex(hex: String) = setCustomFontColorHex(hex)
+  fun setCustomTextHex(hex: String) {
+    if (themePreferences != null) {
+      themePreferences.setCustomTextHex(hex)
+    } else {
+      _fallbackTextHex.value = hex
+    }
+  }
 
   // App Goal state (Count of days left to future target date)
-  private val _fallbackGoal = MutableStateFlow(AppGoal())
-  val appGoal: StateFlow<AppGoal> =
+  private val _fallbackGoal = MutableStateFlow<AppGoal?>(null)
+  val goal: StateFlow<AppGoal?> =
     goalPreferences?.goal ?: _fallbackGoal.asStateFlow()
-  val goal: StateFlow<AppGoal?> get() = appGoal
-
-  fun updateGoal(newGoal: AppGoal) {
-    if (goalPreferences != null) {
-      goalPreferences.updateGoal(newGoal)
-    } else {
-      _fallbackGoal.value = newGoal
-    }
-  }
 
   fun setGoal(title: String, targetDate: String) {
-    updateGoal(appGoal.value.copy(title = title, examDate = targetDate))
+    if (goalPreferences != null) {
+      goalPreferences.setGoal(title, targetDate)
+    } else {
+      _fallbackGoal.value = AppGoal(title, targetDate)
+    }
   }
 
   fun clearGoal() {
-    updateGoal(AppGoal())
+    if (goalPreferences != null) {
+      goalPreferences.clearGoal()
+    } else {
+      _fallbackGoal.value = null
+    }
   }
 
   // App Theme Selection State (Slate, Indigo, Blue, Cyan, Purple, Rose, Crimson, Amber, Golden, Obsidian, Graphite, Emerald)
-  private val _fallbackThemeColor = MutableStateFlow(AppThemeColor.BLUE)
-  val selectedThemeColor: StateFlow<AppThemeColor> = _fallbackThemeColor.asStateFlow()
+  private val _fallbackThemeColor = MutableStateFlow(AppThemeColor.SLATE)
+  val selectedThemeColor: StateFlow<AppThemeColor> =
+    themePreferences?.themeColor ?: _fallbackThemeColor.asStateFlow()
 
   private val _fallbackFontColor = MutableStateFlow(com.example.ui.theme.AppFontColor.DEFAULT)
-  val selectedFontColor: StateFlow<com.example.ui.theme.AppFontColor> = _fallbackFontColor.asStateFlow()
+  val selectedFontColor: StateFlow<com.example.ui.theme.AppFontColor> =
+    themePreferences?.fontColor ?: _fallbackFontColor.asStateFlow()
 
   private val _fallbackBgImageUri = MutableStateFlow<String?>(null)
   val selectedBackgroundImageUri: StateFlow<String?> =
     themePreferences?.backgroundImageUri ?: _fallbackBgImageUri.asStateFlow()
 
-  private val _fallbackUiOpacity = MutableStateFlow(0.85f)
+  private val _fallbackUiOpacity = MutableStateFlow(0.25f)
   val selectedUiOpacity: StateFlow<Float> =
     themePreferences?.uiOpacity ?: _fallbackUiOpacity.asStateFlow()
 
@@ -186,13 +179,19 @@ class HabitViewModel @JvmOverloads constructor(
   }
 
   fun setThemeColor(color: AppThemeColor) {
-    _fallbackThemeColor.value = color
-    setCustomColorHex(color.primaryHex)
+    if (themePreferences != null) {
+      themePreferences.setThemeColor(color)
+    } else {
+      _fallbackThemeColor.value = color
+    }
   }
 
   fun setFontColor(color: com.example.ui.theme.AppFontColor) {
-    _fallbackFontColor.value = color
-    setCustomFontColorHex(color.hex)
+    if (themePreferences != null) {
+      themePreferences.setFontColor(color)
+    } else {
+      _fallbackFontColor.value = color
+    }
   }
 
   fun setBackgroundImageUri(uri: String?) {
@@ -201,10 +200,6 @@ class HabitViewModel @JvmOverloads constructor(
     } else {
       _fallbackBgImageUri.value = uri
     }
-  }
-
-  fun setBackgroundImage(uri: android.net.Uri?) {
-    setBackgroundImageUri(uri?.toString())
   }
 
   // Active running timer state (Background-enabled via TimerManager)
@@ -218,9 +213,6 @@ class HabitViewModel @JvmOverloads constructor(
   private val allLogsFlow = repository.allLogs
   val allTasksState: StateFlow<List<HabitTask>> = repository.allTasks
     .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-  val allTasks: StateFlow<List<HabitTask>> get() = allTasksState
-  val allTaskPresets: StateFlow<List<TaskPreset>> = repository.allTaskPresets
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val allLogsState: StateFlow<List<HabitTaskLog>> = repository.allLogs
     .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
   val allNeetScores: StateFlow<List<NeetTestScore>> = repository.allNeetScores
@@ -717,64 +709,43 @@ class HabitViewModel @JvmOverloads constructor(
     initialValue = emptyList()
   )
 
-  // AI Chat and Analytics Assistant (Saved in DB with Timestamp, Newer on Top)
-  val isCloudModeSelected = MutableStateFlow(false)
+  // AI Chat and Analytics Assistant
+  private val suggestionsRefreshTrigger = MutableStateFlow(0)
 
-  val selectedAiModelMode: StateFlow<String> = themePreferences?.aiExecutionMode ?: MutableStateFlow("on_device").asStateFlow()
-
-  fun setAiModelMode(mode: String) {
-    if (themePreferences != null) {
-      themePreferences.setAiExecutionMode(mode)
-    }
-    isCloudModeSelected.value = (mode == "cloud")
+  fun refreshSuggestions() {
+    suggestionsRefreshTrigger.value += 1
   }
 
-  fun toggleAiQueryMode() {
-    isCloudModeSelected.value = !isCloudModeSelected.value
-  }
-
-  fun setAiQueryMode(useCloud: Boolean) {
-    isCloudModeSelected.value = useCloud
-  }
-
-  val aiChatMessages: StateFlow<List<AiChatMessage>> = repository.allAiChatMessages.map { entities ->
-    if (entities.size == 0) {
-      listOf(
+  val aiChatMessages: StateFlow<List<AiChatMessage>> = repository.allAiChats
+    .map { entities ->
+      val mapped = entities.map { entity ->
         AiChatMessage(
-          id = -1L,
-          role = "model",
-          text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\n⚡ **On-Device Computation**: Instant, offline, and computes directly from your study logs.\n☁️ **Cloud (Gemini 3.5 Flash)**: Connects to cloud reasoning model when selected.\n\nAsk me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"Spaced repetition schedule for completed chapters\"",
-          timestamp = System.currentTimeMillis(),
-          modelMode = "on_device",
-          isError = false
-        )
-      )
-    } else {
-      entities.map { entity ->
-        AiChatMessage(
-          id = entity.id,
           role = entity.role,
           text = entity.text,
           timestamp = entity.timestamp,
-          modelMode = entity.modelMode,
           isError = entity.isError
         )
       }
-    }
-  }.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.WhileSubscribed(5000),
-    initialValue = listOf(
-      AiChatMessage(
-        id = -1L,
-        role = "model",
-        text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\n⚡ **On-Device Computation**: Instant, offline, and computes directly from your study logs.\n☁️ **Cloud (Gemini 3.5 Flash)**: Connects to cloud reasoning model when selected.\n\nAsk me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"Spaced repetition schedule for completed chapters\"",
-        timestamp = System.currentTimeMillis(),
-        modelMode = "on_device",
-        isError = false
-      )
+      if (mapped.isEmpty()) {
+        listOf(
+          AiChatMessage(
+            role = "model",
+            text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\nI can analyze your logged study hours, time percentage allocations, mock test score trends, NCERT chapter revisions, and PYQ progress. Ask me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"What is the best active recall strategy for NEET Biology?\"",
+            timestamp = 0L // oldest to stay at the very bottom
+          )
+        )
+      } else {
+        mapped + AiChatMessage(
+          role = "model",
+          text = "👋 Hello! I am your AI NEET Mentor & Analytics Coach.\n\nI can analyze your logged study hours, time percentage allocations, mock test score trends, NCERT chapter revisions, and PYQ progress. Ask me anything like:\n• \"Which chapters am I struggling with?\"\n• \"How much time in hours and percentage have I spent on Physics vs Bio?\"\n• \"How to approach Organic Chemistry mechanisms without forgetting?\"\n• \"What is the best active recall strategy for NEET Biology?\"",
+          timestamp = 0L // oldest to stay at the very bottom
+        )
+      }
+    }.stateIn(
+      scope = viewModelScope,
+      started = SharingStarted.WhileSubscribed(5000),
+      initialValue = emptyList()
     )
-  )
 
   val isAiLoading = MutableStateFlow(false)
   private val _fallbackAiChatDraft = MutableStateFlow("")
@@ -794,8 +765,9 @@ class HabitViewModel @JvmOverloads constructor(
     allNeetChapters,
     allNeetScores,
     subjectTimeBreakdown,
-    daysAnalytics
-  ) { chapters, scores, subjectTimes, days ->
+    daysAnalytics,
+    suggestionsRefreshTrigger
+  ) { chapters, scores, subjectTimes, days, trigger ->
     val list = mutableListOf<String>()
 
     // 1. Personalized Suggestions from Chapters:
@@ -836,7 +808,14 @@ class HabitViewModel @JvmOverloads constructor(
     list.add("Physics formula memorization & problem-solving strategy")
     list.add("How to avoid negative marking in mock tests?")
 
-    list.distinct()
+    val uniqueList = list.distinct()
+    // Implement smart shuffling or rotation on trigger to keep suggestions active and dynamic!
+    if (trigger > 0 && uniqueList.size > 2) {
+      val shuffled = uniqueList.shuffled(java.util.Random(trigger.toLong()))
+      shuffled.take(4)
+    } else {
+      uniqueList.take(4)
+    }
   }.stateIn(
     scope = viewModelScope,
     started = SharingStarted.WhileSubscribed(5000),
@@ -848,59 +827,58 @@ class HabitViewModel @JvmOverloads constructor(
     )
   )
 
-  fun sendAiQuestion(userQuestion: String, forceCloud: Boolean? = null) {
+  fun sendAiQuestion(userQuestion: String, askCloud: Boolean = false) {
     if (userQuestion.isBlank() || isAiLoading.value) return
     val cleanQ = userQuestion.trim()
-    val useCloud = forceCloud ?: isCloudModeSelected.value
     setAiChatDraft("")
     isAiLoading.value = true
 
     viewModelScope.launch {
-      val userMsgTimestamp = System.currentTimeMillis()
-      // 1. Save user question to DB (with timestamp and mode)
-      repository.insertAiChatMessage(
-        com.example.data.model.AiChatMessageEntity(
+      // 1. Insert user message to local Room DB
+      val userTime = System.currentTimeMillis()
+      repository.insertAiChat(
+        com.example.data.model.AiChatEntity(
           role = "user",
           text = cleanQ,
-          timestamp = userMsgTimestamp,
-          modelMode = if (useCloud) "cloud" else "on_device"
+          timestamp = userTime,
+          isCloud = askCloud
         )
       )
 
-      val contextString = buildStudyContext()
-      val responseText = if (useCloud) {
-        // Query Cloud Model (Gemini 3.5 Flash)
-        com.example.util.GeminiAiService.askGemini(cleanQ, contextString, aiChatMessages.value)
+      // 2. Generate response (either on-device or cloud)
+      val responseText = if (askCloud) {
+        val contextString = buildStudyContext()
+        val currentHistory = aiChatMessages.value
+        com.example.util.GeminiAiService.askGemini(cleanQ, contextString, currentHistory)
       } else {
-        // High-precision On-Device Computation
-        com.example.util.OnDeviceAiEngine.computeAnswer(
-          question = cleanQ,
-          studyContext = contextString,
-          chapters = allNeetChapters.value,
-          testScores = allNeetScores.value,
-          subjectTimes = subjectTimeBreakdown.value,
-          days = daysAnalytics.value
-        )
+        // On-Device Model
+        val chapters = allNeetChapters.value
+        val scores = allNeetScores.value
+        val subjectTimes = subjectTimeBreakdown.value
+        // Simulate a slight on-device computation delay (600ms) for realistic feel
+        delay(600)
+        com.example.util.OnDeviceModelEngine.generateResponse(cleanQ, chapters, scores, subjectTimes)
       }
 
-      // 2. Save model answer to DB (with timestamp and mode)
-      val modelMsgTimestamp = System.currentTimeMillis() + 10 // ensure slightly later timestamp
-      repository.insertAiChatMessage(
-        com.example.data.model.AiChatMessageEntity(
+      // 3. Insert model response to local Room DB
+      repository.insertAiChat(
+        com.example.data.model.AiChatEntity(
           role = "model",
           text = responseText,
-          timestamp = modelMsgTimestamp,
-          modelMode = if (useCloud) "cloud" else "on_device"
+          timestamp = System.currentTimeMillis(),
+          isCloud = askCloud
         )
       )
 
       isAiLoading.value = false
+      refreshSuggestions()
     }
   }
 
   fun clearAiChat() {
     viewModelScope.launch {
-      repository.clearAllAiChatMessages()
+      repository.clearAiChatHistory()
+      refreshSuggestions()
     }
   }
 
@@ -965,8 +943,6 @@ class HabitViewModel @JvmOverloads constructor(
     flushActiveTimer()
     selectedDate.value = date
   }
-
-  fun setSelectedDate(date: String) = selectDate(date)
 
   fun goToPreviousDay() {
     flushActiveTimer()
@@ -1606,14 +1582,6 @@ class HabitViewModel @JvmOverloads constructor(
   }
 
   // Data Export & Import (Pure Android JSON)
-  suspend fun exportAllDataToJson(): String = exportDataToJson()
-
-  fun resetAllData() {
-    viewModelScope.launch {
-      repository.resetAllData()
-    }
-  }
-
   suspend fun exportDataToJson(): String {
     val root = org.json.JSONObject()
 

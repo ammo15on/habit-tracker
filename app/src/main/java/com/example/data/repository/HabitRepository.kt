@@ -91,24 +91,6 @@ class HabitRepository(private val dao: HabitDao) {
     }
   }
 
-  suspend fun setTimeSpent(taskId: Long, date: String, totalSeconds: Long) {
-    logMutex.withLock {
-      val existing = dao.getLog(taskId, date)
-      if (existing != null) {
-        val updated = existing.copy(timeSpentSeconds = totalSeconds)
-        dao.insertOrUpdateLog(updated)
-      } else {
-        val newLog = HabitTaskLog(
-          taskId = taskId,
-          date = date,
-          timeSpentSeconds = totalSeconds,
-          isCompleted = false
-        )
-        dao.insertOrUpdateLog(newLog)
-      }
-    }
-  }
-
   suspend fun toggleTaskComplete(taskId: Long, date: String) {
     logMutex.withLock {
       val existing = dao.getLog(taskId, date)
@@ -249,30 +231,6 @@ class HabitRepository(private val dao: HabitDao) {
 
   suspend fun deleteTaskPresetById(id: Long) = dao.deleteTaskPresetById(id)
 
-  // AI Chat Persistence
-  val allAiChatMessages: Flow<List<com.example.data.model.AiChatMessageEntity>> = dao.getAllAiChatMessages()
-
-  suspend fun insertAiChatMessage(msg: com.example.data.model.AiChatMessageEntity): Long {
-    return dao.insertAiChatMessage(msg)
-  }
-
-  suspend fun clearAllAiChatMessages() {
-    dao.clearAllAiChatMessages()
-  }
-
-  suspend fun resetAllData() {
-    dao.clearAllTasks()
-    dao.clearAllLogs()
-    dao.clearAllRatings()
-    dao.clearAllTestScores()
-    dao.clearAllPlannedTasks()
-    dao.clearAllPlanEvents()
-    dao.clearAllNeetChapters()
-    dao.clearAllNeetTallyCounters()
-    dao.clearAllTaskPresets()
-    dao.clearAllAiChatMessages()
-  }
-
   // Batch insert helpers for import
   suspend fun importData(
     tasks: List<HabitTask>,
@@ -295,4 +253,11 @@ class HabitRepository(private val dao: HabitDao) {
     if (counters.isNotEmpty()) dao.insertAllNeetTallyCounters(counters)
     if (presets.isNotEmpty()) dao.insertAllTaskPresets(presets)
   }
+
+  // AI Chat History
+  val allAiChats: Flow<List<com.example.data.model.AiChatEntity>> = dao.getAllAiChats()
+
+  suspend fun insertAiChat(chat: com.example.data.model.AiChatEntity): Long = dao.insertAiChat(chat)
+
+  suspend fun clearAiChatHistory() = dao.clearAiChatHistory()
 }
