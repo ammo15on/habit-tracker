@@ -948,6 +948,7 @@ class HabitViewModel(
   }
 
   fun buildStudyContext(): String {
+    val goal = appGoal.value
     val scores = allNeetScores.value
     val chapters = allNeetChapters.value
     val tallies = allNeetTallyCounters.value
@@ -966,6 +967,10 @@ class HabitViewModel(
 
     val sb = StringBuilder()
     sb.appendLine("=== STUDENT COMPREHENSIVE STUDY & TASKS PROFILE ===")
+    if (goal.title.isNotBlank()) {
+      sb.appendLine("• Target Exam/Goal: ${goal.title} | Exam Date: ${goal.examDate}")
+      sb.appendLine("• Daily Study Target: ${goal.dailyStudyHoursTarget} hours | Mantra: \"${goal.motivationQuote}\"")
+    }
 
     // 1. ACTIVE TASKS & HABITS
     sb.appendLine("\n--- Active Tasks & Habits (Total: ${tasks.size}) ---")
@@ -2037,6 +2042,19 @@ class HabitViewModel(
     val root = org.json.JSONObject(jsonString)
     var importedCount = 0
 
+    if (root.has("goal")) {
+      val g = root.getJSONObject("goal")
+      updateGoal(
+        AppGoal(
+          title = g.optString("title", ""),
+          examDate = g.optString("examDate", ""),
+          dailyStudyHoursTarget = g.optInt("dailyStudyHoursTarget", 10),
+          motivationQuote = g.optString("motivationQuote", "")
+        )
+      )
+      importedCount++
+    }
+
     val tasksList = mutableListOf<HabitTask>()
     if (root.has("tasks")) {
       val arr = root.getJSONArray("tasks")
@@ -2054,7 +2072,8 @@ class HabitViewModel(
             targetDates = o.optString("targetDates", "").takeIf { it.isNotBlank() },
             startDate = o.optString("startDate", "").takeIf { it.isNotBlank() },
             endDate = o.optString("endDate", "").takeIf { it.isNotBlank() },
-            noteText = o.optString("noteText", "")
+            noteText = o.optString("noteText", ""),
+            reminderTime = o.optString("reminderTime", "").takeIf { it.isNotBlank() }
           )
         )
       }
@@ -2095,10 +2114,10 @@ class HabitViewModel(
     }
 
     val scoresList = mutableListOf<NeetTestScore>()
-    if (root.has("scores")) {
-      val arr = root.getJSONArray("scores")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
+    val scoresArr = if (root.has("testScores")) root.getJSONArray("testScores") else if (root.has("scores")) root.getJSONArray("scores") else null
+    if (scoresArr != null) {
+      for (i in 0 until scoresArr.length()) {
+        val o = scoresArr.getJSONObject(i)
         scoresList.add(
           NeetTestScore(
             id = o.optLong("id", 0L),
@@ -2161,6 +2180,65 @@ class HabitViewModel(
       importedCount += eventsList.size
     }
 
+    val talliesList = mutableListOf<NeetTallyCounter>()
+    val talliesArr = if (root.has("tallies")) root.getJSONArray("tallies") else if (root.has("neetTallyCounters")) root.getJSONArray("neetTallyCounters") else null
+    if (talliesArr != null) {
+      for (i in 0 until talliesArr.length()) {
+        val o = talliesArr.getJSONObject(i)
+        talliesList.add(
+          NeetTallyCounter(
+            id = o.optLong("id", 0L),
+            title = o.optString("title", ""),
+            count = o.optInt("count", 0),
+            target = o.optInt("target", 0),
+            unit = o.optString("unit", "times")
+          )
+        )
+      }
+      importedCount += talliesList.size
+    }
+
+    val chaptersList = mutableListOf<NeetChapter>()
+    if (root.has("chapters")) {
+      val arr = root.getJSONArray("chapters")
+      for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        chaptersList.add(
+          NeetChapter(
+            id = o.optLong("id", 0L),
+            name = o.optString("name", ""),
+            subject = o.optString("subject", "Botany"),
+            isCompleted = o.optBoolean("isCompleted", false),
+            isPyqDone = o.optBoolean("isPyqDone", false),
+            isRevisionDone = o.optBoolean("isRevisionDone", false),
+            isExerciseDone = o.optBoolean("isExerciseDone", false),
+            isArDone = o.optBoolean("isArDone", false),
+            notes = o.optString("notes", "")
+          )
+        )
+      }
+      importedCount += chaptersList.size
+    }
+
+    val aiChatList = mutableListOf<com.example.data.model.AiChatEntity>()
+    val chatArr = if (root.has("aiChatHistory")) root.getJSONArray("aiChatHistory") else if (root.has("chats")) root.getJSONArray("chats") else null
+    if (chatArr != null) {
+      for (i in 0 until chatArr.length()) {
+        val o = chatArr.getJSONObject(i)
+        aiChatList.add(
+          com.example.data.model.AiChatEntity(
+            id = o.optLong("id", 0L),
+            role = o.optString("role", "user"),
+            text = o.optString("text", ""),
+            timestamp = o.optLong("timestamp", System.currentTimeMillis()),
+            isCloud = o.optBoolean("isCloud", false),
+            isPinned = o.optBoolean("isPinned", false)
+          )
+        )
+      }
+      importedCount += aiChatList.size
+    }
+
     repository.importData(
       tasks = tasksList,
       logs = logsList,
@@ -2168,10 +2246,12 @@ class HabitViewModel(
       scores = scoresList,
       plannedTasks = plannedList,
       events = eventsList,
-      chapters = emptyList(),
-      counters = emptyList()
+      chapters = chaptersList,
+      counters = talliesList,
+      aiChats = aiChatList
     )
 
+    notifyNeetWidgetUpdated()
     return importedCount
   }
 

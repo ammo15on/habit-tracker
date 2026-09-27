@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
@@ -850,6 +851,30 @@ private fun DataFullScreenPage(
   val coroutineScope = rememberCoroutineScope()
   var showResetConfirm by remember { mutableStateOf(false) }
   var statusMessage by remember { mutableStateOf("") }
+  var pendingImportJson by remember { mutableStateOf<String?>(null) }
+  var showImportConfirmDialog by remember { mutableStateOf(false) }
+  var showManualPasteDialog by remember { mutableStateOf(false) }
+  var manualPasteText by remember { mutableStateOf("") }
+
+  val filePickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.GetContent()
+  ) { uri: Uri? ->
+    if (uri != null) {
+      try {
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+          val content = stream.bufferedReader().use { it.readText() }
+          if (content.isNotBlank()) {
+            pendingImportJson = content
+            showImportConfirmDialog = true
+          } else {
+            statusMessage = "The selected file is empty."
+          }
+        }
+      } catch (e: Exception) {
+        statusMessage = "Failed to read file: ${e.localizedMessage}"
+      }
+    }
+  }
 
   // Selection states for granular export
   var exportGoals by remember { mutableStateOf(true) }
@@ -1059,6 +1084,82 @@ private fun DataFullScreenPage(
         }
       }
 
+      // Import Section
+      item {
+        Card(
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+          Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.FileUpload,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+              )
+              Spacer(modifier = Modifier.width(8.dp))
+              Text("Import & Restore Data", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+
+            Text(
+              "Restore your habits, study logs, goals, tallies, test marks, NEET chapters, and AI history from a JSON backup file or clipboard.",
+              fontSize = 13.sp,
+              color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+
+            // Button 1: File Picker (.json)
+            Button(
+              onClick = {
+                try {
+                  filePickerLauncher.launch("application/json")
+                } catch (e: Exception) {
+                  try {
+                    filePickerLauncher.launch("*/*")
+                  } catch (e2: Exception) {
+                    statusMessage = "Cannot open file picker: ${e2.localizedMessage}"
+                  }
+                }
+              },
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Select & Import JSON File")
+            }
+
+            // Button 2: Paste from Clipboard & Import
+            OutlinedButton(
+              onClick = {
+                val clipText = clipboardManager.getText()?.text.orEmpty().trim()
+                if (clipText.isBlank()) {
+                  statusMessage = "Clipboard is empty! Copy a valid backup JSON first."
+                } else if (!clipText.startsWith("{") || !clipText.endsWith("}")) {
+                  statusMessage = "Clipboard content does not appear to be valid JSON."
+                } else {
+                  pendingImportJson = clipText
+                  showImportConfirmDialog = true
+                }
+              },
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Paste from Clipboard & Import")
+            }
+
+            // Button 3: Manual JSON text input
+            TextButton(
+              onClick = { showManualPasteDialog = true },
+              modifier = Modifier.align(Alignment.End)
+            ) {
+              Text("Enter JSON Manually", fontSize = 12.sp)
+            }
+          }
+        }
+      }
+
       item {
         Card(
           shape = RoundedCornerShape(14.dp),
@@ -1130,6 +1231,135 @@ private fun DataFullScreenPage(
         },
         dismissButton = {
           TextButton(onClick = { showResetConfirm = false }) {
+            Text("Cancel")
+          }
+        }
+      )
+    }
+
+    if (showImportConfirmDialog && pendingImportJson != null) {
+      val json = pendingImportJson!!
+      val parsedSummary = remember(json) {
+        try {
+          val root = org.json.JSONObject(json)
+          val list = mutableListOf<String>()
+          if (root.has("goal")) list.add("🎯 1 Goal setting")
+          if (root.has("tasks")) list.add("⏱️ ${root.getJSONArray("tasks").length()} Habit tasks")
+          if (root.has("logs")) list.add("📝 ${root.getJSONArray("logs").length()} Study logs")
+          if (root.has("ratings")) list.add("😊 ${root.getJSONArray("ratings").length()} Day ratings")
+          if (root.has("testScores") || root.has("scores")) {
+            val arr = if (root.has("testScores")) root.getJSONArray("testScores") else root.getJSONArray("scores")
+            list.add("📊 ${arr.length()} Mock test scores")
+          }
+          if (root.has("plannedTasks")) list.add("📅 ${root.getJSONArray("plannedTasks").length()} Planned tasks")
+          if (root.has("events")) list.add("🗓️ ${root.getJSONArray("events").length()} Calendar events")
+          if (root.has("tallies") || root.has("neetTallyCounters")) {
+            val arr = if (root.has("tallies")) root.getJSONArray("tallies") else root.getJSONArray("neetTallyCounters")
+            list.add("🔢 ${arr.length()} Tally counters")
+          }
+          if (root.has("chapters")) list.add("📚 ${root.getJSONArray("chapters").length()} NEET chapters")
+          if (root.has("aiChatHistory") || root.has("chats")) {
+            val arr = if (root.has("aiChatHistory")) root.getJSONArray("aiChatHistory") else root.getJSONArray("chats")
+            list.add("💬 ${arr.length()} AI Chat records")
+          }
+          list
+        } catch (e: Exception) {
+          emptyList()
+        }
+      }
+
+      androidx.compose.material3.AlertDialog(
+        onDismissRequest = {
+          showImportConfirmDialog = false
+          pendingImportJson = null
+        },
+        title = { Text("Confirm Data Import", fontWeight = FontWeight.Bold) },
+        text = {
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (parsedSummary.isEmpty()) {
+              Text("Warning: The provided data is not recognized as a valid backup JSON format.", color = MaterialTheme.colorScheme.error)
+            } else {
+              Text("The following items were found in the backup:")
+              parsedSummary.forEach { itemText ->
+                Text("• $itemText", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+              }
+              Spacer(modifier = Modifier.height(4.dp))
+              Text(
+                "Importing will merge and update these records into your tracker.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            }
+          }
+        },
+        confirmButton = {
+          if (parsedSummary.isNotEmpty()) {
+            Button(
+              onClick = {
+                coroutineScope.launch {
+                  try {
+                    val count = viewModel.importDataFromJson(json)
+                    statusMessage = "Successfully imported $count items!"
+                  } catch (e: Exception) {
+                    statusMessage = "Import failed: ${e.localizedMessage}"
+                  }
+                  showImportConfirmDialog = false
+                  pendingImportJson = null
+                }
+              }
+            ) {
+              Text("Import Now")
+            }
+          }
+        },
+        dismissButton = {
+          TextButton(
+            onClick = {
+              showImportConfirmDialog = false
+              pendingImportJson = null
+            }
+          ) {
+            Text("Cancel")
+          }
+        }
+      )
+    }
+
+    if (showManualPasteDialog) {
+      androidx.compose.material3.AlertDialog(
+        onDismissRequest = { showManualPasteDialog = false },
+        title = { Text("Paste JSON Backup", fontWeight = FontWeight.Bold) },
+        text = {
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Paste exported JSON data text below:", fontSize = 12.sp)
+            OutlinedTextField(
+              value = manualPasteText,
+              onValueChange = { manualPasteText = it },
+              placeholder = { Text("{\n  \"version\": \"6.4\",\n  ...\n}", fontSize = 11.sp) },
+              modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+              textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+            )
+          }
+        },
+        confirmButton = {
+          Button(
+            onClick = {
+              val trimmed = manualPasteText.trim()
+              if (trimmed.isNotBlank()) {
+                pendingImportJson = trimmed
+                showManualPasteDialog = false
+                showImportConfirmDialog = true
+              }
+            },
+            enabled = manualPasteText.isNotBlank()
+          ) {
+            Text("Verify & Review")
+          }
+        },
+        dismissButton = {
+          TextButton(onClick = { showManualPasteDialog = false }) {
             Text("Cancel")
           }
         }

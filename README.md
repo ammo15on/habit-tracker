@@ -1,13 +1,15 @@
-# Habit & Study Tracker (Android) - v6.2
+# Habit & Study Tracker (Android) - v6.4
 
-A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widget, progressive AI study coaching, and productivity analytics.
+A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widget, deep-reasoning Cloud & On-Device AI study coaching, granular data import/export, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v6.2 & Version History)
+## 📱 Pre-Built APKs (v6.4 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v6.2 Latest Release**: [`apk/habit-tracker-v6.2.apk`](apk/habit-tracker-v6.2.apk)
+- **v6.4 Latest Release**: [`apk/habit-tracker-v6.4.apk`](apk/habit-tracker-v6.4.apk)
+- **v6.3 Release**: [`apk/habit-tracker-v6.3.apk`](apk/habit-tracker-v6.3.apk)
+- **v6.2 Release**: [`apk/habit-tracker-v6.2.apk`](apk/habit-tracker-v6.2.apk)
 - **v6.1 Release**: [`apk/habit-tracker-v6.1.apk`](apk/habit-tracker-v6.1.apk)
 - **v6.0 Release**: [`apk/habit-tracker-v6.apk`](apk/habit-tracker-v6.apk)
 - **v5.4 Release**: [`apk/habit-tracker-v5.4.apk`](apk/habit-tracker-v5.4.apk)
@@ -20,7 +22,38 @@ The compiled Android application packages are available directly in the reposito
 - **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `6.2` (Version Code 12)
+- **Version**: `6.4` (Version Code 14)
+
+---
+
+## 🚀 Release v6.4 - Deep-Reasoning Cloud AI (Zero Blabber), Comprehensive Data Import, Granular Export, Progressive Edge Drawer & Exercise/A&R Tracking
+
+### 1. High-Accuracy Deep-Reasoning Cloud AI & Zero Blabber
+- **Deep Reasoning Engine (`gemini-3.1-pro-preview`)**: Prioritizes rigorous scientific correctness, mathematical consistency, and deep problem analysis over raw speed, configured with high thinking levels and low temperature (`0.2`).
+- **Zero Conversational Blabber**: Strict system prompts and automated output sanitization completely remove conversational greetings ("Hello!", "Sure!"), filler phrases, and polite outro boilerplate. Answers begin directly with structured, factual, and actionable solutions.
+- **Seamless On-Device AI Mode**: Default offline model runs locally without demanding API keys, providing instant task audits, 7-day/30-day summaries, and NEET diagnostic plans.
+- **Deep Context Grounding**: Cloud AI automatically receives comprehensive student tracking context: exam goals, remaining days, daily hours target, 7-day and 30-day task completion rates, subject time dedication ratios, chapter syllabus status, and mock score averages.
+
+### 2. Comprehensive Data Import & Backup Restore
+- **Three Flexible Import Modes**:
+  - **File Picker**: Select `.json` backup files directly from device storage.
+  - **Clipboard Import**: Fast paste and instant JSON validation.
+  - **Manual JSON Entry**: Dedicated text dialog for inspecting or editing backup JSON before importing.
+- **Preview & Verification Dialog**: Summarizes detected item counts (Goals, Habits, Study Logs, Day Ratings, Mock Scores, Planned Tasks, Calendar Events, Tally Counters, NEET Chapters, and AI Chat History) before merging into Room DB.
+
+### 3. Granular Multi-Select Data Export
+- **Custom Selection Checkboxes**: Choose exactly which categories to export (Target Goals, Events & Planned Tasks, Habit Tasks & Logs, Tallies, Mock Test Scores, NEET Chapters, and AI Chats).
+- **Dual Export Actions**: Instant copy of selected JSON to clipboard or export via Android's native Share Sheet.
+
+### 4. Progressive Left-Edge Swipe Navigation Drawer
+- **Finger-Follow Gesture**: Smooth edge-drag gesture where the hamburger menu slides in pixel-by-pixel with the user's touch from the left screen edge.
+- **Spring Physics & Dynamic Scrim**: Menu snaps into place with fluid spring animations and progressive background dimming.
+
+### 5. NEET Chapter Exercises & Assertion & Reason (A&R) Tracking
+- **Complete Practice Matrix**: Added dedicated checkboxes for **Exercise** and **Assertion & Reason (A&R)** alongside **NCERT** and **PYQs** across all Botany, Zoology, Physics, and Chemistry chapters.
+
+### 6. AI Chat Message Pin & Multi-Delete
+- **Long-Press Selection Mode**: Long-press any chat bubble to enter selection mode to pin key strategy takeaways to the top or batch-delete messages.
 
 ---
 

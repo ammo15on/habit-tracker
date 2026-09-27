@@ -259,7 +259,8 @@ class HabitRepository(private val dao: HabitDao) {
     events: List<com.example.data.model.PlanEvent>,
     chapters: List<NeetChapter>,
     counters: List<NeetTallyCounter>,
-    presets: List<TaskPreset> = emptyList()
+    presets: List<TaskPreset> = emptyList(),
+    aiChats: List<com.example.data.model.AiChatEntity> = emptyList()
   ) {
     if (tasks.isNotEmpty()) dao.insertAllTasks(tasks)
     if (logs.isNotEmpty()) dao.insertAllLogs(logs)
@@ -270,6 +271,7 @@ class HabitRepository(private val dao: HabitDao) {
     if (chapters.isNotEmpty()) dao.insertAllNeetChapters(chapters)
     if (counters.isNotEmpty()) dao.insertAllNeetTallyCounters(counters)
     if (presets.isNotEmpty()) dao.insertAllTaskPresets(presets)
+    if (aiChats.isNotEmpty()) dao.insertAllAiChats(aiChats)
   }
 
   // AI Chat History

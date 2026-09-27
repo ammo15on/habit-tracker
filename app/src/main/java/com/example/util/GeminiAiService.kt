@@ -14,14 +14,15 @@ import java.util.concurrent.TimeUnit
 
 object GeminiAiService {
 
-  private const val MODEL_NAME = "gemini-3.5-flash"
-  private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/$MODEL_NAME:generateContent"
+  private const val PRIMARY_MODEL = "gemini-3.1-pro-preview"
+  private const val FALLBACK_MODEL = "gemini-3.5-flash"
+  private const val BASE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
 
   private val okHttpClient: OkHttpClient by lazy {
     OkHttpClient.Builder()
-      .connectTimeout(60, TimeUnit.SECONDS)
-      .readTimeout(60, TimeUnit.SECONDS)
-      .writeTimeout(60, TimeUnit.SECONDS)
+      .connectTimeout(90, TimeUnit.SECONDS)
+      .readTimeout(90, TimeUnit.SECONDS)
+      .writeTimeout(90, TimeUnit.SECONDS)
       .build()
   }
 
@@ -42,37 +43,77 @@ object GeminiAiService {
     }
 
     if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-      // Return note with Gemini cloud guidance or fallback
-      return@withContext "☁️ **Cloud (Gemini 3.5 Flash)**\n\nTo use real-time Cloud AI reasoning, add your GEMINI_API_KEY to AI Studio Secrets. Generating high-precision analysis via On-Device Engine:\n\n" + generateLocalNeetGuidance(userQuestion, systemStudyContext)
+      // Clean fallback directly to on-device engine without API key warning banner
+      return@withContext cleanResponse(generateLocalNeetGuidance(userQuestion, systemStudyContext))
     }
 
+    // Try Deep-Reasoning Pro model first for maximum correctness and relevance
+    val proResponse = executeGeminiRequest(
+      modelName = PRIMARY_MODEL,
+      apiKey = apiKey,
+      userQuestion = userQuestion,
+      systemStudyContext = systemStudyContext,
+      chatHistory = chatHistory,
+      enableDeepThinking = true
+    )
+
+    if (proResponse != null && proResponse.isNotBlank()) {
+      return@withContext cleanResponse(proResponse)
+    }
+
+    // Secondary fallback to flash model
+    val flashResponse = executeGeminiRequest(
+      modelName = FALLBACK_MODEL,
+      apiKey = apiKey,
+      userQuestion = userQuestion,
+      systemStudyContext = systemStudyContext,
+      chatHistory = chatHistory,
+      enableDeepThinking = false
+    )
+
+    if (flashResponse != null && flashResponse.isNotBlank()) {
+      return@withContext cleanResponse(flashResponse)
+    }
+
+    cleanResponse(generateLocalNeetGuidance(userQuestion, systemStudyContext))
+  }
+
+  private fun executeGeminiRequest(
+    modelName: String,
+    apiKey: String,
+    userQuestion: String,
+    systemStudyContext: String,
+    chatHistory: List<AiChatMessage>,
+    enableDeepThinking: Boolean
+  ): String? {
     try {
       val requestJson = JSONObject()
 
-      // System instruction for NEET Mentor role
+      // Precision System instruction for deep NEET Coach & Analytics AI
       val systemInstructionObj = JSONObject().apply {
         put("parts", JSONArray().apply {
           put(JSONObject().apply {
             put(
               "text",
               """
-              You are an expert NEET Exam Strategy Coach and Data Analytics AI.
+              You are an expert NEET Exam Strategy AI and Precision Analytics Engine.
+              Your highest priority is ACCURACY, FACTUAL RELEVANCE, and RIGOROUS PROBLEM ANALYSIS over speed.
               
               CRITICAL MANDATES:
-              1. DO NOT INCLUDE ANY BLABBER, FILLER, CONVERSATIONAL GREETINGS OR POLITE OUTROS.
-                 - NEVER start with "Hello", "Sure!", "As an AI", "I'd be glad to help".
-                 - NEVER end with "I hope this helps", "Good luck on your exam", "Let me know if you need more help".
-                 - Deliver ONLY the direct, crisp, structured answer immediately from the first character.
-              2. UNDERSTAND TASKS, HABITS & TIMELINES:
-                 - When asked for a weekly or monthly summary: analyze the student's task completion logs, streaks, missed tasks, total hours, and consistency ratings from their provided data.
-                 - When asked "what am I missing" or "what should I work on": identify neglected habits, chapters where Exercise or A&R or PYQ has NOT been solved, and lowest-scoring mock test subjects. Give a prioritized action plan.
-              3. NEET SYLLABUS & DELETED TOPICS (NMC/NTA 2026/2027):
-                 - Physics Deleted: Rolling motion detailed dynamics, Reynolds number, Heat engines & refrigerators, Damped oscillations, Doppler effect in acoustics, Van de Graaff, Colour code of resistors, Potentiometer, Cyclotron, Earth's magnetism elements & hysteresis, Logic gates & transistor amplifiers.
-                 - Chemistry Deleted: Solid State, Surface Chemistry, Metallurgy, Hydrogen, s-Block Elements, Polymers, Environmental Chemistry, Chemistry in Everyday Life, States of Matter.
-                 - Biology Deleted: Transport in Plants, Mineral Nutrition, Digestion and Absorption, Reproduction in Organisms, Strategies for Enhancement in Food Production.
-                 - Biology Additions: Plant families (Malvaceae, Cruciferae, Leguminosae, Compositae, Poaceae/Gramineae), Frog detailed morphology, Dengue & Chikungunya.
-              4. CHAPTER STUDY METHODOLOGIES:
-                 - Explain the exact roadmap: NCERT line-by-line -> In-chapter & back exercises -> 15-year PYQs -> Assertion & Reason (A&R) question practice -> Spaced Repetition (Days 1, 3, 7, 30).
+              1. ZERO CONVERSATIONAL BLABBER & FILLER:
+                 - NEVER begin with "Hello", "Sure", "Certainly", "As an AI", "Here is", "I'd be glad to help".
+                 - NEVER conclude with "Hope this helps", "Good luck with your prep", "Let me know if you need more help".
+                 - Output ONLY the direct, crisp, structured answer immediately from character 1.
+              2. DIRECT RELEVANCE TO USER'S QUERY:
+                 - Answer EXACTLY what the user asks. If the question is about Physics/Chemistry/Biology, provide step-by-step NCERT-verified reasoning.
+                 - If asked for an analysis of tasks, weekly/monthly hours, or missed chapters, calculate and cite the exact numbers from the student tracking profile.
+              3. NEET SYLLABUS & SCIENTIFIC ACCURACY (NMC/NTA 2026/2027):
+                 - Physics Deleted: Rolling motion dynamics, Reynolds number, Heat engines/refrigerators, Damped oscillations, Doppler effect, Van de Graaff, Colour code of resistors, Potentiometer, Cyclotron, Earth's magnetism elements/hysteresis, Logic gates & transistor amplifiers.
+                 - Chemistry Deleted: Solid State, Surface Chemistry, Metallurgy, Hydrogen, s-Block, Polymers, Environmental Chem, Chem in Everyday Life, States of Matter.
+                 - Biology Deleted: Transport in Plants, Mineral Nutrition, Digestion and Absorption, Reproduction in Organisms, Strategies for Enhancement.
+                 - Biology Additions: Plant families (Malvaceae, Cruciferae, Leguminosae, Compositae, Poaceae), Frog morphology, Dengue & Chikungunya.
+              4. CONCISE & STRUCTURED FORMAT:
+                 - Use clear markdown bullet points, bold key terms, and bulleted takeaways.
               
               Student Profile & Real-Time Tracking Data:
               $systemStudyContext
@@ -86,7 +127,7 @@ object GeminiAiService {
       // Conversation contents
       val contentsArray = JSONArray()
 
-      // Add recent relevant history (max 6 turns to keep context fast)
+      // Add recent relevant history (max 6 turns to keep context clean)
       val recentHistory = chatHistory.takeLast(6)
       for (msg in recentHistory) {
         val role = if (msg.role == "user") "user" else "model"
@@ -99,7 +140,7 @@ object GeminiAiService {
         contentsArray.put(contentObj)
       }
 
-      // Add current user prompt
+      // Current prompt
       val currentContentObj = JSONObject().apply {
         put("role", "user")
         put("parts", JSONArray().apply {
@@ -110,18 +151,24 @@ object GeminiAiService {
 
       requestJson.put("contents", contentsArray)
 
-      // Generation config
+      // Generation config tuned for rigorous correctness
       val generationConfig = JSONObject().apply {
-        put("temperature", 0.7)
-        put("topP", 0.95)
+        put("temperature", 0.2) // Low temperature for high factual accuracy
+        put("topP", 0.85)
         put("topK", 40)
+        if (enableDeepThinking) {
+          val thinkingConfig = JSONObject().apply {
+            put("thinkingLevel", "high")
+          }
+          put("thinkingConfig", thinkingConfig)
+        }
       }
       requestJson.put("generationConfig", generationConfig)
 
       val mediaType = "application/json; charset=utf-8".toMediaType()
       val body = requestJson.toString().toRequestBody(mediaType)
 
-      val url = "$BASE_URL?key=$apiKey"
+      val url = "$BASE_ENDPOINT/$modelName:generateContent?key=$apiKey"
       val request = Request.Builder()
         .url(url)
         .post(body)
@@ -131,13 +178,7 @@ object GeminiAiService {
       val responseBodyString = response.body?.string().orEmpty()
 
       if (!response.isSuccessful) {
-        val errorMsg = try {
-          val errorJson = JSONObject(responseBodyString)
-          errorJson.optJSONObject("error")?.optString("message") ?: "HTTP ${response.code}"
-        } catch (e: Exception) {
-          "HTTP ${response.code}"
-        }
-        return@withContext "☁️ **Cloud Notice** ($errorMsg)\n\n" + generateLocalNeetGuidance(userQuestion, systemStudyContext)
+        return null
       }
 
       val jsonResponse = JSONObject(responseBodyString)
@@ -147,17 +188,44 @@ object GeminiAiService {
         val content = firstCandidate.optJSONObject("content")
         val parts = content?.optJSONArray("parts")
         if (parts != null && parts.length() > 0) {
-          val responseText = parts.getJSONObject(0).optString("text")
-          if (responseText.isNotBlank()) {
-            return@withContext responseText
+          for (pIdx in 0 until parts.length()) {
+            val text = parts.getJSONObject(pIdx).optString("text")
+            if (text.isNotBlank()) {
+              return text
+            }
           }
         }
       }
-
-      generateLocalNeetGuidance(userQuestion, systemStudyContext)
-    } catch (e: Exception) {
-      "☁️ **Cloud Connection Notice**: ${e.localizedMessage ?: "Network unreachable"}\n\n" + generateLocalNeetGuidance(userQuestion, systemStudyContext)
+      return null
+    } catch (_: Exception) {
+      return null
     }
+  }
+
+  fun cleanResponse(text: String): String {
+    var cleaned = text.trim()
+    val blabberPrefixes = listOf(
+      "Hello!", "Hello,", "Hello", "Hi there!", "Hi!", "Sure!", "Sure,", "Certainly!", "Certainly,", "Of course!", 
+      "As an AI,", "As a NEET coach,", "Here is your answer:", "Here is the summary:", "Here is the breakdown:",
+      "Great question!", "I'd be glad to help.", "I would be happy to help."
+    )
+    for (prefix in blabberPrefixes) {
+      if (cleaned.startsWith(prefix, ignoreCase = true)) {
+        cleaned = cleaned.substring(prefix.length).trimStart('\n', ' ', ':', '-')
+      }
+    }
+
+    val blabberSuffixes = listOf(
+      "Hope this helps!", "Hope this helps.", "Good luck on your NEET exam!", "Good luck with your preparation!",
+      "Best of luck for NEET!", "Let me know if you need any more help.", "Let me know if you have any questions!",
+      "Feel free to ask if you need further clarification."
+    )
+    for (suffix in blabberSuffixes) {
+      if (cleaned.endsWith(suffix, ignoreCase = true)) {
+        cleaned = cleaned.substring(0, cleaned.length - suffix.length).trimEnd('\n', ' ', '.')
+      }
+    }
+    return cleaned.trim()
   }
 
   /**

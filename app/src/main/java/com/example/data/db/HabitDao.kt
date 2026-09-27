@@ -216,6 +216,9 @@ interface HabitDao {
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertAiChat(chat: com.example.data.model.AiChatEntity): Long
 
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllAiChats(chats: List<com.example.data.model.AiChatEntity>)
+
   @Query("UPDATE ai_chat_history SET isPinned = :isPinned WHERE id = :id")
   suspend fun updateAiChatPin(id: Long, isPinned: Boolean)
 
