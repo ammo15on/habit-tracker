@@ -42,6 +42,15 @@ class GoalPreferences(context: Context) {
     _goal.value = newGoal
   }
 
+  fun setGoal(title: String, targetDate: String) {
+    val current = _goal.value
+    updateGoal(current.copy(title = title, examDate = targetDate))
+  }
+
+  fun clearGoal() {
+    updateGoal(AppGoal(title = "", examDate = "", dailyStudyHoursTarget = 0, motivationQuote = ""))
+  }
+
   companion object {
     private const val KEY_TITLE = "key_goal_title"
     private const val KEY_EXAM_DATE = "key_goal_exam_date"

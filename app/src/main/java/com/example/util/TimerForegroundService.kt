@@ -10,26 +10,63 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 
 class TimerForegroundService : Service() {
 
+  private var wakeLock: PowerManager.WakeLock? = null
+
   override fun onBind(intent: Intent?): IBinder? = null
+
+  override fun onCreate() {
+    super.onCreate()
+    try {
+      val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+      wakeLock = powerManager?.newWakeLock(
+        PowerManager.PARTIAL_WAKE_LOCK,
+        "HabitTracker:TimerWakeLock"
+      )?.apply {
+        setReferenceCounted(false)
+        acquire(3 * 60 * 60 * 1000L) // Safe max timeout of 3 hours
+      }
+    } catch (_: Exception) {}
+  }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     val action = intent?.action
-    if (action == ACTION_STOP_SERVICE) {
-      stopForeground(STOP_FOREGROUND_REMOVE)
-      stopSelf()
-      return START_NOT_STICKY
+
+    when (action) {
+      ACTION_STOP_SERVICE -> {
+        releaseWakeLock()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+        return START_NOT_STICKY
+      }
+      ACTION_PAUSE -> {
+        TimerManager.pauseTimer()
+        return START_STICKY
+      }
+      ACTION_RESUME -> {
+        TimerManager.resumeTimer()
+        return START_STICKY
+      }
+      ACTION_STOP -> {
+        TimerManager.stopTimer()
+        releaseWakeLock()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+        return START_NOT_STICKY
+      }
     }
 
     val taskName = intent?.getStringExtra(EXTRA_TASK_NAME) ?: "Active Habit Timer"
     val elapsedSeconds = intent?.getLongExtra(EXTRA_ELAPSED_SECONDS, 0L) ?: 0L
+    val isPaused = intent?.getBooleanExtra(EXTRA_IS_PAUSED, false) ?: false
 
     createNotificationChannel()
-    val notification = buildNotification(taskName, elapsedSeconds)
+    val notification = buildNotification(taskName, elapsedSeconds, isPaused)
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       startForeground(
@@ -44,22 +81,36 @@ class TimerForegroundService : Service() {
     return START_STICKY
   }
 
+  override fun onDestroy() {
+    releaseWakeLock()
+    super.onDestroy()
+  }
+
+  private fun releaseWakeLock() {
+    try {
+      if (wakeLock?.isHeld == true) {
+        wakeLock?.release()
+      }
+    } catch (_: Exception) {}
+  }
+
   private fun createNotificationChannel() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val channel = NotificationChannel(
         CHANNEL_ID,
-        "Active Study Timer",
+        "Background Habit Tracking",
         NotificationManager.IMPORTANCE_LOW
       ).apply {
-        description = "Displays running study & habit timer in notification tray"
+        description = "Shows live background timer and focus sessions with quick controls"
         setShowBadge(false)
+        enableVibration(false)
       }
       val manager = getSystemService(NotificationManager::class.java)
       manager?.createNotificationChannel(channel)
     }
   }
 
-  private fun buildNotification(taskName: String, elapsedSeconds: Long): Notification {
+  private fun buildNotification(taskName: String, elapsedSeconds: Long, isPaused: Boolean): Notification {
     val formatted = DateUtils.formatTime(elapsedSeconds)
 
     val openIntent = Intent(this, MainActivity::class.java).apply {
@@ -72,13 +123,66 @@ class TimerForegroundService : Service() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
+    // Pause / Resume Intent
+    val toggleAction = if (isPaused) {
+      val resumeIntent = Intent(this, TimerForegroundService::class.java).apply {
+        action = ACTION_RESUME
+      }
+      val resumePendingIntent = PendingIntent.getService(
+        this,
+        1,
+        resumeIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+      NotificationCompat.Action.Builder(
+        android.R.drawable.ic_media_play,
+        "Resume",
+        resumePendingIntent
+      ).build()
+    } else {
+      val pauseIntent = Intent(this, TimerForegroundService::class.java).apply {
+        action = ACTION_PAUSE
+      }
+      val pausePendingIntent = PendingIntent.getService(
+        this,
+        2,
+        pauseIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+      NotificationCompat.Action.Builder(
+        android.R.drawable.ic_media_pause,
+        "Pause",
+        pausePendingIntent
+      ).build()
+    }
+
+    // Stop & Save Intent
+    val stopIntent = Intent(this, TimerForegroundService::class.java).apply {
+      action = ACTION_STOP
+    }
+    val stopPendingIntent = PendingIntent.getService(
+      this,
+      3,
+      stopIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    val stopAction = NotificationCompat.Action.Builder(
+      android.R.drawable.ic_menu_save,
+      "Stop & Save",
+      stopPendingIntent
+    ).build()
+
+    val statusText = if (isPaused) "Paused • Background Tracking Ready" else "Tracking in background"
+
     return NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.ic_media_play)
       .setContentTitle("⏱ $taskName: $formatted")
-      .setContentText("Focus session in progress")
+      .setContentText(statusText)
       .setContentIntent(openPendingIntent)
-      .setOngoing(true)
+      .setOngoing(!isPaused)
       .setOnlyAlertOnce(true)
+      .addAction(toggleAction)
+      .addAction(stopAction)
       .build()
   }
 
@@ -86,13 +190,19 @@ class TimerForegroundService : Service() {
     const val CHANNEL_ID = "habit_active_timer_channel"
     const val NOTIFICATION_ID = 2001
     const val ACTION_STOP_SERVICE = "com.example.ACTION_STOP_TIMER_SERVICE"
+    const val ACTION_PAUSE = "com.example.ACTION_PAUSE_TIMER"
+    const val ACTION_RESUME = "com.example.ACTION_RESUME_TIMER"
+    const val ACTION_STOP = "com.example.ACTION_STOP_TIMER"
+
     const val EXTRA_TASK_NAME = "extra_task_name"
     const val EXTRA_ELAPSED_SECONDS = "extra_elapsed_seconds"
+    const val EXTRA_IS_PAUSED = "extra_is_paused"
 
-    fun start(context: Context, taskName: String, elapsedSeconds: Long) {
+    fun start(context: Context, taskName: String, elapsedSeconds: Long, isPaused: Boolean = false) {
       val intent = Intent(context, TimerForegroundService::class.java).apply {
         putExtra(EXTRA_TASK_NAME, taskName)
         putExtra(EXTRA_ELAPSED_SECONDS, elapsedSeconds)
+        putExtra(EXTRA_IS_PAUSED, isPaused)
       }
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         context.startForegroundService(intent)

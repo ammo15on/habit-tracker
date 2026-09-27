@@ -15,14 +15,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -159,6 +154,7 @@ fun DetailScreen(
   val aiSuggestions by viewModel.dynamicAiSuggestions.collectAsStateWithLifecycle()
   val aiChatDraft by viewModel.aiChatDraft.collectAsStateWithLifecycle()
 
+  var showHamburgerMenu by remember { mutableStateOf(false) }
   var selectedDateForTasks by remember { mutableStateOf<String?>(null) }
   val dayTasks by remember(selectedDateForTasks, daysAnalytics) {
     derivedStateOf {
@@ -192,16 +188,11 @@ fun DetailScreen(
     }
   }
 
-  var isTopBarVisible by remember { mutableStateOf(true) }
+  val isBarsVisible by viewModel.isBarsVisible.collectAsStateWithLifecycle()
   val nestedScrollConnection = remember {
     object : NestedScrollConnection {
       override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        val delta = available.y
-        if (delta < -12f && isTopBarVisible) {
-          isTopBarVisible = false
-        } else if (delta > 12f && !isTopBarVisible) {
-          isTopBarVisible = true
-        }
+        viewModel.onScrollDelta(available.y)
         return Offset.Zero
       }
     }
@@ -215,7 +206,7 @@ fun DetailScreen(
   ) {
     // Top Bar & Tab Row - Automatically hides when scrolling down for more screen space!
     AnimatedVisibility(
-      visible = isTopBarVisible,
+      visible = isBarsVisible,
       enter = expandVertically() + fadeIn(),
       exit = shrinkVertically() + fadeOut()
     ) {
@@ -233,7 +224,7 @@ fun DetailScreen(
           IconButton(
             onClick = {
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              viewModel.openHamburger()
+              showHamburgerMenu = true
             },
             modifier = Modifier
               .size(40.dp)
@@ -377,14 +368,6 @@ fun DetailScreen(
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
               viewModel.toggleChapterRevision(it)
             },
-            onToggleChapterExercise = {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              viewModel.toggleChapterExercise(it)
-            },
-            onToggleChapterAr = {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              viewModel.toggleChapterAr(it)
-            },
             onAddChapterClick = { showAddChapterDialog = true },
             onEditChapterClick = { chapterToEdit = it },
             onDeleteChapterClick = { viewModel.deleteNeetChapter(it) },
@@ -420,13 +403,19 @@ fun DetailScreen(
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
               viewModel.sendAiQuestion(question, askCloud)
             },
-            onPinMessages = { ids, pin -> viewModel.pinAiChats(ids, pin) },
-            onDeleteMessages = { viewModel.deleteAiChats(it) },
             onClearChat = { viewModel.clearAiChat() }
           )
         }
       }
     }
+  }
+
+  // Full Screen Hamburger Menu Dialog
+  if (showHamburgerMenu) {
+    HamburgerMenuDialog(
+      viewModel = viewModel,
+      onDismiss = { showHamburgerMenu = false }
+    )
   }
 
   // Completed Tasks for Selected Day Dialog
@@ -458,15 +447,13 @@ fun DetailScreen(
     AddEditChapterDialog(
       chapter = null,
       onDismiss = { showAddChapterDialog = false },
-      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, notes ->
+      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, notes ->
         viewModel.addNeetChapter(
           name = name,
           subject = subject,
           isCompleted = isCompleted,
           isPyqDone = isPyqDone,
           isRevisionDone = isRevisionDone,
-          isExerciseDone = isExerciseDone,
-          isArDone = isArDone,
           notes = notes
         )
         showAddChapterDialog = false
@@ -479,7 +466,7 @@ fun DetailScreen(
     AddEditChapterDialog(
       chapter = chapter,
       onDismiss = { chapterToEdit = null },
-      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, notes ->
+      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, notes ->
         viewModel.updateNeetChapter(
           chapter.copy(
             name = name,
@@ -487,8 +474,6 @@ fun DetailScreen(
             isCompleted = isCompleted,
             isPyqDone = isPyqDone,
             isRevisionDone = isRevisionDone,
-            isExerciseDone = isExerciseDone,
-            isArDone = isArDone,
             notes = notes
           )
         )
@@ -598,13 +583,10 @@ private fun AnalyticsSectionView(
   draftText: String,
   onDraftChange: (String) -> Unit,
   onSendQuestion: (String, Boolean) -> Unit,
-  onPinMessages: (List<Long>, Boolean) -> Unit = { _, _ -> },
-  onDeleteMessages: (List<Long>) -> Unit = {},
   onClearChat: () -> Unit
 ) {
   val haptic = LocalHapticFeedback.current
   var userInputText by remember(draftText) { mutableStateOf(draftText) }
-  var selectedChatIds by remember { mutableStateOf(emptySet<Long>()) }
   val listState = rememberLazyListState()
 
   val totalChapters = chapters.size
@@ -998,170 +980,39 @@ private fun AnalyticsSectionView(
         }
       }
 
-      // 6. AI STUDY COACH (Focused, Clean, with Long-Press Multi-Select to Pin & Delete)
+      // 6. AI STUDY COACH (Focused, Clean, NO "what to ask AI" suggestion chips!)
       item(key = "ai_coach_header") {
-        Column(modifier = Modifier.fillMaxWidth()) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(
-                imageVector = Icons.Default.AutoAwesome,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-              )
-              Spacer(modifier = Modifier.width(6.dp))
-              Text(
-                text = "AI Study Assistant",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-              )
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              if (chatMessages.any { it.isPinned }) {
-                Box(
-                  modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFFEAB308).copy(alpha = 0.15f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                  Text(
-                    "📌 ${chatMessages.count { it.isPinned }} Pinned",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFEAB308)
-                  )
-                }
-                Spacer(modifier = Modifier.width(6.dp))
-              }
-
-              if (chatMessages.isNotEmpty()) {
-                IconButton(onClick = onClearChat, modifier = Modifier.size(26.dp)) {
-                  Icon(Icons.Default.Refresh, contentDescription = "Clear Chat", modifier = Modifier.size(16.dp))
-                }
-              }
-            }
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+              imageVector = Icons.Default.AutoAwesome,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+              text = "AI Study Assistant",
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+              color = MaterialTheme.colorScheme.onSurface
+            )
           }
 
-          // Long Press Selection Action Toolbar
-          AnimatedVisibility(
-            visible = selectedChatIds.isNotEmpty(),
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-          ) {
-            Card(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-              shape = RoundedCornerShape(12.dp),
-              colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.90f)
-              )
-            ) {
-              Row(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-              ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  IconButton(
-                    onClick = { selectedChatIds = emptySet() },
-                    modifier = Modifier.size(28.dp)
-                  ) {
-                    Icon(Icons.Default.Close, contentDescription = "Cancel", modifier = Modifier.size(16.dp))
-                  }
-                  Spacer(modifier = Modifier.width(4.dp))
-                  Text(
-                    text = "${selectedChatIds.size} selected",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                  )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                  val selectable = chatMessages.filter { it.id > 0 }
-                  val allSelected = selectedChatIds.size == selectable.size && selectable.isNotEmpty()
-                  TextButton(
-                    onClick = {
-                      selectedChatIds = if (allSelected) emptySet() else selectable.map { it.id }.toSet()
-                    },
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                  ) {
-                    Text(if (allSelected) "None" else "All", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                  }
-
-                  val anyUnpinned = selectedChatIds.any { id -> chatMessages.find { it.id == id }?.isPinned != true }
-                  IconButton(
-                    onClick = {
-                      haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                      onPinMessages(selectedChatIds.toList(), anyUnpinned)
-                      selectedChatIds = emptySet()
-                    },
-                    modifier = Modifier.size(32.dp)
-                  ) {
-                    Icon(
-                      imageVector = if (anyUnpinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
-                      contentDescription = if (anyUnpinned) "Pin" else "Unpin",
-                      tint = MaterialTheme.colorScheme.primary,
-                      modifier = Modifier.size(18.dp)
-                    )
-                  }
-
-                  IconButton(
-                    onClick = {
-                      haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                      onDeleteMessages(selectedChatIds.toList())
-                      selectedChatIds = emptySet()
-                    },
-                    modifier = Modifier.size(32.dp)
-                  ) {
-                    Icon(
-                      imageVector = Icons.Default.Delete,
-                      contentDescription = "Delete",
-                      tint = MaterialTheme.colorScheme.error,
-                      modifier = Modifier.size(18.dp)
-                    )
-                  }
-                }
-              }
+          if (chatMessages.isNotEmpty()) {
+            IconButton(onClick = onClearChat, modifier = Modifier.size(26.dp)) {
+              Icon(Icons.Default.Refresh, contentDescription = "Clear Chat", modifier = Modifier.size(16.dp))
             }
           }
         }
       }
 
-      // Chat Messages History (Tap & Hold to select, pin, or delete)
-      items(chatMessages, key = { if (it.id > 0) it.id else it.timestamp }) { message ->
-        ChatMessageBubble(
-          message = message,
-          isSelected = selectedChatIds.contains(message.id),
-          isInSelectionMode = selectedChatIds.isNotEmpty(),
-          onLongClick = {
-            if (message.id > 0) {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              selectedChatIds = if (selectedChatIds.contains(message.id)) {
-                selectedChatIds - message.id
-              } else {
-                selectedChatIds + message.id
-              }
-            }
-          },
-          onClick = {
-            if (selectedChatIds.isNotEmpty() && message.id > 0) {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              selectedChatIds = if (selectedChatIds.contains(message.id)) {
-                selectedChatIds - message.id
-              } else {
-                selectedChatIds + message.id
-              }
-            }
-          }
-        )
+      // Chat Messages History
+      items(chatMessages) { message ->
+        ChatMessageBubble(message = message)
       }
 
       // Loading Spinner
@@ -1404,15 +1255,8 @@ private fun AnalyticsSectionView(
   }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChatMessageBubble(
-  message: AiChatMessage,
-  isSelected: Boolean = false,
-  isInSelectionMode: Boolean = false,
-  onLongClick: () -> Unit = {},
-  onClick: () -> Unit = {}
-) {
+private fun ChatMessageBubble(message: AiChatMessage) {
   val isUser = message.role == "user"
   val formattedTime = remember(message.timestamp) {
     if (message.timestamp == 0L) {
@@ -1428,24 +1272,9 @@ private fun ChatMessageBubble(
   }
 
   Row(
-    modifier = Modifier
-      .fillMaxWidth()
-      .combinedClickable(
-        onLongClick = onLongClick,
-        onClick = onClick
-      )
-      .padding(vertical = 3.dp),
-    horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-    verticalAlignment = Alignment.CenterVertically
+    modifier = Modifier.fillMaxWidth(),
+    horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
   ) {
-    if (isInSelectionMode && message.id > 0) {
-      Checkbox(
-        checked = isSelected,
-        onCheckedChange = { onClick() },
-        modifier = Modifier.padding(end = 4.dp)
-      )
-    }
-
     if (!isUser) {
       Box(
         modifier = Modifier
@@ -1473,84 +1302,32 @@ private fun ChatMessageBubble(
         bottomEnd = if (isUser) 4.dp else 16.dp
       ),
       colors = CardDefaults.cardColors(
-        containerColor = when {
-          isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
-          isUser -> MaterialTheme.colorScheme.primary
-          else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        }
+        containerColor = if (isUser) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
       ),
-      border = when {
-        isSelected -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        message.isPinned -> BorderStroke(1.5.dp, Color(0xFFEAB308).copy(alpha = 0.85f))
-        !isUser -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        else -> null
-      }
+      border = if (!isUser) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)) else null
     ) {
       Column(modifier = Modifier.padding(12.dp)) {
-        if (message.isPinned) {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 6.dp)
-          ) {
-            Icon(
-              imageVector = Icons.Default.PushPin,
-              contentDescription = "Pinned",
-              tint = Color(0xFFEAB308),
-              modifier = Modifier.size(12.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-              text = "PINNED",
-              style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFEAB308)
-              )
-            )
-          }
-        }
-
         Text(
           text = message.text,
           style = MaterialTheme.typography.bodyMedium.copy(
             lineHeight = 20.sp,
             fontSize = 13.sp
           ),
-          color = when {
-            isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-            isUser -> MaterialTheme.colorScheme.onPrimary
-            else -> MaterialTheme.colorScheme.onSurface
-          }
+          color = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         )
-
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          if (!isUser) {
-            Text(
-              text = if (message.modelMode == "cloud") "☁️ Cloud" else "💻 On-Device",
-              style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            )
-          } else {
-            Spacer(modifier = Modifier.weight(1f))
-          }
-
-          if (formattedTime.isNotEmpty()) {
-            Text(
-              text = formattedTime,
-              style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Normal
-              ),
-              color = if (isUser && !isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.65f)
-                      else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-          }
+        if (formattedTime.isNotEmpty()) {
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = formattedTime,
+            style = MaterialTheme.typography.labelSmall.copy(
+              fontSize = 9.sp,
+              fontWeight = FontWeight.Normal
+            ),
+            color = if (isUser) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.65f)
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.align(Alignment.End)
+          )
         }
       }
     }

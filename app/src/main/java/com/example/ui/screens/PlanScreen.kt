@@ -62,8 +62,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -71,6 +75,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.example.data.model.EventSubtask
 import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
@@ -108,92 +114,120 @@ fun PlanScreen(
 
   val haptic = LocalHapticFeedback.current
 
+  val isBarsVisible by viewModel.isBarsVisible.collectAsStateWithLifecycle()
+  val lazyListState = rememberLazyListState()
+
+  val nestedScrollConnection = remember {
+    object : NestedScrollConnection {
+      override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        viewModel.onScrollDelta(available.y)
+        return Offset.Zero
+      }
+    }
+  }
+
+  LaunchedEffect(lazyListState.firstVisibleItemIndex, lazyListState.firstVisibleItemScrollOffset) {
+    if (lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0) {
+      viewModel.setBarsVisible(true)
+    }
+  }
+
   Box(modifier = modifier.fillMaxSize().background(Color.Transparent)) {
     LazyColumn(
+      state = lazyListState,
       modifier = Modifier
         .fillMaxSize()
+        .nestedScroll(nestedScrollConnection)
         .padding(horizontal = 16.dp),
       contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp),
       verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
       // Top Heading - Events Section with transparent background
       item {
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Transparent)
-            .padding(vertical = 4.dp),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-              onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                viewModel.openHamburgerMenu()
-              },
+        Column {
+          AnimatedVisibility(
+            visible = isBarsVisible,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+          ) {
+            Row(
               modifier = Modifier
-                .size(40.dp)
-                .testTag("btn_plan_hamburger")
+                .fillMaxWidth()
+                .background(Color.Transparent)
+                .padding(vertical = 4.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
             ) {
-              Icon(
-                imageVector = Icons.Default.Menu,
-                contentDescription = "Open Settings & Hub",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(24.dp)
-              )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-              imageVector = Icons.Default.Event,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-              text = "Events",
-              style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-              color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Box(
-              modifier = Modifier
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .padding(horizontal = 7.dp, vertical = 2.dp)
-            ) {
-              Text(
-                text = "${planEvents.size}",
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = FontWeight.Bold,
-                  color = MaterialTheme.colorScheme.onPrimaryContainer
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                  onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.openHamburgerMenu()
+                  },
+                  modifier = Modifier
+                    .size(40.dp)
+                    .testTag("btn_plan_hamburger")
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = "Open Settings & Hub",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(24.dp)
+                  )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                  imageVector = Icons.Default.Event,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(22.dp)
                 )
-              )
-            }
-          }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                  text = "Events",
+                  style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                  color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Box(
+                  modifier = Modifier
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                ) {
+                  Text(
+                    text = "${planEvents.size}",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                  )
+                }
+              }
 
-          Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(
-              onClick = { showGoalDialog = true },
-              shape = RoundedCornerShape(10.dp),
-              contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-              modifier = Modifier.testTag("btn_plan_goal")
-            ) {
-              Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-              Spacer(modifier = Modifier.width(4.dp))
-              Text(if (goal != null) "🎯 Goal" else "+ Set Goal", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
+              Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                  onClick = { showGoalDialog = true },
+                  shape = RoundedCornerShape(10.dp),
+                  contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                  modifier = Modifier.testTag("btn_plan_goal")
+                ) {
+                  Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text(if (goal != null) "🎯 Goal" else "+ Set Goal", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
 
-            OutlinedButton(
-              onClick = { showAddEventDialog = true },
-              shape = RoundedCornerShape(10.dp),
-              contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-              modifier = Modifier.testTag("btn_add_event")
-            ) {
-              Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("+ Add Event", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                OutlinedButton(
+                  onClick = { showAddEventDialog = true },
+                  shape = RoundedCornerShape(10.dp),
+                  contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                  modifier = Modifier.testTag("btn_add_event")
+                ) {
+                  Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text("+ Add Event", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+              }
             }
           }
         }

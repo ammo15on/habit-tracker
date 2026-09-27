@@ -70,24 +70,6 @@ class HabitRepository(private val dao: HabitDao) {
 
   private val logMutex = kotlinx.coroutines.sync.Mutex()
 
-  suspend fun setTimeSpent(taskId: Long, date: String, totalSeconds: Long) {
-    logMutex.withLock {
-      val existing = dao.getLog(taskId, date)
-      if (existing != null) {
-        val updated = existing.copy(timeSpentSeconds = totalSeconds)
-        dao.insertOrUpdateLog(updated)
-      } else {
-        val newLog = HabitTaskLog(
-          taskId = taskId,
-          date = date,
-          timeSpentSeconds = totalSeconds,
-          isCompleted = false
-        )
-        dao.insertOrUpdateLog(newLog)
-      }
-    }
-  }
-
   suspend fun addTimeToTask(taskId: Long, date: String, additionalSeconds: Long) {
     if (additionalSeconds <= 0L) return
     logMutex.withLock {
@@ -102,6 +84,24 @@ class HabitRepository(private val dao: HabitDao) {
           taskId = taskId,
           date = date,
           timeSpentSeconds = additionalSeconds,
+          isCompleted = false
+        )
+        dao.insertOrUpdateLog(newLog)
+      }
+    }
+  }
+
+  suspend fun setTimeSpent(taskId: Long, date: String, totalSeconds: Long) {
+    logMutex.withLock {
+      val existing = dao.getLog(taskId, date)
+      if (existing != null) {
+        val updated = existing.copy(timeSpentSeconds = totalSeconds)
+        dao.insertOrUpdateLog(updated)
+      } else {
+        val newLog = HabitTaskLog(
+          taskId = taskId,
+          date = date,
+          timeSpentSeconds = totalSeconds,
           isCompleted = false
         )
         dao.insertOrUpdateLog(newLog)
@@ -259,8 +259,7 @@ class HabitRepository(private val dao: HabitDao) {
     events: List<com.example.data.model.PlanEvent>,
     chapters: List<NeetChapter>,
     counters: List<NeetTallyCounter>,
-    presets: List<TaskPreset> = emptyList(),
-    aiChats: List<com.example.data.model.AiChatEntity> = emptyList()
+    presets: List<TaskPreset> = emptyList()
   ) {
     if (tasks.isNotEmpty()) dao.insertAllTasks(tasks)
     if (logs.isNotEmpty()) dao.insertAllLogs(logs)
@@ -271,7 +270,6 @@ class HabitRepository(private val dao: HabitDao) {
     if (chapters.isNotEmpty()) dao.insertAllNeetChapters(chapters)
     if (counters.isNotEmpty()) dao.insertAllNeetTallyCounters(counters)
     if (presets.isNotEmpty()) dao.insertAllTaskPresets(presets)
-    if (aiChats.isNotEmpty()) dao.insertAllAiChats(aiChats)
   }
 
   // AI Chat History
@@ -279,33 +277,14 @@ class HabitRepository(private val dao: HabitDao) {
 
   suspend fun insertAiChat(chat: com.example.data.model.AiChatEntity): Long = dao.insertAiChat(chat)
 
-  suspend fun updateAiChatPin(id: Long, isPinned: Boolean) = dao.updateAiChatPin(id, isPinned)
-
-  suspend fun updateAiChatsPin(ids: List<Long>, isPinned: Boolean) = dao.updateAiChatsPin(ids, isPinned)
-
-  suspend fun deleteAiChatById(id: Long) = dao.deleteAiChatById(id)
-
-  suspend fun deleteAiChatsByIds(ids: List<Long>) = dao.deleteAiChatsByIds(ids)
-
   suspend fun clearAiChatHistory() = dao.clearAiChatHistory()
 
-  suspend fun updateChapterExercise(id: Long, isDone: Boolean) = dao.updateChapterExercise(id, isDone)
-
-  suspend fun updateChapterAr(id: Long, isDone: Boolean) = dao.updateChapterAr(id, isDone)
-
   suspend fun resetAllData() {
-    dao.deleteAllTasks()
-    dao.deleteAllLogs()
-    dao.deleteAllRatings()
-    dao.deleteAllNeetScores()
-    dao.deleteAllPlannedTasks()
-    dao.deleteAllPlanEvents()
-    dao.deleteAllTaskPresets()
-    dao.deleteAllNeetChapters()
-    dao.deleteAllNeetTallyCounters()
-    dao.clearAiChatHistory()
-    dao.insertAllTaskPresets(TaskPreset.DEFAULT_PRESETS.map { TaskPreset(name = it) })
-    dao.insertAllNeetChapters(NeetChapter.DEFAULT_CHAPTERS)
-    dao.insertAllNeetTallyCounters(NeetTallyCounter.DEFAULT_COUNTERS)
+    dao.clearAllTasks()
+    dao.clearAllLogs()
+    dao.clearAllRatings()
+    dao.clearAllScores()
+    dao.clearAllPlannedTasks()
+    dao.clearAllPlanEvents()
   }
 }

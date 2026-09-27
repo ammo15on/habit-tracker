@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,6 +55,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,8 +64,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -121,6 +132,24 @@ fun TrackerScreen(
     }
   }
 
+  val isBarsVisible by viewModel.isBarsVisible.collectAsStateWithLifecycle()
+  val lazyListState = rememberLazyListState()
+
+  val nestedScrollConnection = remember {
+    object : NestedScrollConnection {
+      override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        viewModel.onScrollDelta(available.y)
+        return Offset.Zero
+      }
+    }
+  }
+
+  LaunchedEffect(lazyListState.firstVisibleItemIndex, lazyListState.firstVisibleItemScrollOffset) {
+    if (lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0) {
+      viewModel.setBarsVisible(true)
+    }
+  }
+
   Column(modifier = modifier.fillMaxSize()) {
     // Upper scrolling area with day header, task counter, habits list, and FAB
     Box(
@@ -148,61 +177,72 @@ fun TrackerScreen(
         }
     ) {
       LazyColumn(
+        state = lazyListState,
         modifier = Modifier
           .fillMaxSize()
+          .nestedScroll(nestedScrollConnection)
           .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
       ) {
-        // 0. Top Header: Hamburger on top left corner
-        item(key = "top_tracker_hamburger") {
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(vertical = 2.dp),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            IconButton(
-              onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                viewModel.openHamburgerMenu()
-              },
-              modifier = Modifier
-                .size(40.dp)
-                .testTag("btn_tracker_hamburger")
+        // 0 & 1. Top Header & Day Navigation: Hides smoothly on downward scrolling!
+        item(key = "top_tracker_header_group") {
+          Column {
+            AnimatedVisibility(
+              visible = isBarsVisible,
+              enter = expandVertically() + fadeIn(),
+              exit = shrinkVertically() + fadeOut()
             ) {
-              Icon(
-                imageVector = Icons.Default.Menu,
-                contentDescription = "Open Settings & Hub",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(24.dp)
-              )
+              Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                  horizontalArrangement = Arrangement.Start,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  IconButton(
+                    onClick = {
+                      haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                      viewModel.openHamburgerMenu()
+                    },
+                    modifier = Modifier
+                      .size(40.dp)
+                      .testTag("btn_tracker_hamburger")
+                  ) {
+                    Icon(
+                      imageVector = Icons.Default.Menu,
+                      contentDescription = "Open Settings & Hub",
+                      tint = MaterialTheme.colorScheme.onSurface,
+                      modifier = Modifier.size(24.dp)
+                    )
+                  }
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                DayNavigationHeader(
+                  selectedDate = selectedDate,
+                  prevDayText = prevDayFormatted,
+                  nextDayText = nextDayFormatted,
+                  totalTimeSeconds = totalTimeSeconds,
+                  isToday = isToday,
+                  onPreviousClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.goToPreviousDay()
+                  },
+                  onNextClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.goToNextDay()
+                  },
+                  onTodayClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.goToToday()
+                  }
+                )
+              }
             }
           }
-        }
-
-        // 1. Top Bar Header: (X) Previous Day  |  (Total Time)  |  (Y) Next Day
-        item(key = "top_day_nav") {
-          DayNavigationHeader(
-            selectedDate = selectedDate,
-            prevDayText = prevDayFormatted,
-            nextDayText = nextDayFormatted,
-            totalTimeSeconds = totalTimeSeconds,
-            isToday = isToday,
-            onPreviousClick = {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              viewModel.goToPreviousDay()
-            },
-            onNextClick = {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              viewModel.goToNextDay()
-            },
-            onTodayClick = {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              viewModel.goToToday()
-            }
-          )
         }
 
         // 2. Active Event Subtasks for Today (if any)

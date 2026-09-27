@@ -18,7 +18,8 @@ data class ActiveTimerState(
   val taskName: String = "",
   val date: String = "",
   val isRunning: Boolean = false,
-  val elapsedSeconds: Long = 0L
+  val elapsedSeconds: Long = 0L,
+  val startEpochMs: Long = 0L
 ) {
   val currentTotalSeconds: Long get() = elapsedSeconds
 }
@@ -54,7 +55,7 @@ object TimerManager {
 
   fun getEffectiveTaskSeconds(taskId: Long, date: String, dbSeconds: Long): Long {
     val current = _timerState.value
-    return if (current.isRunning && current.taskId == taskId && current.date == date) {
+    return if (current.taskId == taskId && current.date == date) {
       current.elapsedSeconds
     } else {
       dbSeconds
@@ -65,6 +66,8 @@ object TimerManager {
     val current = _timerState.value
     if (current.isRunning && current.taskId == taskId && current.date == date) {
       pauseTimer()
+    } else if (!current.isRunning && current.taskId == taskId && current.date == date) {
+      resumeTimer()
     } else {
       startTimer(taskId, taskName, date, currentLoggedSeconds)
     }
@@ -76,38 +79,89 @@ object TimerManager {
       flushTimer()
     }
 
+    val now = System.currentTimeMillis()
+    val baseStartEpoch = now - (initialSeconds * 1000L)
+
     _timerState.value = ActiveTimerState(
       taskId = taskId,
       taskName = taskName,
       date = date,
       isRunning = true,
-      elapsedSeconds = initialSeconds
+      elapsedSeconds = initialSeconds,
+      startEpochMs = baseStartEpoch
     )
     runningTaskId.value = taskId
     isTimerRunning.value = true
 
     appContext?.let { ctx ->
-      TimerForegroundService.start(ctx, taskName, initialSeconds)
+      TimerForegroundService.start(ctx, taskName, initialSeconds, isPaused = false)
     }
 
+    startTickerLoop(taskId, taskName, date, baseStartEpoch)
+  }
+
+  fun resumeTimer() {
+    val current = _timerState.value
+    val taskId = current.taskId ?: return
+    val taskName = current.taskName
+    val date = current.date
+    val accumulated = current.elapsedSeconds
+
+    val now = System.currentTimeMillis()
+    val baseStartEpoch = now - (accumulated * 1000L)
+
+    _timerState.value = current.copy(
+      isRunning = true,
+      startEpochMs = baseStartEpoch
+    )
+    runningTaskId.value = taskId
+    isTimerRunning.value = true
+
+    appContext?.let { ctx ->
+      TimerForegroundService.start(ctx, taskName, accumulated, isPaused = false)
+    }
+
+    startTickerLoop(taskId, taskName, date, baseStartEpoch)
+  }
+
+  private fun startTickerLoop(taskId: Long, taskName: String, date: String, baseStartEpoch: Long) {
     tickerJob?.cancel()
     tickerJob = scope.launch(Dispatchers.Default) {
+      var lastSavedSecs = 0L
       while (isActive && _timerState.value.isRunning) {
         delay(1000L)
-        val updated = _timerState.value.elapsedSeconds + 1L
-        _timerState.value = _timerState.value.copy(elapsedSeconds = updated)
+        val now = System.currentTimeMillis()
+        val calculatedSeconds = ((now - baseStartEpoch) / 1000L).coerceAtLeast(0L)
 
-        // Update notification periodically
-        if (updated % 5 == 0L) {
+        _timerState.value = _timerState.value.copy(elapsedSeconds = calculatedSeconds)
+
+        // Update notification periodically for smooth background tracking
+        if (calculatedSeconds % 5 == 0L) {
           appContext?.let { ctx ->
-            TimerForegroundService.start(ctx, taskName, updated)
+            TimerForegroundService.start(ctx, taskName, calculatedSeconds, isPaused = false)
           }
         }
 
-        // Persist to database every 10 seconds
-        if (updated % 10 == 0L) {
-          repo?.setTimeSpent(taskId, date, updated)
+        // Persist to database every 5 seconds
+        if (calculatedSeconds - lastSavedSecs >= 5L) {
+          lastSavedSecs = calculatedSeconds
+          repo?.setTimeSpent(taskId, date, calculatedSeconds)
         }
+      }
+    }
+  }
+
+  fun pauseTimer() {
+    flushTimer()
+    val current = _timerState.value
+    _timerState.value = current.copy(isRunning = false)
+    isTimerRunning.value = false
+    tickerJob?.cancel()
+    appContext?.let { ctx ->
+      if (current.taskId != null) {
+        TimerForegroundService.start(ctx, current.taskName, current.elapsedSeconds, isPaused = true)
+      } else {
+        TimerForegroundService.stop(ctx)
       }
     }
   }
@@ -116,16 +170,6 @@ object TimerManager {
     flushTimer()
     _timerState.value = ActiveTimerState()
     runningTaskId.value = null
-    isTimerRunning.value = false
-    tickerJob?.cancel()
-    appContext?.let { ctx ->
-      TimerForegroundService.stop(ctx)
-    }
-  }
-
-  fun pauseTimer() {
-    flushTimer()
-    _timerState.value = _timerState.value.copy(isRunning = false)
     isTimerRunning.value = false
     tickerJob?.cancel()
     appContext?.let { ctx ->
