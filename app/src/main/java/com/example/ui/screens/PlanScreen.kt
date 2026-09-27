@@ -86,6 +86,13 @@ import com.example.ui.components.PlanEventDialog
 import androidx.compose.material.icons.filled.Flag
 import com.example.ui.components.GoalDialog
 import com.example.util.DateUtils
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.EventAvailable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.util.CalendarSyncUtil
+import android.widget.Toast
+import androidx.compose.runtime.rememberCoroutineScope
 
 @Composable
 fun PlanScreen(
@@ -646,6 +653,51 @@ private fun EventCardItem(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
+          var isSynced by remember { mutableStateOf(false) }
+          val context = androidx.compose.ui.platform.LocalContext.current
+          val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions()
+          ) { permissions ->
+            val granted = permissions[android.Manifest.permission.WRITE_CALENDAR] == true
+            if (granted) {
+              val success = CalendarSyncUtil.syncEventToDeviceCalendar(
+                context = context,
+                title = event.title,
+                description = event.notes.ifBlank { "NEET Study Event in Habit Tracker" },
+                startDateStr = event.startDate,
+                endDateStr = event.endDate,
+                targetTimeMinutes = event.taskTargetMinutes
+              )
+              if (success) {
+                isSynced = true
+                Toast.makeText(context, "Synced event with phone calendar! ✓", Toast.LENGTH_SHORT).show()
+              } else {
+                Toast.makeText(context, "Could not sync. Ensure you have a calendar account setup.", Toast.LENGTH_SHORT).show()
+              }
+            } else {
+              Toast.makeText(context, "Calendar permission denied", Toast.LENGTH_SHORT).show()
+            }
+          }
+
+          IconButton(
+            onClick = {
+              permissionLauncher.launch(
+                arrayOf(
+                  android.Manifest.permission.READ_CALENDAR,
+                  android.Manifest.permission.WRITE_CALENDAR
+                )
+              )
+            },
+            modifier = Modifier.size(30.dp)
+          ) {
+            Icon(
+              imageVector = if (isSynced) Icons.Default.EventAvailable else Icons.Default.CalendarToday,
+              contentDescription = "Sync Event to Calendar",
+              tint = if (isSynced) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(16.dp)
+            )
+          }
+
           IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) {
             Icon(
               imageVector = Icons.Default.Edit,
@@ -971,15 +1023,65 @@ private fun PlannedTaskCard(
           )
         }
 
-        // Jump Directly to Task button
-        OutlinedButton(
-          onClick = onJumpToTask,
-          shape = RoundedCornerShape(10.dp),
-          contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+        // Jump Directly to Task & Sync Calendar Row
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically
         ) {
-          Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-          Spacer(modifier = Modifier.width(4.dp))
-          Text("Jump to Task", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+          var isSynced by remember { mutableStateOf(false) }
+          val context = androidx.compose.ui.platform.LocalContext.current
+          val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions()
+          ) { permissions ->
+            val granted = permissions[android.Manifest.permission.WRITE_CALENDAR] == true
+            if (granted) {
+              val success = CalendarSyncUtil.syncEventToDeviceCalendar(
+                context = context,
+                title = plannedTask.title,
+                description = plannedTask.notes.ifBlank { "Planned task inside Habit Tracker app" },
+                startDateStr = plannedTask.date,
+                endDateStr = plannedTask.date,
+                targetTimeMinutes = plannedTask.targetTimeMinutes
+              )
+              if (success) {
+                isSynced = true
+                Toast.makeText(context, "Synced task with phone calendar! ✓", Toast.LENGTH_SHORT).show()
+              } else {
+                Toast.makeText(context, "Could not sync. Ensure you have a calendar account setup.", Toast.LENGTH_SHORT).show()
+              }
+            } else {
+              Toast.makeText(context, "Calendar permission denied", Toast.LENGTH_SHORT).show()
+            }
+          }
+
+          IconButton(
+            onClick = {
+              permissionLauncher.launch(
+                arrayOf(
+                  android.Manifest.permission.READ_CALENDAR,
+                  android.Manifest.permission.WRITE_CALENDAR
+                )
+              )
+            },
+            modifier = Modifier.size(36.dp)
+          ) {
+            Icon(
+              imageVector = if (isSynced) Icons.Default.EventAvailable else Icons.Default.CalendarToday,
+              contentDescription = "Sync Task with Phone Calendar",
+              tint = if (isSynced) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(18.dp)
+            )
+          }
+
+          OutlinedButton(
+            onClick = onJumpToTask,
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+          ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Jump to Task", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+          }
         }
       }
     }

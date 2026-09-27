@@ -73,6 +73,16 @@ object TimerManager {
     }
   }
 
+  private fun playFeedbackSound() {
+    try {
+      appContext?.let { ctx ->
+        val ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+        val ringtone = android.media.RingtoneManager.getRingtone(ctx, ringtoneUri)
+        ringtone?.play()
+      }
+    } catch (_: Exception) {}
+  }
+
   fun startTimer(taskId: Long, taskName: String, date: String, initialSeconds: Long = 0L) {
     val current = _timerState.value
     if (current.isRunning && current.taskId != taskId) {
@@ -97,6 +107,7 @@ object TimerManager {
       TimerForegroundService.start(ctx, taskName, initialSeconds, isPaused = false)
     }
 
+    playFeedbackSound()
     startTickerLoop(taskId, taskName, date, baseStartEpoch)
   }
 
@@ -121,6 +132,7 @@ object TimerManager {
       TimerForegroundService.start(ctx, taskName, accumulated, isPaused = false)
     }
 
+    playFeedbackSound()
     startTickerLoop(taskId, taskName, date, baseStartEpoch)
   }
 
@@ -164,6 +176,7 @@ object TimerManager {
         TimerForegroundService.stop(ctx)
       }
     }
+    playFeedbackSound()
   }
 
   fun stopTimer() {
@@ -175,6 +188,7 @@ object TimerManager {
     appContext?.let { ctx ->
       TimerForegroundService.stop(ctx)
     }
+    playFeedbackSound()
   }
 
   fun stopAndReset() = stopTimer()

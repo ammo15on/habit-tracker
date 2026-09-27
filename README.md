@@ -25,26 +25,36 @@ The compiled Android application packages are available directly in the reposito
 
 ---
 
-## 🚀 Release v6.5 - Dynamic Transparency, Unified Scroll Hiding, Background Tracking, High-Yield Specific AI Mentor & Robust Schema Migrations
+## 🚀 Release v6.5 - Dynamic Transparency, Unified Scroll Hiding, Background Tracking, High-Yield Specific AI Mentor, Calendar Synchronization, Timer Audio Alerts & Robust Schema Migrations
 
-### 1. Robust Schema-Preserving Migrations (No Data Deletions!)
+### 1. Unified Calendar Sync (Sync with Phone Calendar)
+- **Task & Event Integration**: Added direct support for **Android CalendarContract API** sync. Users can sync any single planned task or multi-day preparation event directly to their physical device calendar.
+- **Runtime Permissions**: Integrated modern, dynamic runtime permission requests (`READ_CALENDAR` and `WRITE_CALENDAR`). The app prompts users gracefully only upon action selection.
+- **Auto-Discovery & Visual Indicators**: Dynamically queries the device to identify the user's primary calendar and registers events with precise target duration and notes. Synced items automatically update with a green `Icons.Default.EventAvailable` badge and Toast notification.
+
+### 2. Live Background Timer Audio Alerts (Notification Sound)
+- **Pleasant Acoustic Feedback**: Implemented satisfying, one-time audio chimes using the system's native `RingtoneManager` sound framework.
+- **Smart Trigger Logic**: Sounds are triggered explicitly upon major timer actions—**Start, Resume, Pause, and Save & Stop**. 
+- **Non-Annoying Design**: Because background service timers update notifications frequently (every 5 seconds) to ensure wall-clock precision, the foreground service channel itself uses `IMPORTANCE_LOW` to remain silent. The chime sound is executed only on initial state transition to completely prevent annoying continuous repeating beeps.
+
+### 3. Robust Schema-Preserving Migrations (No Data Deletions!)
 - **What Went Wrong Previously**: Prior versions used Room's `.fallbackToDestructiveMigration()` which automatically drops and recreates all SQLite database tables whenever there is an incremental schema update (such as adding new fields or entities like chats, archives, and tasks). This caused historical user data to be deleted during app updates.
 - **The v6.5 Solution**: We implemented a complete suite of seamless, non-destructive, dynamic schema migrations from every previous database version (V1 through V9) to the current version (V10).
 - **Graceful DB Upgrades**: Missing columns are added via `ALTER TABLE` statements (safely wrapped in try-catch), and missing tables are created via `CREATE TABLE IF NOT EXISTS`, fully protecting your tracking history, habits, test scores, chapters, and presets during updates.
 - **Added Protection**: Enabled `.fallbackToDestructiveMigrationOnDowngrade()` instead of general fallback destructive migration to prevent accidental data wipes on system upgrade paths.
 
-### 2. Unified Scroll-Aware Hiding of Top & Bottom Menus
+### 4. Unified Scroll-Aware Hiding of Top & Bottom Menus
 - **Maximized Focal Space**: Scrolling down across any list screen (Tracker, Plan, NEET Detail) triggers a coordinated slide/fade collapse of **both** the top Day Navigation / header bar and the bottom Navigation bar. They smoothly re-expand when you scroll upwards or tap near the top of the screen.
 
-### 3. Glassmorphic Transparency Synchronization
+### 5. Glassmorphic Transparency Synchronization
 - **Dynamic Opacity Matching**: The bottom tab navigation bar now binds perfectly to your custom UI transparency slider. It transitions flawlessly from a modern frosted obsidian layout to a highly transparent overlay, matching any background wallpaper.
 
-### 4. Bulletproof Background Study Tracker
+### 6. Bulletproof Background Study Tracker
 - **Wall-Clock Precision Epoch**: Time tracking is based on actual system epoch timestamps (`System.currentTimeMillis() - startEpoch`) rather than approximate coroutine intervals. Minimized app state or CPU throttling will never cause your active session timer to lose track.
 - **Notification Drawer Shortcuts**: Start, Pause, Resume, and Stop & Save operations can be handled directly from the ongoing system notification drawer without needing to bring the app to the foreground.
 - **Power Management (Partial WakeLock)**: Acquired safely to keep the tracking daemon running reliably during high-stakes study and focus blocks.
 
-### 5. Advanced High-Yield Subject Mentoring
+### 7. Advanced High-Yield Subject Mentoring
 - **Topic-Specific Blueprints**: Revamped `GeminiAiService` content routing. Asking questions on key chapters (e.g., "Current Electricity", "Genetics", "Coordination Chemistry") instantly bypasses generic suggestions, delivering precise physics formulas, NCERT checklist diagrams, and actionable high-yield targets.
 
 ---
