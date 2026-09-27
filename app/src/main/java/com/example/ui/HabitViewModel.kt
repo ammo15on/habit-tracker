@@ -175,6 +175,18 @@ class HabitViewModel(
   val selectedTextSizeScale: StateFlow<Float> =
     themePreferences?.textSizeScale ?: _fallbackTextSizeScale.asStateFlow()
 
+  private val _fallbackAutoCalendarSync = MutableStateFlow(false)
+  val autoCalendarSyncEnabled: StateFlow<Boolean> =
+    themePreferences?.autoCalendarSync ?: _fallbackAutoCalendarSync.asStateFlow()
+
+  fun setAutoCalendarSyncEnabled(enabled: Boolean) {
+    if (themePreferences != null) {
+      themePreferences.setAutoCalendarSync(enabled)
+    } else {
+      _fallbackAutoCalendarSync.value = enabled
+    }
+  }
+
   fun setUiOpacity(opacity: Float) {
     if (themePreferences != null) {
       themePreferences.setUiOpacity(opacity)
@@ -1190,6 +1202,18 @@ class HabitViewModel(
     viewModelScope.launch {
       repository.insertPlannedTask(task)
 
+      // Automatically sync with device calendar if enabled
+      if (autoCalendarSyncEnabled.value && appContext != null) {
+        com.example.util.CalendarSyncUtil.syncEventToDeviceCalendar(
+          context = appContext,
+          title = task.title,
+          description = task.notes.ifBlank { "Planned task inside Habit Tracker app" },
+          startDateStr = task.date,
+          endDateStr = task.date,
+          targetTimeMinutes = task.targetTimeMinutes
+        )
+      }
+
       // Also create a HabitTask for that specific date so it appears in Tracker on that date!
       val allTasks = allTasksFlow.stateIn(viewModelScope).value
       val existing = allTasks.find {
@@ -1574,6 +1598,18 @@ class HabitViewModel(
         subtasksJson = com.example.data.model.PlanEvent.serializeSubtasks(subtasks)
       )
       repository.insertPlanEvent(event)
+
+      // Automatically sync with device calendar if enabled
+      if (autoCalendarSyncEnabled.value && appContext != null) {
+        com.example.util.CalendarSyncUtil.syncEventToDeviceCalendar(
+          context = appContext,
+          title = title,
+          description = notes.ifBlank { "NEET Study Event in Habit Tracker" },
+          startDateStr = startDate,
+          endDateStr = endDate,
+          targetTimeMinutes = taskTargetMinutes
+        )
+      }
     }
   }
 

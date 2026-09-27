@@ -178,6 +178,7 @@ class TimerForegroundService : Service() {
       .setSmallIcon(android.R.drawable.ic_media_play)
       .setContentTitle("⏱ $taskName: $formatted")
       .setContentText(statusText)
+      .setSubText("Ongoing Study Task")
       .setContentIntent(openPendingIntent)
       .setOngoing(!isPaused)
       .setOnlyAlertOnce(true)

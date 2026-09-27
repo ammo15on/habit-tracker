@@ -61,6 +61,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.TrackChanges
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -140,75 +141,67 @@ fun HamburgerMenuDialog(
     }
   }
 
-  Dialog(
-    onDismissRequest = onDismiss,
-    properties = DialogProperties(
-      usePlatformDefaultWidth = false,
-      decorFitsSystemWindows = false
-    )
+  Surface(
+    modifier = Modifier
+      .fillMaxSize()
+      .testTag("hamburger_full_screen_dialog"),
+    color = MaterialTheme.colorScheme.background
   ) {
-    Surface(
-      modifier = Modifier
-        .fillMaxSize()
-        .testTag("hamburger_full_screen_dialog"),
-      color = MaterialTheme.colorScheme.background
-    ) {
-      Box(modifier = Modifier.fillMaxSize()) {
-        if (!currentBgImageUri.isNullOrBlank()) {
-          AsyncImage(
-            model = currentBgImageUri,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-          )
-          Box(
-            modifier = Modifier
-              .fillMaxSize()
-              .background(Color(0xFF090B10).copy(alpha = currentUiOpacity.coerceIn(0.2f, 0.95f)))
-          )
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+      if (!currentBgImageUri.isNullOrBlank()) {
+        AsyncImage(
+          model = currentBgImageUri,
+          contentDescription = null,
+          modifier = Modifier.fillMaxSize(),
+          contentScale = ContentScale.Crop
+        )
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF090B10).copy(alpha = currentUiOpacity.coerceIn(0.2f, 0.95f)))
+        )
+      }
 
-        Crossfade(
-          targetState = currentPage,
-          label = "HamburgerPageTransition"
-        ) { page ->
-          when (page) {
-            HamburgerPage.MAIN_MENU -> {
-              HamburgerMainMenuScreen(
-                onNavigate = { currentPage = it },
-                onClose = onDismiss
-              )
-            }
-            HamburgerPage.THEME -> {
-              ThemeFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-            HamburgerPage.GOAL -> {
-              GoalFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-            HamburgerPage.TASKS -> {
-              PastTasksFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-            HamburgerPage.PRESETS -> {
-              PresetsFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
-            HamburgerPage.DATA -> {
-              DataFullScreenPage(
-                viewModel = viewModel,
-                onBack = { currentPage = HamburgerPage.MAIN_MENU }
-              )
-            }
+      Crossfade(
+        targetState = currentPage,
+        label = "HamburgerPageTransition"
+      ) { page ->
+        when (page) {
+          HamburgerPage.MAIN_MENU -> {
+            HamburgerMainMenuScreen(
+              onNavigate = { currentPage = it },
+              onClose = onDismiss
+            )
+          }
+          HamburgerPage.THEME -> {
+            ThemeFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.GOAL -> {
+            GoalFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.TASKS -> {
+            PastTasksFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.PRESETS -> {
+            PresetsFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.DATA -> {
+            DataFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
           }
         }
       }
@@ -967,6 +960,60 @@ private fun DataFullScreenPage(
               StatPill(label = "Events", count = events.size)
               StatPill(label = "Presets", count = presets.size)
             }
+          }
+        }
+      }
+
+      // Auto-Sync Calendar Setting Card
+      item {
+        val autoSyncEnabled by viewModel.autoCalendarSyncEnabled.collectAsStateWithLifecycle()
+        Card(
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+          ) {
+            Row(
+              modifier = Modifier.weight(1f),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Icon(
+                imageVector = Icons.Default.CalendarToday,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+              )
+              Spacer(modifier = Modifier.width(12.dp))
+              Column {
+                Text(
+                  text = "Auto-Sync with Calendar",
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 14.sp,
+                  color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                  text = "Automatically sync scheduled tasks/events to your device calendar in the background.",
+                  fontSize = 11.sp,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+              }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            androidx.compose.material3.Switch(
+              checked = autoSyncEnabled,
+              onCheckedChange = { viewModel.setAutoCalendarSyncEnabled(it) },
+              colors = androidx.compose.material3.SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+              )
+            )
           }
         }
       }

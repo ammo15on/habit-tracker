@@ -50,6 +50,14 @@ import com.example.ui.screens.DetailScreen
 import com.example.ui.screens.PlanScreen
 import com.example.ui.screens.TrackerScreen
 import com.example.ui.theme.MyApplicationTheme
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import kotlinx.coroutines.launch
 
 enum class MainNavigationTab(val title: String, val icon: ImageVector) {
   TRACKER("Tracker", Icons.Default.CheckCircle),
@@ -88,44 +96,67 @@ class MainActivity : ComponentActivity() {
           modifier = Modifier.fillMaxSize(),
           color = MaterialTheme.colorScheme.background
         ) {
-          Box(
-            modifier = Modifier
-              .fillMaxSize()
-              .pointerInput(Unit) {
-                // Edge swipe from left to open hamburger menu
-                detectHorizontalDragGestures { change, dragAmount ->
-                  if (change.position.x < 100f && dragAmount > 25f) {
-                    viewModel.openHamburger()
-                  }
-                }
-              }
-          ) {
-            // Optional Background Wallpaper
-            if (!currentBgUri.isNullOrBlank()) {
-              AsyncImage(
-                model = currentBgUri,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-              )
+          val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+          val coroutineScope = rememberCoroutineScope()
+
+          // Sync state from ViewModel -> DrawerState
+          LaunchedEffect(isHamburgerOpen) {
+            if (isHamburgerOpen) {
+              drawerState.open()
+            } else {
+              drawerState.close()
+            }
+          }
+
+          // Sync state from DrawerState -> ViewModel
+          LaunchedEffect(drawerState.currentValue) {
+            if (drawerState.currentValue == DrawerValue.Open) {
+              viewModel.openHamburger()
+            } else {
+              viewModel.closeHamburger()
+            }
+          }
+
+          ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = true,
+            drawerContent = {
               Box(
                 modifier = Modifier
-                  .fillMaxSize()
-                  .background(Color(0xFF090B10).copy(alpha = currentUiOpacity.coerceIn(0.2f, 0.95f)))
-              )
+                  .width(360.dp)
+                  .fillMaxHeight()
+              ) {
+                HamburgerMenuDialog(
+                  viewModel = viewModel,
+                  onDismiss = {
+                    coroutineScope.launch { drawerState.close() }
+                  }
+                )
+              }
             }
+          ) {
+            Box(
+              modifier = Modifier.fillMaxSize()
+            ) {
+              // Optional Background Wallpaper
+              if (!currentBgUri.isNullOrBlank()) {
+                AsyncImage(
+                  model = currentBgUri,
+                  contentDescription = null,
+                  modifier = Modifier.fillMaxSize(),
+                  contentScale = ContentScale.Crop
+                )
+                Box(
+                  modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF090B10).copy(alpha = currentUiOpacity.coerceIn(0.2f, 0.95f)))
+                )
+              }
 
-            MainAppScaffold(
-              viewModel = viewModel,
-              currentTab = currentTab,
-              onTabSelected = { currentTab = it }
-            )
-
-            // Full Screen Hamburger Dialog
-            if (isHamburgerOpen) {
-              HamburgerMenuDialog(
+              MainAppScaffold(
                 viewModel = viewModel,
-                onDismiss = { viewModel.closeHamburger() }
+                currentTab = currentTab,
+                onTabSelected = { currentTab = it }
               )
             }
           }
