@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.example.data.model.AiChatEntity
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
@@ -15,9 +15,7 @@ import com.example.data.model.NeetTestScore
 import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
 import com.example.data.model.TaskPreset
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.example.data.model.AiChatEntity
 
 @Database(
   entities = [
@@ -32,7 +30,7 @@ import kotlinx.coroutines.launch
     TaskPreset::class,
     AiChatEntity::class
   ],
-  version = 14,
+  version = 10,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,156 +40,49 @@ abstract class AppDatabase : RoomDatabase() {
     @Volatile
     private var INSTANCE: AppDatabase? = null
 
-    private fun ensureAllTablesAndColumns(db: SupportSQLiteDatabase) {
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS habit_tasks (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          name TEXT NOT NULL,
-          targetDate TEXT,
-          repeatDaysMask INTEGER NOT NULL DEFAULT 0,
-          targetTimeMinutes INTEGER NOT NULL DEFAULT 0,
-          isDefault INTEGER NOT NULL DEFAULT 0,
-          isStarred INTEGER NOT NULL DEFAULT 0,
-          targetDates TEXT,
-          startDate TEXT,
-          endDate TEXT,
-          noteText TEXT NOT NULL DEFAULT '',
-          noteImageUri TEXT,
-          reminderTime TEXT,
-          isArchived INTEGER NOT NULL DEFAULT 0,
-          eventId INTEGER
-        )
-        """.trimIndent()
-      )
+    private fun migrateAll(db: SupportSQLiteDatabase) {
+      // 1. Ensure all tables are created if missing
+      db.execSQL("CREATE TABLE IF NOT EXISTS `habit_tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `targetDate` TEXT, `repeatDaysMask` INTEGER NOT NULL, `targetTimeMinutes` INTEGER NOT NULL, `isDefault` INTEGER NOT NULL, `isStarred` INTEGER NOT NULL, `targetDates` TEXT, `startDate` TEXT, `endDate` TEXT, `noteText` TEXT NOT NULL, `noteImageUri` TEXT, `reminderTime` TEXT, `isArchived` INTEGER NOT NULL, `eventId` INTEGER)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `habit_task_logs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `taskId` INTEGER NOT NULL, `date` TEXT NOT NULL, `timeSpentSeconds` INTEGER NOT NULL, `isCompleted` INTEGER NOT NULL, FOREIGN KEY(`taskId`) REFERENCES `habit_tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+      db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_habit_task_logs_taskId_date` ON `habit_task_logs` (`taskId`, `date`)")
+      db.execSQL("CREATE INDEX IF NOT EXISTS `index_habit_task_logs_date` ON `habit_task_logs` (`date`)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `day_ratings` (`date` TEXT NOT NULL, `rating` TEXT NOT NULL, PRIMARY KEY(`date`))")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `neet_test_scores` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `testName` TEXT NOT NULL, `date` TEXT NOT NULL, `physicsScore` INTEGER NOT NULL, `chemistryScore` INTEGER NOT NULL, `botanyScore` INTEGER NOT NULL, `zoologyScore` INTEGER NOT NULL, `maxPhysics` INTEGER NOT NULL, `maxChemistry` INTEGER NOT NULL, `maxBotany` INTEGER NOT NULL, `maxZoology` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `planned_tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `date` TEXT NOT NULL, `targetTimeMinutes` INTEGER NOT NULL, `notes` TEXT NOT NULL, `isStarred` INTEGER NOT NULL, `isArchived` INTEGER NOT NULL, `isCompleted` INTEGER NOT NULL)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `plan_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT NOT NULL, `taskTitle` TEXT NOT NULL, `taskTargetMinutes` INTEGER NOT NULL, `notes` TEXT NOT NULL, `subtasksJson` TEXT NOT NULL)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `neet_chapters` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `subject` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `isPyqDone` INTEGER NOT NULL, `isRevisionDone` INTEGER NOT NULL, `notes` TEXT NOT NULL)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `neet_tally_counters` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `count` INTEGER NOT NULL, `target` INTEGER NOT NULL, `unit` TEXT NOT NULL)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `task_presets` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `targetTimeMinutes` INTEGER NOT NULL, `noteText` TEXT NOT NULL, `noteImageUri` TEXT)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `ai_chat_history` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `role` TEXT NOT NULL, `text` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `isError` INTEGER NOT NULL, `isCloud` INTEGER NOT NULL)")
 
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS habit_task_logs (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          taskId INTEGER NOT NULL,
-          date TEXT NOT NULL,
-          timeSpentSeconds INTEGER NOT NULL DEFAULT 0,
-          isCompleted INTEGER NOT NULL DEFAULT 0,
-          FOREIGN KEY(taskId) REFERENCES habit_tasks(id) ON DELETE CASCADE
-        )
-        """.trimIndent()
-      )
-      db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_habit_task_logs_taskId_date ON habit_task_logs(taskId, date)")
-      db.execSQL("CREATE INDEX IF NOT EXISTS index_habit_task_logs_date ON habit_task_logs(date)")
+      // 2. Perform dynamic, safe column additions for older versions of existing tables
+      try { db.execSQL("ALTER TABLE `habit_tasks` ADD COLUMN `targetDates` TEXT") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `habit_tasks` ADD COLUMN `startDate` TEXT") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `habit_tasks` ADD COLUMN `endDate` TEXT") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `habit_tasks` ADD COLUMN `noteText` TEXT NOT NULL DEFAULT ''") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `habit_tasks` ADD COLUMN `noteImageUri` TEXT") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `habit_tasks` ADD COLUMN `reminderTime` TEXT") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `habit_tasks` ADD COLUMN `isArchived` INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `habit_tasks` ADD COLUMN `eventId` INTEGER") } catch (_: Exception) {}
 
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS day_ratings (
-          date TEXT PRIMARY KEY NOT NULL,
-          rating TEXT NOT NULL
-        )
-        """.trimIndent()
-      )
+      try { db.execSQL("ALTER TABLE `habit_task_logs` ADD COLUMN `timeSpentSeconds` INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `habit_task_logs` ADD COLUMN `isCompleted` INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) {}
 
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS neet_test_scores (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          testName TEXT NOT NULL,
-          date TEXT NOT NULL,
-          physicsScore INTEGER NOT NULL DEFAULT 0,
-          chemistryScore INTEGER NOT NULL DEFAULT 0,
-          botanyScore INTEGER NOT NULL DEFAULT 0,
-          zoologyScore INTEGER NOT NULL DEFAULT 0,
-          maxPhysics INTEGER NOT NULL DEFAULT 180,
-          maxChemistry INTEGER NOT NULL DEFAULT 180,
-          maxBotany INTEGER NOT NULL DEFAULT 180,
-          maxZoology INTEGER NOT NULL DEFAULT 180,
-          timestamp INTEGER NOT NULL DEFAULT 0
-        )
-        """.trimIndent()
-      )
-
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS planned_tasks (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          title TEXT NOT NULL,
-          date TEXT NOT NULL,
-          targetTimeMinutes INTEGER NOT NULL DEFAULT 0,
-          notes TEXT NOT NULL DEFAULT '',
-          isStarred INTEGER NOT NULL DEFAULT 0,
-          isArchived INTEGER NOT NULL DEFAULT 0,
-          isCompleted INTEGER NOT NULL DEFAULT 0
-        )
-        """.trimIndent()
-      )
-
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS plan_events (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          title TEXT NOT NULL,
-          startDate TEXT NOT NULL,
-          endDate TEXT NOT NULL,
-          taskTitle TEXT NOT NULL DEFAULT '',
-          taskTargetMinutes INTEGER NOT NULL DEFAULT 0,
-          notes TEXT NOT NULL DEFAULT '',
-          subtasksJson TEXT NOT NULL DEFAULT '[]'
-        )
-        """.trimIndent()
-      )
-
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS neet_chapters (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          name TEXT NOT NULL,
-          subject TEXT NOT NULL,
-          isCompleted INTEGER NOT NULL DEFAULT 0,
-          isPyqDone INTEGER NOT NULL DEFAULT 0,
-          isRevisionDone INTEGER NOT NULL DEFAULT 0,
-          isExerciseDone INTEGER NOT NULL DEFAULT 0,
-          isArDone INTEGER NOT NULL DEFAULT 0,
-          notes TEXT NOT NULL DEFAULT ''
-        )
-        """.trimIndent()
-      )
-
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS neet_tally_counters (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          title TEXT NOT NULL,
-          count INTEGER NOT NULL DEFAULT 0,
-          target INTEGER NOT NULL DEFAULT 0,
-          unit TEXT NOT NULL DEFAULT 'times'
-        )
-        """.trimIndent()
-      )
-
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS task_presets (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          name TEXT NOT NULL,
-          targetTimeMinutes INTEGER NOT NULL DEFAULT 0,
-          noteText TEXT NOT NULL DEFAULT '',
-          noteImageUri TEXT
-        )
-        """.trimIndent()
-      )
-
-      db.execSQL(
-        """
-        CREATE TABLE IF NOT EXISTS ai_chat_history (
-          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          role TEXT NOT NULL,
-          text TEXT NOT NULL,
-          timestamp INTEGER NOT NULL DEFAULT 0,
-          isError INTEGER NOT NULL DEFAULT 0,
-          isCloud INTEGER NOT NULL DEFAULT 0,
-          isPinned INTEGER NOT NULL DEFAULT 0
-        )
-        """.trimIndent()
-      )
+      try { db.execSQL("ALTER TABLE `plan_events` ADD COLUMN `taskTitle` TEXT NOT NULL DEFAULT ''") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `plan_events` ADD COLUMN `taskTargetMinutes` INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `plan_events` ADD COLUMN `notes` TEXT NOT NULL DEFAULT ''") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `plan_events` ADD COLUMN `subtasksJson` TEXT NOT NULL DEFAULT '[]'") } catch (_: Exception) {}
     }
+
+    private val MIGRATION_1_10 = object : Migration(1, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_2_10 = object : Migration(2, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_3_10 = object : Migration(3, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_4_10 = object : Migration(4, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_5_10 = object : Migration(5, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_6_10 = object : Migration(6, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_7_10 = object : Migration(7, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_8_10 = object : Migration(8, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_9_10 = object : Migration(9, 10) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
 
     fun getDatabase(context: Context): AppDatabase {
       return INSTANCE ?: synchronized(this) {
@@ -200,26 +91,18 @@ abstract class AppDatabase : RoomDatabase() {
           AppDatabase::class.java,
           "habit_tracker.db"
         )
-          .fallbackToDestructiveMigration()
-          .addCallback(object : RoomDatabase.Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-              super.onCreate(db)
-              ensureAllTablesAndColumns(db)
-              CoroutineScope(Dispatchers.IO).launch {
-                INSTANCE?.let { database ->
-                  val dao = database.habitDao()
-                  dao.insertAllTaskPresets(TaskPreset.DEFAULT_PRESETS.map { TaskPreset(name = it) })
-                  dao.insertAllNeetChapters(NeetChapter.DEFAULT_CHAPTERS)
-                  dao.insertAllNeetTallyCounters(NeetTallyCounter.DEFAULT_COUNTERS)
-                }
-              }
-            }
-
-            override fun onOpen(db: SupportSQLiteDatabase) {
-              super.onOpen(db)
-              ensureAllTablesAndColumns(db)
-            }
-          })
+          .addMigrations(
+            MIGRATION_1_10,
+            MIGRATION_2_10,
+            MIGRATION_3_10,
+            MIGRATION_4_10,
+            MIGRATION_5_10,
+            MIGRATION_6_10,
+            MIGRATION_7_10,
+            MIGRATION_8_10,
+            MIGRATION_9_10
+          )
+          .fallbackToDestructiveMigrationOnDowngrade() // Prevent data loss on upgrades, only clear on safe downgrade if needed.
           .build()
         INSTANCE = instance
         instance

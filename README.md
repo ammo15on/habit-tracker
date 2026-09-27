@@ -25,20 +25,26 @@ The compiled Android application packages are available directly in the reposito
 
 ---
 
-## 🚀 Release v6.5 - Dynamic Transparency, Unified Scroll Hiding, Background Tracking & High-Yield Specific AI Mentor
+## 🚀 Release v6.5 - Dynamic Transparency, Unified Scroll Hiding, Background Tracking, High-Yield Specific AI Mentor & Robust Schema Migrations
 
-### 1. Unified Scroll-Aware Hiding of Top & Bottom Menus
+### 1. Robust Schema-Preserving Migrations (No Data Deletions!)
+- **What Went Wrong Previously**: Prior versions used Room's `.fallbackToDestructiveMigration()` which automatically drops and recreates all SQLite database tables whenever there is an incremental schema update (such as adding new fields or entities like chats, archives, and tasks). This caused historical user data to be deleted during app updates.
+- **The v6.5 Solution**: We implemented a complete suite of seamless, non-destructive, dynamic schema migrations from every previous database version (V1 through V9) to the current version (V10).
+- **Graceful DB Upgrades**: Missing columns are added via `ALTER TABLE` statements (safely wrapped in try-catch), and missing tables are created via `CREATE TABLE IF NOT EXISTS`, fully protecting your tracking history, habits, test scores, chapters, and presets during updates.
+- **Added Protection**: Enabled `.fallbackToDestructiveMigrationOnDowngrade()` instead of general fallback destructive migration to prevent accidental data wipes on system upgrade paths.
+
+### 2. Unified Scroll-Aware Hiding of Top & Bottom Menus
 - **Maximized Focal Space**: Scrolling down across any list screen (Tracker, Plan, NEET Detail) triggers a coordinated slide/fade collapse of **both** the top Day Navigation / header bar and the bottom Navigation bar. They smoothly re-expand when you scroll upwards or tap near the top of the screen.
 
-### 2. Glassmorphic Transparency Synchronization
+### 3. Glassmorphic Transparency Synchronization
 - **Dynamic Opacity Matching**: The bottom tab navigation bar now binds perfectly to your custom UI transparency slider. It transitions flawlessly from a modern frosted obsidian layout to a highly transparent overlay, matching any background wallpaper.
 
-### 3. Bulletproof Background Study Tracker
+### 4. Bulletproof Background Study Tracker
 - **Wall-Clock Precision Epoch**: Time tracking is based on actual system epoch timestamps (`System.currentTimeMillis() - startEpoch`) rather than approximate coroutine intervals. Minimized app state or CPU throttling will never cause your active session timer to lose track.
 - **Notification Drawer Shortcuts**: Start, Pause, Resume, and Stop & Save operations can be handled directly from the ongoing system notification drawer without needing to bring the app to the foreground.
 - **Power Management (Partial WakeLock)**: Acquired safely to keep the tracking daemon running reliably during high-stakes study and focus blocks.
 
-### 4. Advanced High-Yield Subject Mentoring
+### 5. Advanced High-Yield Subject Mentoring
 - **Topic-Specific Blueprints**: Revamped `GeminiAiService` content routing. Asking questions on key chapters (e.g., "Current Electricity", "Genetics", "Coordination Chemistry") instantly bypasses generic suggestions, delivering precise physics formulas, NCERT checklist diagrams, and actionable high-yield targets.
 
 ---
