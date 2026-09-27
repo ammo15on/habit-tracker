@@ -96,6 +96,16 @@ class MainActivity : ComponentActivity() {
           modifier = Modifier.fillMaxSize(),
           color = MaterialTheme.colorScheme.background
         ) {
+          // Request POST_NOTIFICATIONS on Android 13+ for live tracking notifications
+          if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+              contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { _ -> }
+            LaunchedEffect(Unit) {
+              permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+          }
+
           val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
           val coroutineScope = rememberCoroutineScope()
 
