@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.data.model.AiChatEntity
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
@@ -13,10 +15,9 @@ import com.example.data.model.NeetTestScore
 import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
 import com.example.data.model.TaskPreset
-
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
-import com.example.data.model.AiChatEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Database(
   entities = [
@@ -31,7 +32,7 @@ import com.example.data.model.AiChatEntity
     TaskPreset::class,
     AiChatEntity::class
   ],
-  version = 11,
+  version = 14,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,25 +43,24 @@ abstract class AppDatabase : RoomDatabase() {
     private var INSTANCE: AppDatabase? = null
 
     private fun ensureAllTablesAndColumns(db: SupportSQLiteDatabase) {
-      // 1. Ensure all tables exist without wiping existing records
       db.execSQL(
         """
         CREATE TABLE IF NOT EXISTS habit_tasks (
           id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           name TEXT NOT NULL,
-          colorHex TEXT NOT NULL DEFAULT '#3B82F6',
+          targetDate TEXT,
+          repeatDaysMask INTEGER NOT NULL DEFAULT 0,
           targetTimeMinutes INTEGER NOT NULL DEFAULT 0,
-          isCompletedToday INTEGER NOT NULL DEFAULT 0,
-          streakCount INTEGER NOT NULL DEFAULT 0,
-          totalTimeSpentSeconds INTEGER NOT NULL DEFAULT 0,
-          isDefault INTEGER NOT NULL DEFAULT 1,
-          isArchived INTEGER NOT NULL DEFAULT 0,
+          isDefault INTEGER NOT NULL DEFAULT 0,
+          isStarred INTEGER NOT NULL DEFAULT 0,
+          targetDates TEXT,
           startDate TEXT,
           endDate TEXT,
-          eventId INTEGER,
+          noteText TEXT NOT NULL DEFAULT '',
+          noteImageUri TEXT,
           reminderTime TEXT,
-          noteText TEXT,
-          noteImageUri TEXT
+          isArchived INTEGER NOT NULL DEFAULT 0,
+          eventId INTEGER
         )
         """.trimIndent()
       )
@@ -73,20 +73,18 @@ abstract class AppDatabase : RoomDatabase() {
           date TEXT NOT NULL,
           timeSpentSeconds INTEGER NOT NULL DEFAULT 0,
           isCompleted INTEGER NOT NULL DEFAULT 0,
-          targetTimeMinutes INTEGER NOT NULL DEFAULT 0,
           FOREIGN KEY(taskId) REFERENCES habit_tasks(id) ON DELETE CASCADE
         )
         """.trimIndent()
       )
+      db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_habit_task_logs_taskId_date ON habit_task_logs(taskId, date)")
+      db.execSQL("CREATE INDEX IF NOT EXISTS index_habit_task_logs_date ON habit_task_logs(date)")
 
       db.execSQL(
         """
         CREATE TABLE IF NOT EXISTS day_ratings (
           date TEXT PRIMARY KEY NOT NULL,
-          rating TEXT,
-          totalTimeSeconds INTEGER NOT NULL DEFAULT 0,
-          completedTasksCount INTEGER NOT NULL DEFAULT 0,
-          totalTasksCount INTEGER NOT NULL DEFAULT 0
+          rating TEXT NOT NULL
         )
         """.trimIndent()
       )
@@ -101,8 +99,11 @@ abstract class AppDatabase : RoomDatabase() {
           chemistryScore INTEGER NOT NULL DEFAULT 0,
           botanyScore INTEGER NOT NULL DEFAULT 0,
           zoologyScore INTEGER NOT NULL DEFAULT 0,
-          totalScore INTEGER NOT NULL DEFAULT 0,
-          notes TEXT NOT NULL DEFAULT ''
+          maxPhysics INTEGER NOT NULL DEFAULT 180,
+          maxChemistry INTEGER NOT NULL DEFAULT 180,
+          maxBotany INTEGER NOT NULL DEFAULT 180,
+          maxZoology INTEGER NOT NULL DEFAULT 180,
+          timestamp INTEGER NOT NULL DEFAULT 0
         )
         """.trimIndent()
       )
@@ -111,12 +112,13 @@ abstract class AppDatabase : RoomDatabase() {
         """
         CREATE TABLE IF NOT EXISTS planned_tasks (
           id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-          name TEXT NOT NULL,
+          title TEXT NOT NULL,
           date TEXT NOT NULL,
-          targetMinutes INTEGER NOT NULL DEFAULT 0,
-          isCompleted INTEGER NOT NULL DEFAULT 0,
-          noteText TEXT NOT NULL DEFAULT '',
-          category TEXT NOT NULL DEFAULT 'General'
+          targetTimeMinutes INTEGER NOT NULL DEFAULT 0,
+          notes TEXT NOT NULL DEFAULT '',
+          isStarred INTEGER NOT NULL DEFAULT 0,
+          isArchived INTEGER NOT NULL DEFAULT 0,
+          isCompleted INTEGER NOT NULL DEFAULT 0
         )
         """.trimIndent()
       )
@@ -128,10 +130,10 @@ abstract class AppDatabase : RoomDatabase() {
           title TEXT NOT NULL,
           startDate TEXT NOT NULL,
           endDate TEXT NOT NULL,
-          colorHex TEXT NOT NULL DEFAULT '#3B82F6',
           taskTitle TEXT NOT NULL DEFAULT '',
           taskTargetMinutes INTEGER NOT NULL DEFAULT 0,
-          notes TEXT NOT NULL DEFAULT ''
+          notes TEXT NOT NULL DEFAULT '',
+          subtasksJson TEXT NOT NULL DEFAULT '[]'
         )
         """.trimIndent()
       )
@@ -158,9 +160,8 @@ abstract class AppDatabase : RoomDatabase() {
           id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           title TEXT NOT NULL,
           count INTEGER NOT NULL DEFAULT 0,
-          target INTEGER NOT NULL DEFAULT 100,
-          unit TEXT NOT NULL DEFAULT 'Questions',
-          notes TEXT NOT NULL DEFAULT ''
+          target INTEGER NOT NULL DEFAULT 0,
+          unit TEXT NOT NULL DEFAULT 'times'
         )
         """.trimIndent()
       )
@@ -183,65 +184,42 @@ abstract class AppDatabase : RoomDatabase() {
           id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           role TEXT NOT NULL,
           text TEXT NOT NULL,
-          timestamp INTEGER NOT NULL,
+          timestamp INTEGER NOT NULL DEFAULT 0,
           isError INTEGER NOT NULL DEFAULT 0,
           isCloud INTEGER NOT NULL DEFAULT 0,
           isPinned INTEGER NOT NULL DEFAULT 0
         )
         """.trimIndent()
       )
-
-      // 2. Safely add any new columns to pre-existing tables if upgrading from older versions
-      val alterCommands = listOf(
-        "ALTER TABLE neet_chapters ADD COLUMN isExerciseDone INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE neet_chapters ADD COLUMN isArDone INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE ai_chat_history ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE ai_chat_history ADD COLUMN isCloud INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE habit_tasks ADD COLUMN noteText TEXT",
-        "ALTER TABLE habit_tasks ADD COLUMN noteImageUri TEXT",
-        "ALTER TABLE habit_tasks ADD COLUMN reminderTime TEXT",
-        "ALTER TABLE habit_tasks ADD COLUMN startDate TEXT",
-        "ALTER TABLE habit_tasks ADD COLUMN endDate TEXT",
-        "ALTER TABLE habit_tasks ADD COLUMN eventId INTEGER"
-      )
-      for (cmd in alterCommands) {
-        try {
-          db.execSQL(cmd)
-        } catch (_: Exception) {}
-      }
-    }
-
-    val MIGRATION_10_11 = object : Migration(10, 11) {
-      override fun migrate(db: SupportSQLiteDatabase) {
-        ensureAllTablesAndColumns(db)
-      }
-    }
-
-    val MIGRATION_9_10 = object : Migration(9, 10) {
-      override fun migrate(db: SupportSQLiteDatabase) {
-        ensureAllTablesAndColumns(db)
-      }
-    }
-
-    private fun createMigration(from: Int, to: Int): Migration = object : Migration(from, to) {
-      override fun migrate(db: SupportSQLiteDatabase) {
-        ensureAllTablesAndColumns(db)
-      }
     }
 
     fun getDatabase(context: Context): AppDatabase {
       return INSTANCE ?: synchronized(this) {
-        val migrations = (1..9).map { fromVersion ->
-          createMigration(fromVersion, 11)
-        }.toTypedArray()
-
         val instance = Room.databaseBuilder(
           context.applicationContext,
           AppDatabase::class.java,
           "habit_tracker.db"
         )
-          .addMigrations(MIGRATION_9_10, MIGRATION_10_11, *migrations)
-          .fallbackToDestructiveMigrationOnDowngrade()
+          .fallbackToDestructiveMigration()
+          .addCallback(object : RoomDatabase.Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+              super.onCreate(db)
+              ensureAllTablesAndColumns(db)
+              CoroutineScope(Dispatchers.IO).launch {
+                INSTANCE?.let { database ->
+                  val dao = database.habitDao()
+                  dao.insertAllTaskPresets(TaskPreset.DEFAULT_PRESETS.map { TaskPreset(name = it) })
+                  dao.insertAllNeetChapters(NeetChapter.DEFAULT_CHAPTERS)
+                  dao.insertAllNeetTallyCounters(NeetTallyCounter.DEFAULT_COUNTERS)
+                }
+              }
+            }
+
+            override fun onOpen(db: SupportSQLiteDatabase) {
+              super.onOpen(db)
+              ensureAllTablesAndColumns(db)
+            }
+          })
           .build()
         INSTANCE = instance
         instance
