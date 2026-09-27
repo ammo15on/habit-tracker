@@ -257,6 +257,11 @@ class HabitViewModel(
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   init {
+    // Initialize TimerManager with context and repository to restore any active session robustly
+    appContext?.let {
+      com.example.util.TimerManager.init(it, repository)
+    }
+
     // Populate default NEET chapters (including Class 11 and Class 12), Tally counters, and Initial Presets
     viewModelScope.launch {
       val existingPresets = repository.allTaskPresets.first()
@@ -878,12 +883,27 @@ class HabitViewModel(
         com.example.util.GeminiAiService.askGemini(cleanQ, contextString, currentHistory)
       } else {
         // On-Device Model
+        val tasks = allTasks.value
+        val logs = allLogs.value
+        val ratings = allRatings.value
+        val planned = allPlannedTasks.value
         val chapters = allNeetChapters.value
         val scores = allNeetScores.value
+        val tallies = allNeetTallyCounters.value
         val subjectTimes = subjectTimeBreakdown.value
         // Simulate a slight on-device computation delay (600ms) for realistic feel
         delay(600)
-        com.example.util.OnDeviceModelEngine.generateResponse(cleanQ, chapters, scores, subjectTimes)
+        com.example.util.OnDeviceModelEngine.generateResponse(
+          question = cleanQ,
+          tasks = tasks,
+          logs = logs,
+          ratings = ratings,
+          plannedTasks = planned,
+          chapters = chapters,
+          scores = scores,
+          tallies = tallies,
+          subjectTimes = subjectTimes
+        )
       }
 
       // 3. Insert model response to local Room DB

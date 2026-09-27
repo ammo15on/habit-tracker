@@ -447,7 +447,7 @@ fun DetailScreen(
     AddEditChapterDialog(
       chapter = null,
       onDismiss = { showAddChapterDialog = false },
-      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, notes ->
+      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, notes ->
         viewModel.addNeetChapter(
           name = name,
           subject = subject,
@@ -466,7 +466,7 @@ fun DetailScreen(
     AddEditChapterDialog(
       chapter = chapter,
       onDismiss = { chapterToEdit = null },
-      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, notes ->
+      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, notes ->
         viewModel.updateNeetChapter(
           chapter.copy(
             name = name,
@@ -474,6 +474,8 @@ fun DetailScreen(
             isCompleted = isCompleted,
             isPyqDone = isPyqDone,
             isRevisionDone = isRevisionDone,
+            isExerciseDone = isExerciseDone,
+            isArDone = isArDone,
             notes = notes
           )
         )
