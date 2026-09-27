@@ -20,9 +20,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PinDrop
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Quiz
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,19 +60,25 @@ fun NeetProgressWidgetCard(
 ) {
   val totalChapters = chapters.size
   val completedChapters = chapters.count { it.isCompleted }
+  val ncertDoneChapters = chapters.count { it.ncertReadCount > 0 || it.isRevisionDone }
   val pyqDoneChapters = chapters.count { it.isPyqDone }
-  val ncertDoneChapters = chapters.count { it.isRevisionDone }
+  val exerciseDoneChapters = chapters.count { it.isExerciseDone }
+  val arDoneChapters = chapters.count { it.isArDone }
 
   val chapterProgress = if (totalChapters > 0) completedChapters.toFloat() / totalChapters else 0f
-  val pyqProgress = if (totalChapters > 0) pyqDoneChapters.toFloat() / totalChapters else 0f
   val ncertProgress = if (totalChapters > 0) ncertDoneChapters.toFloat() / totalChapters else 0f
+  val pyqProgress = if (totalChapters > 0) pyqDoneChapters.toFloat() / totalChapters else 0f
+  val exerciseProgress = if (totalChapters > 0) exerciseDoneChapters.toFloat() / totalChapters else 0f
+  val arProgress = if (totalChapters > 0) arDoneChapters.toFloat() / totalChapters else 0f
 
   val animatedChProgress by animateFloatAsState(targetValue = chapterProgress, label = "chProgress")
-  val animatedPyqProgress by animateFloatAsState(targetValue = pyqProgress, label = "pyqProgress")
   val animatedNcertProgress by animateFloatAsState(targetValue = ncertProgress, label = "ncertProgress")
+  val animatedPyqProgress by animateFloatAsState(targetValue = pyqProgress, label = "pyqProgress")
+  val animatedExerciseProgress by animateFloatAsState(targetValue = exerciseProgress, label = "exerciseProgress")
+  val animatedArProgress by animateFloatAsState(targetValue = arProgress, label = "arProgress")
 
   val overallPercent = if (totalChapters > 0) {
-    (((completedChapters + pyqDoneChapters + ncertDoneChapters).toFloat() / (totalChapters * 3f)) * 100).toInt()
+    (((completedChapters + ncertDoneChapters + pyqDoneChapters + exerciseDoneChapters + arDoneChapters).toFloat() / (totalChapters * 5f)) * 100).toInt()
   } else 0
 
   Card(
@@ -86,7 +95,7 @@ fun NeetProgressWidgetCard(
           color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
           shape = RoundedCornerShape(16.dp)
         )
-        .padding(16.dp)
+        .padding(14.dp)
     ) {
       // Header Row
       Row(
@@ -126,14 +135,13 @@ fun NeetProgressWidgetCard(
         }
       }
 
-      Spacer(modifier = Modifier.height(14.dp))
+      Spacer(modifier = Modifier.height(12.dp))
 
-      // 3 Main Metric Columns: Chapters, PYQ, NCERT
+      // Row 1: Chapters Completed + NCERT Read
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
-        // Metric 1: Chapters Completed
         WidgetProgressColumn(
           title = "CHAPTERS",
           count = completedChapters,
@@ -145,27 +153,55 @@ fun NeetProgressWidgetCard(
           modifier = Modifier.weight(1f)
         )
 
-        // Metric 2: PYQ Solved
-        WidgetProgressColumn(
-          title = "PYQ DONE",
-          count = pyqDoneChapters,
-          total = totalChapters,
-          progress = animatedPyqProgress,
-          color = Color(0xFF3B82F6),
-          icon = Icons.Default.Quiz,
-          unitLabel = "pyqs solved",
-          modifier = Modifier.weight(1f)
-        )
-
-        // Metric 3: NCERT Read
         WidgetProgressColumn(
           title = "NCERT READ",
           count = ncertDoneChapters,
           total = totalChapters,
           progress = animatedNcertProgress,
-          color = Color(0xFFF59E0B),
+          color = Color(0xFFD97706),
           icon = Icons.Default.Bookmark,
-          unitLabel = "ncert revised",
+          unitLabel = "ncert read",
+          modifier = Modifier.weight(1f)
+        )
+      }
+
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Row 2: PYQ Done + Exercise + A&R
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        WidgetProgressColumn(
+          title = "PYQ DONE",
+          count = pyqDoneChapters,
+          total = totalChapters,
+          progress = animatedPyqProgress,
+          color = Color(0xFF2563EB),
+          icon = Icons.Default.Quiz,
+          unitLabel = "pyqs done",
+          modifier = Modifier.weight(1f)
+        )
+
+        WidgetProgressColumn(
+          title = "EXERCISE",
+          count = exerciseDoneChapters,
+          total = totalChapters,
+          progress = animatedExerciseProgress,
+          color = Color(0xFF8B5CF6),
+          icon = Icons.Default.School,
+          unitLabel = "exercises",
+          modifier = Modifier.weight(1f)
+        )
+
+        WidgetProgressColumn(
+          title = "A&R DONE",
+          count = arDoneChapters,
+          total = totalChapters,
+          progress = animatedArProgress,
+          color = Color(0xFFEC4899),
+          icon = Icons.Default.Psychology,
+          unitLabel = "a&r done",
           modifier = Modifier.weight(1f)
         )
       }

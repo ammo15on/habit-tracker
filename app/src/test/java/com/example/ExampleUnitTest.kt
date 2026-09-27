@@ -33,18 +33,32 @@ class ExampleUnitTest {
     assertFalse(chapter.isCompleted)
     assertFalse(chapter.isPyqDone)
     assertFalse(chapter.isRevisionDone)
+    assertFalse(chapter.isExerciseDone)
+    assertFalse(chapter.isArDone)
+    assertEquals(0, chapter.ncertReadCount)
 
-    val updated = chapter.copy(isCompleted = true, isPyqDone = true)
+    val updated = chapter.copy(
+      isCompleted = true,
+      isPyqDone = true,
+      isExerciseDone = true,
+      isArDone = true,
+      ncertReadCount = 3,
+      isRevisionDone = true
+    )
     assertTrue(updated.isCompleted)
     assertTrue(updated.isPyqDone)
+    assertTrue(updated.isExerciseDone)
+    assertTrue(updated.isArDone)
+    assertEquals(3, updated.ncertReadCount)
+    assertTrue(updated.isRevisionDone)
   }
 
   @Test
   fun neetTallyCounter_presets_containRequestedStudyItems() {
     val presetNames = NeetTallyCounter.DEFAULT_COUNTERS.map { it.title }
-    assertTrue(presetNames.contains("bot ncert read"))
-    assertTrue(presetNames.contains("bot q"))
-    assertTrue(presetNames.contains("zoo ncert read"))
-    assertTrue(presetNames.contains("zoo q"))
+    assertTrue(presetNames.contains("Full Mock Tests Given"))
+    assertTrue(presetNames.contains("Physics Numericals Solved"))
+    assertTrue(presetNames.contains("NCERT Biology Line-by-Line Revisions"))
+    assertTrue(presetNames.contains("OMR Sheet Bubble Practice"))
   }
 }

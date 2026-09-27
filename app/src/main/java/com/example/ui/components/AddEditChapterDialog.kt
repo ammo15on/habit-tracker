@@ -1,9 +1,11 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -37,6 +40,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,7 +55,7 @@ fun AddEditChapterDialog(
   chapter: NeetChapter? = null,
   initialSubject: String = "Botany",
   onDismiss: () -> Unit,
-  onSave: (name: String, subject: String, isCompleted: Boolean, isPyqDone: Boolean, isRevisionDone: Boolean, isExerciseDone: Boolean, isArDone: Boolean, notes: String) -> Unit,
+  onSave: (name: String, subject: String, isCompleted: Boolean, isPyqDone: Boolean, isRevisionDone: Boolean, isExerciseDone: Boolean, isArDone: Boolean, ncertReadCount: Int, notes: String) -> Unit,
   onDelete: (() -> Unit)? = null
 ) {
   val isEditing = chapter != null
@@ -61,6 +66,7 @@ fun AddEditChapterDialog(
   var isRevisionDone by remember { mutableStateOf(chapter?.isRevisionDone ?: false) }
   var isExerciseDone by remember { mutableStateOf(chapter?.isExerciseDone ?: false) }
   var isArDone by remember { mutableStateOf(chapter?.isArDone ?: false) }
+  var ncertReadCount by remember { mutableStateOf(chapter?.ncertReadCount ?: if (chapter?.isRevisionDone == true) 1 else 0) }
   var notes by remember { mutableStateOf(chapter?.notes ?: "") }
 
   AlertDialog(
@@ -181,25 +187,68 @@ fun AddEditChapterDialog(
           }
         }
 
-        // Checkmark 3: Revision / NCERT Read
+        // Item 3: NCERT Readings (+1 / -1 Counter)
         Row(
-          modifier = Modifier.fillMaxWidth(),
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
-          Checkbox(
-            checked = isRevisionDone,
-            onCheckedChange = { isRevisionDone = it }
-          )
-          Spacer(modifier = Modifier.width(6.dp))
-          Column {
-            Text("NCERT Read & Revised", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+          Column(modifier = Modifier.weight(1f)) {
+            Text("NCERT Readings", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Text(
-              text = if (isRevisionDone) "✓ Read NCERT line by line" else "NCERT reading pending",
+              text = if (ncertReadCount > 0) "✓ Read $ncertReadCount time(s) line-by-line" else "NCERT reading pending",
               style = MaterialTheme.typography.bodySmall,
-              color = if (isRevisionDone) RatingBestGreen else MaterialTheme.colorScheme.onSurfaceVariant
+              color = if (ncertReadCount > 0) Color(0xFFD97706) else MaterialTheme.colorScheme.onSurfaceVariant
             )
           }
+
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+          ) {
+            OutlinedButton(
+              onClick = {
+                if (ncertReadCount > 0) {
+                  ncertReadCount--
+                  isRevisionDone = (ncertReadCount > 0)
+                }
+              },
+              enabled = ncertReadCount > 0,
+              shape = CircleShape,
+              contentPadding = PaddingValues(0.dp),
+              modifier = Modifier.size(32.dp)
+            ) {
+              Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Text(
+              text = "$ncertReadCount",
+              fontSize = 15.sp,
+              fontWeight = FontWeight.Bold,
+              color = if (ncertReadCount > 0) Color(0xFFD97706) else MaterialTheme.colorScheme.onSurface,
+              modifier = Modifier.padding(horizontal = 4.dp)
+            )
+
+            Button(
+              onClick = {
+                ncertReadCount++
+                isRevisionDone = true
+              },
+              shape = CircleShape,
+              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+              contentPadding = PaddingValues(0.dp),
+              modifier = Modifier.size(32.dp)
+            ) {
+              Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+          }
         }
+
+        Spacer(modifier = Modifier.height(6.dp))
 
         // Checkmark 4: Exercise Done
         Row(
@@ -263,7 +312,7 @@ fun AddEditChapterDialog(
       Button(
         onClick = {
           if (name.isNotBlank()) {
-            onSave(name.trim(), subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, notes.trim())
+            onSave(name.trim(), subject, isCompleted, isPyqDone, (ncertReadCount > 0), isExerciseDone, isArDone, ncertReadCount, notes.trim())
           }
         },
         enabled = name.isNotBlank(),

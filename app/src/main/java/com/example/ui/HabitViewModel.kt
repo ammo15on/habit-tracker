@@ -1393,6 +1393,9 @@ class HabitViewModel(
     isCompleted: Boolean = false,
     isPyqDone: Boolean = false,
     isRevisionDone: Boolean = false,
+    isExerciseDone: Boolean = false,
+    isArDone: Boolean = false,
+    ncertReadCount: Int = 0,
     notes: String = ""
   ) {
     if (name.isBlank()) return
@@ -1402,7 +1405,10 @@ class HabitViewModel(
         subject = subject,
         isCompleted = isCompleted,
         isPyqDone = isPyqDone,
-        isRevisionDone = isRevisionDone,
+        isRevisionDone = isRevisionDone || (ncertReadCount > 0),
+        isExerciseDone = isExerciseDone,
+        isArDone = isArDone,
+        ncertReadCount = ncertReadCount,
         notes = notes.trim()
       )
       repository.insertNeetChapter(chapter)
@@ -1434,6 +1440,46 @@ class HabitViewModel(
   fun toggleChapterRevision(chapter: NeetChapter) {
     viewModelScope.launch {
       repository.updateNeetChapter(chapter.copy(isRevisionDone = !chapter.isRevisionDone))
+      notifyNeetWidgetUpdated()
+    }
+  }
+
+  fun toggleChapterExercise(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.updateNeetChapter(chapter.copy(isExerciseDone = !chapter.isExerciseDone))
+      notifyNeetWidgetUpdated()
+    }
+  }
+
+  fun toggleChapterAr(chapter: NeetChapter) {
+    viewModelScope.launch {
+      repository.updateNeetChapter(chapter.copy(isArDone = !chapter.isArDone))
+      notifyNeetWidgetUpdated()
+    }
+  }
+
+  fun incrementChapterNcert(chapter: NeetChapter) {
+    val newCount = chapter.ncertReadCount + 1
+    viewModelScope.launch {
+      repository.updateNeetChapter(
+        chapter.copy(
+          ncertReadCount = newCount,
+          isRevisionDone = (newCount > 0)
+        )
+      )
+      notifyNeetWidgetUpdated()
+    }
+  }
+
+  fun decrementChapterNcert(chapter: NeetChapter) {
+    val newCount = (chapter.ncertReadCount - 1).coerceAtLeast(0)
+    viewModelScope.launch {
+      repository.updateNeetChapter(
+        chapter.copy(
+          ncertReadCount = newCount,
+          isRevisionDone = (newCount > 0)
+        )
+      )
       notifyNeetWidgetUpdated()
     }
   }
@@ -1796,6 +1842,9 @@ class HabitViewModel(
         put("isCompleted", c.isCompleted)
         put("isPyqDone", c.isPyqDone)
         put("isRevisionDone", c.isRevisionDone)
+        put("isExerciseDone", c.isExerciseDone)
+        put("isArDone", c.isArDone)
+        put("ncertReadCount", c.ncertReadCount)
         put("notes", c.notes)
       }
       chaptersArray.put(obj)
@@ -1980,6 +2029,9 @@ class HabitViewModel(
             isCompleted = o.optBoolean("isCompleted", o.optBoolean("theoryCompleted", false)),
             isPyqDone = o.optBoolean("isPyqDone", o.optBoolean("pyqsSolved", false)),
             isRevisionDone = o.optBoolean("isRevisionDone", false),
+            isExerciseDone = o.optBoolean("isExerciseDone", false),
+            isArDone = o.optBoolean("isArDone", false),
+            ncertReadCount = o.optInt("ncertReadCount", if (o.optBoolean("isRevisionDone", false)) 1 else 0),
             notes = o.optString("notes", "")
           )
         )

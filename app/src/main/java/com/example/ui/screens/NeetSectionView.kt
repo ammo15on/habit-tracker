@@ -91,7 +91,9 @@ fun NeetSectionView(
   testScores: List<NeetTestScore>,
   onToggleChapterCompleted: (NeetChapter) -> Unit,
   onToggleChapterPyq: (NeetChapter) -> Unit,
-  onToggleChapterRevision: (NeetChapter) -> Unit,
+  onIncrementChapterNcert: (NeetChapter) -> Unit = {},
+  onDecrementChapterNcert: (NeetChapter) -> Unit = {},
+  onToggleChapterRevision: (NeetChapter) -> Unit = {},
   onToggleChapterExercise: (NeetChapter) -> Unit = {},
   onToggleChapterAr: (NeetChapter) -> Unit = {},
   onAddChapterClick: () -> Unit,
@@ -163,6 +165,8 @@ fun NeetSectionView(
           chapters = chapters,
           onToggleCompleted = onToggleChapterCompleted,
           onTogglePyq = onToggleChapterPyq,
+          onIncrementNcert = onIncrementChapterNcert,
+          onDecrementNcert = onDecrementChapterNcert,
           onToggleRevision = onToggleChapterRevision,
           onToggleExercise = onToggleChapterExercise,
           onToggleAr = onToggleChapterAr,
@@ -203,6 +207,8 @@ private fun NeetChaptersView(
   chapters: List<NeetChapter>,
   onToggleCompleted: (NeetChapter) -> Unit,
   onTogglePyq: (NeetChapter) -> Unit,
+  onIncrementNcert: (NeetChapter) -> Unit,
+  onDecrementNcert: (NeetChapter) -> Unit,
   onToggleRevision: (NeetChapter) -> Unit,
   onToggleExercise: (NeetChapter) -> Unit,
   onToggleAr: (NeetChapter) -> Unit,
@@ -223,6 +229,7 @@ private fun NeetChaptersView(
     val matchesStatus = when (selectedStatusFilter) {
       "To Complete" -> !chapter.isCompleted
       "Completed" -> chapter.isCompleted
+      "NCERT Read" -> (chapter.ncertReadCount > 0 || chapter.isRevisionDone)
       "PYQ Done" -> chapter.isPyqDone
       "Exercise Done" -> chapter.isExerciseDone
       "A&R Done" -> chapter.isArDone
@@ -288,12 +295,12 @@ private fun NeetChaptersView(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Status Filter chips (includes Exercise & A&R)
+        // Status Filter chips (includes NCERT Read, Exercise & A&R)
         FlowRow(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-          listOf("All", "To Complete", "Completed", "PYQ Done", "Exercise Done", "A&R Done").forEach { st ->
+          listOf("All", "To Complete", "Completed", "NCERT Read", "PYQ Done", "Exercise Done", "A&R Done").forEach { st ->
             FilterChip(
               selected = (selectedStatusFilter == st),
               onClick = { selectedStatusFilter = st },
@@ -338,6 +345,8 @@ private fun NeetChaptersView(
           chapter = chapter,
           onToggleCompleted = { onToggleCompleted(chapter) },
           onTogglePyq = { onTogglePyq(chapter) },
+          onIncrementNcert = { onIncrementNcert(chapter) },
+          onDecrementNcert = { onDecrementNcert(chapter) },
           onToggleRevision = { onToggleRevision(chapter) },
           onToggleExercise = { onToggleExercise(chapter) },
           onToggleAr = { onToggleAr(chapter) },
@@ -355,6 +364,8 @@ private fun ChapterItemCard(
   chapter: NeetChapter,
   onToggleCompleted: () -> Unit,
   onTogglePyq: () -> Unit,
+  onIncrementNcert: () -> Unit,
+  onDecrementNcert: () -> Unit,
   onToggleRevision: () -> Unit,
   onToggleExercise: () -> Unit,
   onToggleAr: () -> Unit,
@@ -438,7 +449,7 @@ private fun ChapterItemCard(
 
       Spacer(modifier = Modifier.height(10.dp))
 
-      // 5 Interactive Chips: Completed, NCERT Read, PYQ, Exercise, A&R
+      // 5 Interactive Chips: Completed, NCERT (+1/-1 Counter), PYQ, Exercise, A&R
       FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -452,12 +463,11 @@ private fun ChapterItemCard(
           onClick = onToggleCompleted
         )
 
-        // 2. NCERT Read / Revision
-        TickButton(
-          label = if (chapter.isRevisionDone) "✓ NCERT" else "NCERT Read",
-          isChecked = chapter.isRevisionDone,
-          activeColor = Color(0xFFD97706),
-          onClick = onToggleRevision
+        // 2. NCERT Read Counter (+1 / -1 instead of binary complete)
+        NcertCounterChip(
+          count = chapter.ncertReadCount,
+          onIncrement = onIncrementNcert,
+          onDecrement = onDecrementNcert
         )
 
         // 3. PYQ Done
@@ -470,7 +480,7 @@ private fun ChapterItemCard(
 
         // 4. Exercise Done
         TickButton(
-          label = if (chapter.isExerciseDone) "✓ Exercise" else "Exercise",
+          label = if (chapter.isExerciseDone) "✓ Exercise Done" else "Exercise",
           isChecked = chapter.isExerciseDone,
           activeColor = Color(0xFF8B5CF6),
           onClick = onToggleExercise
@@ -489,6 +499,93 @@ private fun ChapterItemCard(
 }
 
 @Composable
+private fun NcertCounterChip(
+  count: Int,
+  onIncrement: () -> Unit,
+  onDecrement: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val isActive = count > 0
+  val activeColor = Color(0xFFD97706)
+
+  Box(
+    modifier = modifier
+      .defaultMinSize(minHeight = 36.dp)
+      .clip(RoundedCornerShape(8.dp))
+      .background(if (isActive) activeColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+      .border(
+        width = 1.dp,
+        color = if (isActive) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+        shape = RoundedCornerShape(8.dp)
+      )
+      .padding(vertical = 3.dp, horizontal = 4.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+      // Minus button
+      Box(
+        modifier = Modifier
+          .size(28.dp)
+          .clip(CircleShape)
+          .background(if (count > 0) activeColor.copy(alpha = 0.22f) else Color.Transparent)
+          .clickable(enabled = count > 0) { onDecrement() },
+        contentAlignment = Alignment.Center
+      ) {
+        Text(
+          text = "−",
+          fontSize = 15.sp,
+          fontWeight = FontWeight.Bold,
+          color = if (count > 0) activeColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+        )
+      }
+
+      // Middle Label with icon and count (clickable to increment when 0 or add more)
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        modifier = Modifier
+          .clip(RoundedCornerShape(4.dp))
+          .clickable { onIncrement() }
+          .padding(horizontal = 4.dp, vertical = 2.dp)
+      ) {
+        Icon(
+          imageVector = if (isActive) Icons.Default.CheckCircle else Icons.Default.MenuBook,
+          contentDescription = null,
+          modifier = Modifier.size(13.dp),
+          tint = if (isActive) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+          text = if (count > 0) "✓ NCERT: ${count}x" else "NCERT: 0",
+          fontSize = 11.sp,
+          fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+          color = if (isActive) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
+
+      // Plus button
+      Box(
+        modifier = Modifier
+          .size(28.dp)
+          .clip(CircleShape)
+          .background(activeColor.copy(alpha = 0.25f))
+          .clickable { onIncrement() },
+        contentAlignment = Alignment.Center
+      ) {
+        Text(
+          text = "+",
+          fontSize = 15.sp,
+          fontWeight = FontWeight.Bold,
+          color = activeColor
+        )
+      }
+    }
+  }
+}
+
+@Composable
 private fun TickButton(
   label: String,
   isChecked: Boolean,
@@ -498,15 +595,16 @@ private fun TickButton(
 ) {
   Box(
     modifier = modifier
+      .defaultMinSize(minHeight = 36.dp)
       .clip(RoundedCornerShape(8.dp))
       .background(if (isChecked) activeColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
       .border(
         width = 1.dp,
-        color = if (isChecked) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+        color = if (isChecked) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
         shape = RoundedCornerShape(8.dp)
       )
       .clickable { onClick() }
-      .padding(vertical = 6.dp, horizontal = 4.dp),
+      .padding(vertical = 6.dp, horizontal = 8.dp),
     contentAlignment = Alignment.Center
   ) {
     Row(
@@ -516,7 +614,7 @@ private fun TickButton(
       Icon(
         imageVector = if (isChecked) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
         contentDescription = null,
-        modifier = Modifier.size(13.dp),
+        modifier = Modifier.size(14.dp),
         tint = if (isChecked) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
       )
       Spacer(modifier = Modifier.width(4.dp))

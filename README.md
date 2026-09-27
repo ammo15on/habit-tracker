@@ -1,13 +1,14 @@
-# Habit & Study Tracker (Android) - v6.5
+# Habit & Study Tracker (Android) - v6.5.2
 
 A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widget, progressive AI study coaching, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v6.5 & Version History)
+## 📱 Pre-Built APKs (v6.5.2 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v6.5 Latest Release**: [`apk/habit-tracker-v6.5.apk`](apk/habit-tracker-v6.5.apk)
+- **v6.5.2 Latest Release (Exercise & A&R Toggles, NCERT Read Counter)**: [`apk/habit-tracker-v6.5.2.apk`](apk/habit-tracker-v6.5.2.apk)
+- **v6.5 Release**: [`apk/habit-tracker-v6.5.apk`](apk/habit-tracker-v6.5.apk)
 - **v6.2 Release**: [`apk/habit-tracker-v6.2.apk`](apk/habit-tracker-v6.2.apk)
 - **v6.1 Release**: [`apk/habit-tracker-v6.1.apk`](apk/habit-tracker-v6.1.apk)
 - **v6.0 Release**: [`apk/habit-tracker-v6.apk`](apk/habit-tracker-v6.apk)
@@ -18,10 +19,24 @@ The compiled Android application packages are available directly in the reposito
 - **v3 Release**: [`apk/habit-tracker-v3.apk`](apk/habit-tracker-v3.apk)
 - **v2 Release**: [`apk/habit-tracker-v2.apk`](apk/habit-tracker-v2.apk)
 - **Universal Standard Link**: [`apk/habit-tracker.apk`](apk/habit-tracker.apk)
-- **Build Output**: `app/build/outputs/apk/debug/app-debug.apk`
+- **Release APK Output**: `app/build/outputs/apk/release/app-release.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `6.5` (Version Code 15)
+- **Version**: `6.5.2` (Version Code 13)
+
+---
+
+## 🚀 Release v6.5.2 - Interactive Exercise & A&R Toggles, NCERT Read Counter (+1 / -1) & DB Migration v13
+
+### 1. Interactive Exercise & Assertion-Reason (A&R) Toggles
+- **Parity with PYQ**: Exercise (`✓ Exercise Done` / `Exercise`) and Assertion & Reason (`✓ A&R Done` / `A&R`) are now interactive checkmark toggles with dedicated color accents and instant status persistence, matching PYQ behavior.
+- **Database Schema v13**: Added non-destructive schema migrations for `isExerciseDone` and `isArDone` across all NEET chapters.
+- **Status Filter Chips**: NEET chapter lists include direct filters for **Exercise Done** and **A&R Done** alongside Completed and PYQ filters.
+
+### 2. Interactive NCERT Read Counter (+1 / −1)
+- **Step-by-Step Counter**: Replaced binary completion for NCERT reading with an interactive **+1 / −1 counter** (`✓ NCERT: 1x`, `2x`, `3x`, etc.).
+- **Touch-Friendly Controls**: Tap **+** (or the chip label) to increment reading cycles, or **−** to decrement.
+- **Dialog Integration**: Added the counter controls into the Add/Edit Chapter dialog so reading iterations can be viewed and edited with full fidelity.
 
 ---
 

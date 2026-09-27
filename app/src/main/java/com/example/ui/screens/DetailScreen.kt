@@ -364,9 +364,21 @@ fun DetailScreen(
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
               viewModel.toggleChapterPyq(it)
             },
-            onToggleChapterRevision = {
+            onIncrementChapterNcert = {
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              viewModel.toggleChapterRevision(it)
+              viewModel.incrementChapterNcert(it)
+            },
+            onDecrementChapterNcert = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.decrementChapterNcert(it)
+            },
+            onToggleChapterExercise = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.toggleChapterExercise(it)
+            },
+            onToggleChapterAr = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              viewModel.toggleChapterAr(it)
             },
             onAddChapterClick = { showAddChapterDialog = true },
             onEditChapterClick = { chapterToEdit = it },
@@ -447,13 +459,16 @@ fun DetailScreen(
     AddEditChapterDialog(
       chapter = null,
       onDismiss = { showAddChapterDialog = false },
-      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, notes ->
+      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, ncertReadCount, notes ->
         viewModel.addNeetChapter(
           name = name,
           subject = subject,
           isCompleted = isCompleted,
           isPyqDone = isPyqDone,
           isRevisionDone = isRevisionDone,
+          isExerciseDone = isExerciseDone,
+          isArDone = isArDone,
+          ncertReadCount = ncertReadCount,
           notes = notes
         )
         showAddChapterDialog = false
@@ -466,7 +481,7 @@ fun DetailScreen(
     AddEditChapterDialog(
       chapter = chapter,
       onDismiss = { chapterToEdit = null },
-      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, notes ->
+      onSave = { name, subject, isCompleted, isPyqDone, isRevisionDone, isExerciseDone, isArDone, ncertReadCount, notes ->
         viewModel.updateNeetChapter(
           chapter.copy(
             name = name,
@@ -476,6 +491,7 @@ fun DetailScreen(
             isRevisionDone = isRevisionDone,
             isExerciseDone = isExerciseDone,
             isArDone = isArDone,
+            ncertReadCount = ncertReadCount,
             notes = notes
           )
         )
@@ -666,7 +682,9 @@ private fun AnalyticsSectionView(
               val subTotal = subjChapters.size
               val subDone = subjChapters.count { it.isCompleted }
               val subPyq = subjChapters.count { it.isPyqDone }
-              val subNcert = subjChapters.count { it.isRevisionDone }
+              val subEx = subjChapters.count { it.isExerciseDone }
+              val subAr = subjChapters.count { it.isArDone }
+              val subNcert = subjChapters.count { it.ncertReadCount > 0 || it.isRevisionDone }
               val subProgress = if (subTotal > 0) subDone.toFloat() / subTotal else 0f
               val subPercent = if (subTotal > 0) (subDone * 100) / subTotal else 0
 
@@ -703,9 +721,9 @@ private fun AnalyticsSectionView(
                   }
 
                   Text(
-                    text = "$subDone/$subTotal ($subPercent%)  •  PYQ: $subPyq  •  NCERT: $subNcert",
+                    text = "$subDone/$subTotal ($subPercent%) • PYQ: $subPyq • Ex: $subEx • A&R: $subAr • NCERT: $subNcert",
                     style = MaterialTheme.typography.labelSmall.copy(
-                      fontSize = 11.sp,
+                      fontSize = 10.sp,
                       color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                   )

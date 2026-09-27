@@ -30,7 +30,7 @@ import com.example.data.model.AiChatEntity
     TaskPreset::class,
     AiChatEntity::class
   ],
-  version = 11,
+  version = 13,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -50,7 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
       db.execSQL("CREATE TABLE IF NOT EXISTS `neet_test_scores` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `testName` TEXT NOT NULL, `date` TEXT NOT NULL, `physicsScore` INTEGER NOT NULL, `chemistryScore` INTEGER NOT NULL, `botanyScore` INTEGER NOT NULL, `zoologyScore` INTEGER NOT NULL, `maxPhysics` INTEGER NOT NULL, `maxChemistry` INTEGER NOT NULL, `maxBotany` INTEGER NOT NULL, `maxZoology` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL)")
       db.execSQL("CREATE TABLE IF NOT EXISTS `planned_tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `date` TEXT NOT NULL, `targetTimeMinutes` INTEGER NOT NULL, `notes` TEXT NOT NULL, `isStarred` INTEGER NOT NULL, `isArchived` INTEGER NOT NULL, `isCompleted` INTEGER NOT NULL)")
       db.execSQL("CREATE TABLE IF NOT EXISTS `plan_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT NOT NULL, `taskTitle` TEXT NOT NULL, `taskTargetMinutes` INTEGER NOT NULL, `notes` TEXT NOT NULL, `subtasksJson` TEXT NOT NULL)")
-      db.execSQL("CREATE TABLE IF NOT EXISTS `neet_chapters` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `subject` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `isPyqDone` INTEGER NOT NULL, `isRevisionDone` INTEGER NOT NULL, `isExerciseDone` INTEGER NOT NULL DEFAULT 0, `isArDone` INTEGER NOT NULL DEFAULT 0, `notes` TEXT NOT NULL)")
+      db.execSQL("CREATE TABLE IF NOT EXISTS `neet_chapters` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `subject` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `isPyqDone` INTEGER NOT NULL, `isRevisionDone` INTEGER NOT NULL, `isExerciseDone` INTEGER NOT NULL DEFAULT 0, `isArDone` INTEGER NOT NULL DEFAULT 0, `ncertReadCount` INTEGER NOT NULL DEFAULT 0, `notes` TEXT NOT NULL)")
       db.execSQL("CREATE TABLE IF NOT EXISTS `neet_tally_counters` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `count` INTEGER NOT NULL, `target` INTEGER NOT NULL, `unit` TEXT NOT NULL)")
       db.execSQL("CREATE TABLE IF NOT EXISTS `task_presets` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `targetTimeMinutes` INTEGER NOT NULL, `noteText` TEXT NOT NULL, `noteImageUri` TEXT)")
       db.execSQL("CREATE TABLE IF NOT EXISTS `ai_chat_history` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `role` TEXT NOT NULL, `text` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `isError` INTEGER NOT NULL, `isCloud` INTEGER NOT NULL, `isPinned` INTEGER NOT NULL DEFAULT 0)")
@@ -75,20 +75,24 @@ abstract class AppDatabase : RoomDatabase() {
 
       try { db.execSQL("ALTER TABLE `neet_chapters` ADD COLUMN `isExerciseDone` INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) {}
       try { db.execSQL("ALTER TABLE `neet_chapters` ADD COLUMN `isArDone` INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) {}
+      try { db.execSQL("ALTER TABLE `neet_chapters` ADD COLUMN `ncertReadCount` INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) {}
+      try { db.execSQL("UPDATE `neet_chapters` SET `ncertReadCount` = 1 WHERE `isRevisionDone` = 1 AND `ncertReadCount` = 0") } catch (_: Exception) {}
 
       try { db.execSQL("ALTER TABLE `ai_chat_history` ADD COLUMN `isPinned` INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) {}
     }
 
-    private val MIGRATION_1_11 = object : Migration(1, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_2_11 = object : Migration(2, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_3_11 = object : Migration(3, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_4_11 = object : Migration(4, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_5_11 = object : Migration(5, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_6_11 = object : Migration(6, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_7_11 = object : Migration(7, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_8_11 = object : Migration(8, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_9_11 = object : Migration(9, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
-    private val MIGRATION_10_11 = object : Migration(10, 11) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_1_13 = object : Migration(1, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_2_13 = object : Migration(2, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_3_13 = object : Migration(3, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_4_13 = object : Migration(4, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_5_13 = object : Migration(5, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_6_13 = object : Migration(6, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_7_13 = object : Migration(7, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_8_13 = object : Migration(8, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_9_13 = object : Migration(9, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_10_13 = object : Migration(10, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_11_13 = object : Migration(11, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
+    private val MIGRATION_12_13 = object : Migration(12, 13) { override fun migrate(db: SupportSQLiteDatabase) = migrateAll(db) }
 
     fun getDatabase(context: Context): AppDatabase {
       return INSTANCE ?: synchronized(this) {
@@ -98,16 +102,18 @@ abstract class AppDatabase : RoomDatabase() {
           "habit_tracker.db"
         )
           .addMigrations(
-            MIGRATION_1_11,
-            MIGRATION_2_11,
-            MIGRATION_3_11,
-            MIGRATION_4_11,
-            MIGRATION_5_11,
-            MIGRATION_6_11,
-            MIGRATION_7_11,
-            MIGRATION_8_11,
-            MIGRATION_9_11,
-            MIGRATION_10_11
+            MIGRATION_1_13,
+            MIGRATION_2_13,
+            MIGRATION_3_13,
+            MIGRATION_4_13,
+            MIGRATION_5_13,
+            MIGRATION_6_13,
+            MIGRATION_7_13,
+            MIGRATION_8_13,
+            MIGRATION_9_13,
+            MIGRATION_10_13,
+            MIGRATION_11_13,
+            MIGRATION_12_13
           )
           .fallbackToDestructiveMigration() // Guarantees the app will never crash on database open
           .build()
