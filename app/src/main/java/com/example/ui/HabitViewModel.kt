@@ -1187,8 +1187,13 @@ class HabitViewModel(
   // Timer controls with Background Tracking
   fun toggleTimer(taskId: Long) {
     val curDate = selectedDate.value
-    if (com.example.util.TimerManager.isTimerRunning(taskId, curDate)) {
-      com.example.util.TimerManager.stopTimer()
+    val current = com.example.util.TimerManager.activeTimerState.value
+    if (current.taskId == taskId && current.date == curDate) {
+      if (current.isRunning) {
+        com.example.util.TimerManager.pauseTimer()
+      } else {
+        com.example.util.TimerManager.resumeTimer()
+      }
     } else {
       val taskItem = tasksForSelectedDate.value.find { it.task.id == taskId }
       val taskName = taskItem?.task?.name
@@ -1198,6 +1203,18 @@ class HabitViewModel(
         ?: com.example.util.TimerManager.getEffectiveTaskSeconds(taskId, curDate, 0L)
       com.example.util.TimerManager.startTimer(taskId, taskName, curDate, effectiveInitial)
     }
+  }
+
+  fun pauseTimer() {
+    com.example.util.TimerManager.pauseTimer()
+  }
+
+  fun resumeTimer() {
+    com.example.util.TimerManager.resumeTimer()
+  }
+
+  fun stopActiveTimer() {
+    com.example.util.TimerManager.stopTimer()
   }
 
   private fun flushActiveTimer() {

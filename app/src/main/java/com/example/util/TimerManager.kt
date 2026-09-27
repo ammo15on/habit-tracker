@@ -51,51 +51,78 @@ object TimerManager {
     repo = repository
 
     // Robustly restore active timer state to prevent any time loss upon app restart or process kill
-    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    val taskId = prefs.getLong(KEY_TASK_ID, -1L)
-    val isRunning = prefs.getBoolean(KEY_IS_RUNNING, false)
-    if (taskId != -1L && isRunning) {
-      val taskName = prefs.getString(KEY_TASK_NAME, "Study Task") ?: "Study Task"
-      val date = prefs.getString(KEY_DATE, DateUtils.today()) ?: DateUtils.today()
-      val startEpoch = prefs.getLong(KEY_START_EPOCH, System.currentTimeMillis())
-      val accumulated = prefs.getLong(KEY_ACCUMULATED_SECS, 0L)
+    try {
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      val taskId = prefs.getLong(KEY_TASK_ID, -1L)
+      if (taskId != -1L) {
+        val taskName = prefs.getString(KEY_TASK_NAME, "Study Task") ?: "Study Task"
+        val date = prefs.getString(KEY_DATE, DateUtils.today()) ?: DateUtils.today()
+        val isRunning = prefs.getBoolean(KEY_IS_RUNNING, false)
+        val startEpoch = prefs.getLong(KEY_START_EPOCH, System.currentTimeMillis())
+        val accumulated = prefs.getLong(KEY_ACCUMULATED_SECS, 0L)
 
-      val now = System.currentTimeMillis()
-      val calculatedSeconds = ((now - startEpoch) / 1000L).coerceAtLeast(accumulated)
+        if (isRunning) {
+          val now = System.currentTimeMillis()
+          val calculatedSeconds = ((now - startEpoch) / 1000L).coerceAtLeast(accumulated)
 
-      _timerState.value = ActiveTimerState(
-        taskId = taskId,
-        taskName = taskName,
-        date = date,
-        isRunning = true,
-        elapsedSeconds = calculatedSeconds,
-        startEpochMs = startEpoch
-      )
-      runningTaskId.value = taskId
-      isTimerRunning.value = true
+          _timerState.value = ActiveTimerState(
+            taskId = taskId,
+            taskName = taskName,
+            date = date,
+            isRunning = true,
+            elapsedSeconds = calculatedSeconds,
+            startEpochMs = startEpoch
+          )
+          runningTaskId.value = taskId
+          isTimerRunning.value = true
 
-      startTickerLoop(taskId, taskName, date, startEpoch)
-    }
+          startTickerLoop(taskId, taskName, date, startEpoch)
+          TimerForegroundService.start(context, taskName, startEpoch, calculatedSeconds, isPaused = false)
+        } else {
+          // Restored in paused state
+          _timerState.value = ActiveTimerState(
+            taskId = taskId,
+            taskName = taskName,
+            date = date,
+            isRunning = false,
+            elapsedSeconds = accumulated,
+            startEpochMs = startEpoch
+          )
+          runningTaskId.value = taskId
+          isTimerRunning.value = false
+
+          TimerForegroundService.start(context, taskName, 0L, accumulated, isPaused = true)
+        }
+      }
+    } catch (_: Exception) {}
   }
 
-  private fun persistState(taskId: Long?, taskName: String, date: String, isRunning: Boolean, startEpochMs: Long, elapsedSeconds: Long) {
-    appContext?.let { ctx ->
-      val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-      prefs.edit().apply {
-        if (taskId != null && isRunning) {
-          putLong(KEY_TASK_ID, taskId)
-          putString(KEY_TASK_NAME, taskName)
-          putString(KEY_DATE, date)
-          putBoolean(KEY_IS_RUNNING, true)
-          putLong(KEY_START_EPOCH, startEpochMs)
-          putLong(KEY_ACCUMULATED_SECS, elapsedSeconds)
-        } else {
-          putBoolean(KEY_IS_RUNNING, false)
-          remove(KEY_TASK_ID)
+  private fun persistState(
+    taskId: Long?,
+    taskName: String,
+    date: String,
+    isRunning: Boolean,
+    startEpochMs: Long,
+    elapsedSeconds: Long
+  ) {
+    try {
+      appContext?.let { ctx ->
+        val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().apply {
+          if (taskId != null) {
+            putLong(KEY_TASK_ID, taskId)
+            putString(KEY_TASK_NAME, taskName)
+            putString(KEY_DATE, date)
+            putBoolean(KEY_IS_RUNNING, isRunning)
+            putLong(KEY_START_EPOCH, startEpochMs)
+            putLong(KEY_ACCUMULATED_SECS, elapsedSeconds)
+          } else {
+            clear()
+          }
+          apply()
         }
-        apply()
       }
-    }
+    } catch (_: Exception) {}
   }
 
   fun isTimerRunning(taskId: Long): Boolean {
@@ -119,10 +146,12 @@ object TimerManager {
 
   fun toggleTimer(taskId: Long, taskName: String, date: String, currentLoggedSeconds: Long = 0L) {
     val current = _timerState.value
-    if (current.isRunning && current.taskId == taskId && current.date == date) {
-      pauseTimer()
-    } else if (!current.isRunning && current.taskId == taskId && current.date == date) {
-      resumeTimer()
+    if (current.taskId == taskId && current.date == date) {
+      if (current.isRunning) {
+        pauseTimer()
+      } else {
+        resumeTimer()
+      }
     } else {
       startTimer(taskId, taskName, date, currentLoggedSeconds)
     }
@@ -161,7 +190,7 @@ object TimerManager {
     persistState(taskId, taskName, date, true, baseStartEpoch, initialSeconds)
 
     appContext?.let { ctx ->
-      TimerForegroundService.start(ctx, taskName, initialSeconds, isPaused = false)
+      TimerForegroundService.start(ctx, taskName, baseStartEpoch, initialSeconds, isPaused = false)
     }
 
     playFeedbackSound()
@@ -169,7 +198,21 @@ object TimerManager {
   }
 
   fun resumeTimer() {
-    val current = _timerState.value
+    var current = _timerState.value
+    // If in-memory state was cleared, recover from prefs
+    if (current.taskId == null) {
+      appContext?.let { ctx ->
+        val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val tid = prefs.getLong(KEY_TASK_ID, -1L)
+        if (tid != -1L) {
+          val tName = prefs.getString(KEY_TASK_NAME, "Study Task") ?: "Study Task"
+          val dt = prefs.getString(KEY_DATE, DateUtils.today()) ?: DateUtils.today()
+          val acc = prefs.getLong(KEY_ACCUMULATED_SECS, 0L)
+          current = ActiveTimerState(taskId = tid, taskName = tName, date = dt, elapsedSeconds = acc)
+        }
+      }
+    }
+
     val taskId = current.taskId ?: return
     val taskName = current.taskName
     val date = current.date
@@ -188,7 +231,7 @@ object TimerManager {
     persistState(taskId, taskName, date, true, baseStartEpoch, accumulated)
 
     appContext?.let { ctx ->
-      TimerForegroundService.start(ctx, taskName, accumulated, isPaused = false)
+      TimerForegroundService.start(ctx, taskName, baseStartEpoch, accumulated, isPaused = false)
     }
 
     playFeedbackSound()
@@ -206,18 +249,13 @@ object TimerManager {
 
         _timerState.value = _timerState.value.copy(elapsedSeconds = calculatedSeconds)
 
-        // Persist accumulated seconds continuously to SharedPreferences every second so time is NEVER lost
-        persistState(taskId, taskName, date, true, baseStartEpoch, calculatedSeconds)
-
-        // Update notification periodically for smooth background tracking
-        if (calculatedSeconds % 2 == 0L) {
-          appContext?.let { ctx ->
-            TimerForegroundService.start(ctx, taskName, calculatedSeconds, isPaused = false)
-          }
+        // Persist accumulated seconds continuously to SharedPreferences every 5 seconds so time is NEVER lost
+        if (calculatedSeconds % 5 == 0L) {
+          persistState(taskId, taskName, date, true, baseStartEpoch, calculatedSeconds)
         }
 
         // Persist to Room database frequently
-        if (calculatedSeconds != lastSavedSecs) {
+        if (calculatedSeconds - lastSavedSecs >= 5L) {
           lastSavedSecs = calculatedSeconds
           repo?.setTimeSpent(taskId, date, calculatedSeconds)
         }
@@ -227,16 +265,40 @@ object TimerManager {
 
   fun pauseTimer() {
     flushTimer()
-    val current = _timerState.value
+    var current = _timerState.value
+    if (current.taskId == null) {
+      appContext?.let { ctx ->
+        val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val tid = prefs.getLong(KEY_TASK_ID, -1L)
+        if (tid != -1L) {
+          val tName = prefs.getString(KEY_TASK_NAME, "Study Task") ?: "Study Task"
+          val dt = prefs.getString(KEY_DATE, DateUtils.today()) ?: DateUtils.today()
+          val acc = prefs.getLong(KEY_ACCUMULATED_SECS, 0L)
+          current = ActiveTimerState(taskId = tid, taskName = tName, date = dt, elapsedSeconds = acc)
+        }
+      }
+    }
+
+    val taskId = current.taskId
+    val taskName = current.taskName
+    val date = current.date
+    val accumulated = current.elapsedSeconds
+
+    tickerJob?.cancel()
     _timerState.value = current.copy(isRunning = false)
     isTimerRunning.value = false
-    tickerJob?.cancel()
 
-    persistState(null, "", "", false, 0L, 0L)
+    // Retain taskId and accumulated time in SharedPreferences with isRunning = false!
+    if (taskId != null) {
+      persistState(taskId, taskName, date, false, 0L, accumulated)
+      scope.launch(Dispatchers.IO) {
+        repo?.setTimeSpent(taskId, date, accumulated)
+      }
+    }
 
     appContext?.let { ctx ->
-      if (current.taskId != null) {
-        TimerForegroundService.start(ctx, current.taskName, current.elapsedSeconds, isPaused = true)
+      if (taskId != null) {
+        TimerForegroundService.start(ctx, taskName, 0L, accumulated, isPaused = true)
       } else {
         TimerForegroundService.stop(ctx)
       }
@@ -246,10 +308,21 @@ object TimerManager {
 
   fun stopTimer() {
     flushTimer()
+    val current = _timerState.value
+    val taskId = current.taskId
+    val date = current.date
+    val accumulated = current.elapsedSeconds
+
+    tickerJob?.cancel()
     _timerState.value = ActiveTimerState()
     runningTaskId.value = null
     isTimerRunning.value = false
-    tickerJob?.cancel()
+
+    if (taskId != null && date.isNotBlank()) {
+      scope.launch(Dispatchers.IO) {
+        repo?.setTimeSpent(taskId, date, accumulated)
+      }
+    }
 
     persistState(null, "", "", false, 0L, 0L)
 

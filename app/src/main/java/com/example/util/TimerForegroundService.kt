@@ -40,7 +40,9 @@ class TimerForegroundService : Service() {
     when (action) {
       ACTION_STOP_SERVICE -> {
         releaseWakeLock()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        try {
+          stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
         stopSelf()
         return START_NOT_STICKY
       }
@@ -55,30 +57,55 @@ class TimerForegroundService : Service() {
       ACTION_STOP -> {
         TimerManager.stopTimer()
         releaseWakeLock()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        try {
+          stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
         stopSelf()
         return START_NOT_STICKY
       }
     }
 
-    val taskName = intent?.getStringExtra(EXTRA_TASK_NAME) ?: "Active Habit Timer"
+    val taskName = intent?.getStringExtra(EXTRA_TASK_NAME) ?: "Study Task"
+    val baseStartEpoch = intent?.getLongExtra(EXTRA_BASE_START_EPOCH, System.currentTimeMillis()) ?: System.currentTimeMillis()
     val elapsedSeconds = intent?.getLongExtra(EXTRA_ELAPSED_SECONDS, 0L) ?: 0L
     val isPaused = intent?.getBooleanExtra(EXTRA_IS_PAUSED, false) ?: false
 
-    createNotificationChannel()
-    val notification = buildNotification(taskName, elapsedSeconds, isPaused)
+    createNotificationChannel(this)
+    val notification = buildNotification(this, taskName, baseStartEpoch, elapsedSeconds, isPaused)
 
     try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        startForeground(
-          NOTIFICATION_ID,
-          notification,
-          ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-        )
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        try {
+          startForeground(
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+          )
+        } catch (_: Exception) {
+          try {
+            startForeground(
+              NOTIFICATION_ID,
+              notification,
+              ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+          } catch (_: Exception) {
+            startForeground(NOTIFICATION_ID, notification)
+          }
+        }
+      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        try {
+          startForeground(
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+          )
+        } catch (_: Exception) {
+          startForeground(NOTIFICATION_ID, notification)
+        }
       } else {
         startForeground(NOTIFICATION_ID, notification)
       }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
       try {
         startForeground(NOTIFICATION_ID, notification)
       } catch (_: Exception) {}
@@ -100,102 +127,6 @@ class TimerForegroundService : Service() {
     } catch (_: Exception) {}
   }
 
-  private fun createNotificationChannel() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val channel = NotificationChannel(
-        CHANNEL_ID,
-        "Live Habit & Study Timer",
-        NotificationManager.IMPORTANCE_HIGH
-      ).apply {
-        description = "Shows live background tracking notification with pause, resume and stop controls"
-        setShowBadge(true)
-        enableVibration(true)
-      }
-      val manager = getSystemService(NotificationManager::class.java)
-      manager?.createNotificationChannel(channel)
-    }
-  }
-
-  private fun buildNotification(taskName: String, elapsedSeconds: Long, isPaused: Boolean): Notification {
-    val formatted = DateUtils.formatTime(elapsedSeconds)
-
-    val openIntent = Intent(this, MainActivity::class.java).apply {
-      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-    }
-    val openPendingIntent = PendingIntent.getActivity(
-      this,
-      0,
-      openIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-
-    // Pause / Resume Intent
-    val toggleAction = if (isPaused) {
-      val resumeIntent = Intent(this, TimerForegroundService::class.java).apply {
-        action = ACTION_RESUME
-      }
-      val resumePendingIntent = PendingIntent.getService(
-        this,
-        1,
-        resumeIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-      )
-      NotificationCompat.Action.Builder(
-        android.R.drawable.ic_media_play,
-        "Resume",
-        resumePendingIntent
-      ).build()
-    } else {
-      val pauseIntent = Intent(this, TimerForegroundService::class.java).apply {
-        action = ACTION_PAUSE
-      }
-      val pausePendingIntent = PendingIntent.getService(
-        this,
-        2,
-        pauseIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-      )
-      NotificationCompat.Action.Builder(
-        android.R.drawable.ic_media_pause,
-        "Pause",
-        pausePendingIntent
-      ).build()
-    }
-
-    // Stop & Save Intent
-    val stopIntent = Intent(this, TimerForegroundService::class.java).apply {
-      action = ACTION_STOP
-    }
-    val stopPendingIntent = PendingIntent.getService(
-      this,
-      3,
-      stopIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-    val stopAction = NotificationCompat.Action.Builder(
-      android.R.drawable.ic_menu_save,
-      "Stop & Save",
-      stopPendingIntent
-    ).build()
-
-    val statusText = if (isPaused) "Paused • Tap Resume to continue" else "Live Tracking Active..."
-
-    return NotificationCompat.Builder(this, CHANNEL_ID)
-      .setSmallIcon(android.R.drawable.ic_media_play)
-      .setContentTitle("⏱ $taskName: $formatted")
-      .setContentText(statusText)
-      .setSubText("Study Timer")
-      .setContentIntent(openPendingIntent)
-      .setOngoing(!isPaused)
-      .setOnlyAlertOnce(true)
-      .setPriority(NotificationCompat.PRIORITY_HIGH)
-      .setCategory(NotificationCompat.CATEGORY_SERVICE)
-      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-      .addAction(toggleAction)
-      .addAction(stopAction)
-      .build()
-  }
-
   companion object {
     const val CHANNEL_ID = "habit_active_timer_channel"
     const val NOTIFICATION_ID = 2001
@@ -205,13 +136,143 @@ class TimerForegroundService : Service() {
     const val ACTION_STOP = "com.example.ACTION_STOP_TIMER"
 
     const val EXTRA_TASK_NAME = "extra_task_name"
+    const val EXTRA_BASE_START_EPOCH = "extra_base_start_epoch"
     const val EXTRA_ELAPSED_SECONDS = "extra_elapsed_seconds"
     const val EXTRA_IS_PAUSED = "extra_is_paused"
 
-    fun start(context: Context, taskName: String, elapsedSeconds: Long, isPaused: Boolean = false) {
+    fun createNotificationChannel(context: Context) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(
+          CHANNEL_ID,
+          "Live Tracking Timer",
+          NotificationManager.IMPORTANCE_LOW
+        ).apply {
+          description = "Displays live active task tracking with pause and stop controls"
+          setShowBadge(false)
+          enableVibration(false)
+          setSound(null, null)
+        }
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager?.createNotificationChannel(channel)
+      }
+    }
+
+    fun buildNotification(
+      context: Context,
+      taskName: String,
+      baseStartEpoch: Long,
+      elapsedSeconds: Long,
+      isPaused: Boolean
+    ): Notification {
+      val formatted = DateUtils.formatTime(elapsedSeconds)
+
+      val openIntent = Intent(context, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      }
+      val openPendingIntent = PendingIntent.getActivity(
+        context,
+        0,
+        openIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+
+      // Pause or Resume Intent
+      val toggleAction = if (isPaused) {
+        val resumeIntent = Intent(context, TimerForegroundService::class.java).apply {
+          action = ACTION_RESUME
+        }
+        val resumePendingIntent = PendingIntent.getService(
+          context,
+          1,
+          resumeIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        NotificationCompat.Action.Builder(
+          android.R.drawable.ic_media_play,
+          "Resume",
+          resumePendingIntent
+        ).build()
+      } else {
+        val pauseIntent = Intent(context, TimerForegroundService::class.java).apply {
+          action = ACTION_PAUSE
+        }
+        val pausePendingIntent = PendingIntent.getService(
+          context,
+          2,
+          pauseIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        NotificationCompat.Action.Builder(
+          android.R.drawable.ic_media_pause,
+          "Pause",
+          pausePendingIntent
+        ).build()
+      }
+
+      // Stop Intent
+      val stopIntent = Intent(context, TimerForegroundService::class.java).apply {
+        action = ACTION_STOP
+      }
+      val stopPendingIntent = PendingIntent.getService(
+        context,
+        3,
+        stopIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+      val stopAction = NotificationCompat.Action.Builder(
+        android.R.drawable.ic_menu_close_clear_cancel,
+        "Stop",
+        stopPendingIntent
+      ).build()
+
+      val title = if (isPaused) "⏸ $taskName (Paused)" else "⏱ $taskName"
+      val statusText = if (isPaused) {
+        "Paused at $formatted • Tap Resume"
+      } else {
+        "Live tracking session active • Tap to open"
+      }
+
+      val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+        .setSmallIcon(if (isPaused) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+        .setContentTitle(title)
+        .setContentText(statusText)
+        .setSubText("Live Tracker")
+        .setContentIntent(openPendingIntent)
+        .setOngoing(!isPaused)
+        .setOnlyAlertOnce(true)
+        .setColor(0xFF3B82F6.toInt())
+        .setColorized(false) // Clean, translucent look that adapts to user theme
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .addAction(toggleAction)
+        .addAction(stopAction)
+
+      // Use system chronometer when running so the Android OS natively ticks the live second count
+      // in the notification shade with zero CPU load and zero background battery drain!
+      if (!isPaused && baseStartEpoch > 0L) {
+        builder.setUsesChronometer(true)
+        builder.setWhen(baseStartEpoch)
+        builder.setShowWhen(true)
+      } else {
+        builder.setUsesChronometer(false)
+        builder.setShowWhen(false)
+      }
+
+      return builder.build()
+    }
+
+    fun start(
+      context: Context,
+      taskName: String,
+      baseStartEpoch: Long,
+      elapsedSeconds: Long,
+      isPaused: Boolean = false
+    ) {
       try {
         val intent = Intent(context, TimerForegroundService::class.java).apply {
           putExtra(EXTRA_TASK_NAME, taskName)
+          putExtra(EXTRA_BASE_START_EPOCH, baseStartEpoch)
           putExtra(EXTRA_ELAPSED_SECONDS, elapsedSeconds)
           putExtra(EXTRA_IS_PAUSED, isPaused)
         }
@@ -227,11 +288,32 @@ class TimerForegroundService : Service() {
       } catch (_: Exception) {}
     }
 
+    fun updateNotificationDirect(
+      context: Context,
+      taskName: String,
+      baseStartEpoch: Long,
+      elapsedSeconds: Long,
+      isPaused: Boolean
+    ) {
+      try {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        createNotificationChannel(context)
+        val notif = buildNotification(context, taskName, baseStartEpoch, elapsedSeconds, isPaused)
+        manager?.notify(NOTIFICATION_ID, notif)
+      } catch (_: Exception) {}
+    }
+
     fun stop(context: Context) {
-      val intent = Intent(context, TimerForegroundService::class.java).apply {
-        action = ACTION_STOP_SERVICE
-      }
-      context.startService(intent)
+      try {
+        val intent = Intent(context, TimerForegroundService::class.java).apply {
+          action = ACTION_STOP_SERVICE
+        }
+        context.startService(intent)
+      } catch (_: Exception) {}
+      try {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        manager?.cancel(NOTIFICATION_ID)
+      } catch (_: Exception) {}
     }
   }
 }
