@@ -1,18 +1,18 @@
 plugins {
-  alias(libs.plugins.android.application)
-  alias(libs.plugins.kotlin.android)
-  alias(libs.plugins.kotlin.compose)
-  alias(libs.plugins.ksp)
+  id("com.android.application")
+  id("org.jetbrains.kotlin.android")
+  id("com.google.devtools.ksp")
+  id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
   namespace = "com.example"
-  compileSdk = 35
+  compileSdk = 34
 
   defaultConfig {
     applicationId = "com.aistudio.habittracker.uqxvp"
     minSdk = 24
-    targetSdk = 35
+    targetSdk = 34
     versionCode = 13
     versionName = "6.5.2"
 
@@ -54,6 +54,12 @@ android {
 
   kotlinOptions {
     jvmTarget = "11"
+    allWarningsAsErrors = false
+    freeCompilerArgs += listOf(
+      "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+      "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
+      "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi"
+    )
   }
 
   buildFeatures {
@@ -61,7 +67,11 @@ android {
     buildConfig = true
   }
 
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  composeOptions {
+    kotlinCompilerExtensionVersion = "1.5.8"
+  }
+
+  // testOptions { unitTests { isIncludeAndroidResources = true } }
 
   dependenciesInfo {
     includeInApk = false
@@ -81,19 +91,14 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
-  implementation(libs.androidx.room.ktx)
-  implementation(libs.androidx.room.runtime)
+  implementation(libs.room.ktx)
+  implementation(libs.room.runtime)
   implementation(libs.coil.compose)
+  implementation(libs.kotlinx.serialization.json)
+  implementation(libs.retrofit)
+  implementation(libs.retrofit.converter.gson)
 
-  testImplementation(libs.junit)
-  testImplementation(libs.androidx.junit)
-
-  androidTestImplementation(platform(libs.androidx.compose.bom))
-  androidTestImplementation(libs.androidx.espresso.core)
-  androidTestImplementation(libs.androidx.junit)
-
-  debugImplementation(libs.androidx.ui.test.manifest)
   debugImplementation(libs.androidx.ui.tooling)
 
-  ksp(libs.androidx.room.compiler)
+  ksp(libs.room.compiler)
 }

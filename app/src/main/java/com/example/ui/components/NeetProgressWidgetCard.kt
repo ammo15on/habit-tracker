@@ -317,7 +317,7 @@ private fun WidgetProgressColumn(
       Spacer(modifier = Modifier.height(6.dp))
 
       LinearProgressIndicator(
-        progress = { progress.coerceIn(0f, 1f) },
+        progress = progress.coerceIn(0f, 1f),
         modifier = Modifier
           .fillMaxWidth()
           .height(5.dp)

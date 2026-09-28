@@ -53,6 +53,15 @@ data class SubjectTimeBreakdown(
   val percentage: Float
 )
 
+data class TaskSubjectAttribution(
+  val taskId: Long,
+  val taskName: String,
+  val subject: String,
+  val timeSpentSeconds: Long,
+  val formattedTime: String,
+  val colorHex: Long
+)
+
 data class AiChatMessage(
   val id: Long = 0,
   val role: String, // "user" or "model"

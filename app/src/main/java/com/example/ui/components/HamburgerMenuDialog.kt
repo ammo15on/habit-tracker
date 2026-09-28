@@ -38,9 +38,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -68,7 +68,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -296,7 +296,7 @@ private fun HamburgerMainMenuScreen(
         HamburgerRowCard(
           icon = Icons.Default.Settings,
           title = "Data & Database",
-          subtitle = "Export JSON backup, restore & reset options",
+          subtitle = "Export JSON backup and restore options",
           onClick = { onNavigate(HamburgerPage.DATA) },
           tag = "nav_data_btn"
         )
@@ -343,7 +343,7 @@ private fun HamburgerRowCard(
         Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f))
       }
       Icon(
-        Icons.AutoMirrored.Filled.ArrowForwardIos,
+        Icons.Default.ArrowForwardIos,
         contentDescription = null,
         modifier = Modifier.size(14.dp),
         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
@@ -379,7 +379,7 @@ private fun ThemeFullScreenPage(
         title = { Text("Theme & Styling", fontWeight = FontWeight.Bold) },
         navigationIcon = {
           IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
           }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
@@ -591,7 +591,7 @@ private fun GoalFullScreenPage(
         title = { Text("Target & Goals", fontWeight = FontWeight.Bold) },
         navigationIcon = {
           IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
           }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
@@ -678,7 +678,7 @@ private fun PastTasksFullScreenPage(
         title = { Text("Habit Tasks & History", fontWeight = FontWeight.Bold) },
         navigationIcon = {
           IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
           }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
@@ -748,7 +748,7 @@ private fun PresetsFullScreenPage(
         title = { Text("Task Presets", fontWeight = FontWeight.Bold) },
         navigationIcon = {
           IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
           }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
@@ -841,7 +841,6 @@ private fun DataFullScreenPage(
     context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
   }
 
-  var showResetConfirm by remember { mutableStateOf(false) }
   var statusMessage by remember { mutableStateOf<String?>(null) }
   var isSuccess by remember { mutableStateOf(true) }
   var isProcessing by remember { mutableStateOf(false) }
@@ -893,7 +892,7 @@ private fun DataFullScreenPage(
         },
         navigationIcon = {
           IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
           }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
@@ -1249,61 +1248,6 @@ private fun DataFullScreenPage(
           }
         }
       }
-
-      // Factory Reset Card
-      item {
-        Card(
-          shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
-          border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.35f))
-        ) {
-          Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Factory Reset", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFFEF4444))
-            Text(
-              "Clear all study logs, ratings, mock scores, and habit timers to start fresh.",
-              fontSize = 12.sp,
-              color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-            Button(
-              onClick = { showResetConfirm = true },
-              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
-              modifier = Modifier
-                .fillMaxWidth()
-                .testTag("reset_all_data_btn"),
-              shape = RoundedCornerShape(10.dp)
-            ) {
-              Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-              Spacer(modifier = Modifier.width(6.dp))
-              Text("Reset All Data")
-            }
-          }
-        }
-      }
-    }
-
-    if (showResetConfirm) {
-      androidx.compose.material3.AlertDialog(
-        onDismissRequest = { showResetConfirm = false },
-        title = { Text("Confirm Data Reset") },
-        text = { Text("Are you sure you want to delete all logged progress, habits, tests, and events? This cannot be undone.") },
-        confirmButton = {
-          TextButton(
-            onClick = {
-              viewModel.resetAllData()
-              showResetConfirm = false
-              statusMessage = "All database records reset."
-              isSuccess = true
-            }
-          ) {
-            Text("Yes, Reset", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
-          }
-        },
-        dismissButton = {
-          TextButton(onClick = { showResetConfirm = false }) {
-            Text("Cancel")
-          }
-        }
-      )
     }
   }
 }

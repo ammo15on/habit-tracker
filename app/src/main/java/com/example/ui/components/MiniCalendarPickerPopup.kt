@@ -19,8 +19,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
@@ -161,7 +161,7 @@ fun MiniCalendarPickerPopup(
             },
             modifier = Modifier.size(32.dp)
           ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous Month", modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.ArrowBack, contentDescription = "Previous Month", modifier = Modifier.size(18.dp))
           }
 
           Text(
@@ -182,7 +182,7 @@ fun MiniCalendarPickerPopup(
             },
             modifier = Modifier.size(32.dp)
           ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next Month", modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.ArrowForward, contentDescription = "Next Month", modifier = Modifier.size(18.dp))
           }
         }
 

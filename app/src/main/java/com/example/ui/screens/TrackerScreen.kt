@@ -5,9 +5,12 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,9 +31,10 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material3.Surface
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.EventNote
@@ -91,6 +95,7 @@ import com.example.ui.components.PresetsDialog
 import com.example.ui.components.TaskRowItem
 import com.example.util.DateUtils
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackerScreen(
   viewModel: HabitViewModel,
@@ -562,24 +567,37 @@ fun TrackerScreen(
       }
 
       // Floating Action: Add Task (+) Button
-      FloatingActionButton(
-        onClick = {
-          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-          showAddDialog = true
-        },
+      // Tap opens Add Task dialog; Tap and Hold opens Presets dialog to add as task!
+      Surface(
         modifier = Modifier
           .align(Alignment.BottomEnd)
           .padding(end = 20.dp, bottom = 16.dp)
+          .size(56.dp)
+          .clip(CircleShape)
+          .combinedClickable(
+            onClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+              showAddDialog = true
+            },
+            onLongClick = {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              showPresetsDialog = true
+            }
+          )
           .testTag("fab_add_task"),
-        containerColor = MaterialTheme.colorScheme.primary,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary,
-        shape = CircleShape
+        shadowElevation = 6.dp,
+        tonalElevation = 6.dp
       ) {
-        Icon(
-          imageVector = Icons.Default.Add,
-          contentDescription = "Add Task",
-          modifier = Modifier.size(28.dp)
-        )
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = "Add Task (Hold for Presets)",
+            modifier = Modifier.size(28.dp)
+          )
+        }
       }
     }
 
@@ -701,7 +719,7 @@ private fun DayNavigationHeader(
           modifier = Modifier.testTag("btn_prev_day")
         ) {
           Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            imageVector = Icons.Default.ArrowBack,
             contentDescription = "Previous Day",
             modifier = Modifier.size(16.dp)
           )
@@ -759,7 +777,7 @@ private fun DayNavigationHeader(
           )
           Spacer(modifier = Modifier.width(4.dp))
           Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+            imageVector = Icons.Default.ArrowForward,
             contentDescription = "Next Day",
             modifier = Modifier.size(16.dp)
           )

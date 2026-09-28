@@ -19,6 +19,9 @@ import com.example.util.ThemePreferences
 import com.example.util.GoalPreferences
 import com.example.util.AppGoal
 import com.example.util.AlarmScheduler
+import com.example.util.ChapterButtonItem
+import com.example.util.ChapterButtonPreferences
+import com.example.util.OnDeviceSubjectClassifier
 import android.content.Context
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -216,6 +219,41 @@ class HabitViewModel(
       themePreferences.setBackgroundImageUri(uri)
     } else {
       _fallbackBgImageUri.value = uri
+    }
+  }
+
+  // Chapter Buttons Customization Preferences
+  val chapterButtonPreferences: ChapterButtonPreferences? = appContext?.let { ChapterButtonPreferences(it) }
+  val chapterButtons: StateFlow<List<ChapterButtonItem>> =
+    chapterButtonPreferences?.buttons ?: MutableStateFlow(ChapterButtonPreferences.DEFAULT_BUTTONS).asStateFlow()
+
+  fun toggleChapterButtonEnabled(buttonId: String) {
+    chapterButtonPreferences?.toggleButtonEnabled(buttonId)
+  }
+
+  fun addCustomChapterButton(name: String, colorHex: Long, isCounter: Boolean) {
+    chapterButtonPreferences?.addCustomButton(name, colorHex, isCounter)
+  }
+
+  fun removeChapterButton(buttonId: String) {
+    chapterButtonPreferences?.removeButton(buttonId)
+  }
+
+  fun resetChapterButtonsToDefaults() {
+    chapterButtonPreferences?.resetToDefaults()
+  }
+
+  fun toggleChapterCustomFlag(chapter: NeetChapter, buttonId: String) {
+    viewModelScope.launch {
+      val updated = chapter.toggleCustomFlag(buttonId)
+      repository.updateNeetChapter(updated)
+    }
+  }
+
+  fun updateChapterCustomCounter(chapter: NeetChapter, buttonId: String, delta: Int) {
+    viewModelScope.launch {
+      val updated = chapter.updateCustomCounter(buttonId, delta)
+      repository.updateNeetChapter(updated)
     }
   }
 
@@ -679,6 +717,7 @@ class HabitViewModel(
   )
 
   // Subject Time Breakdown (Physics, Chemistry, Botany, Zoology, General Habits)
+  // AI decides time dedication and allocation based on task name using on-device semantic classification
   val subjectTimeBreakdown: StateFlow<List<SubjectTimeBreakdown>> = combine(
     allTasksFlow,
     effectiveLogsFlow
@@ -693,34 +732,14 @@ class HabitViewModel(
     for (task in tasks) {
       val taskLogs = logsByTask[task.id] ?: emptyList()
       val totalSecs = taskLogs.sumOf { it.timeSpentSeconds }
-      val nameLower = task.name.lowercase()
+      val category = OnDeviceSubjectClassifier.classify(task.name, task.noteText)
 
-      when {
-        nameLower.contains("physics") || nameLower.contains("kinematics") || nameLower.contains("optics") ||
-          nameLower.contains("thermo") || nameLower.contains("mechanics") || nameLower.contains("electro") ||
-          nameLower.contains("magnet") || nameLower.contains("current") || nameLower.contains("gravitation") ||
-          nameLower.contains("rotation") || nameLower.contains("modern phys") -> {
-          physicsSecs += totalSecs
-        }
-        nameLower.contains("chem") || nameLower.contains("organic") || nameLower.contains("inorganic") ||
-          nameLower.contains("physical chem") || nameLower.contains("equilibrium") || nameLower.contains("bonding") ||
-          nameLower.contains("p-block") || nameLower.contains("d-block") || nameLower.contains("goc") ||
-          nameLower.contains("haloalkane") || nameLower.contains("coordination") -> {
-          chemistrySecs += totalSecs
-        }
-        nameLower.contains("botany") || nameLower.contains("plant") || nameLower.contains("photosynthesis") ||
-          nameLower.contains("respiration in plant") || nameLower.contains("cell") || nameLower.contains("morphology") ||
-          nameLower.contains("anatomy") || nameLower.contains("genetics") || nameLower.contains("ecology") -> {
-          botanySecs += totalSecs
-        }
-        nameLower.contains("zoology") || nameLower.contains("animal") || nameLower.contains("human phys") ||
-          nameLower.contains("neural") || nameLower.contains("circulation") || nameLower.contains("digestion") ||
-          nameLower.contains("excretion") || nameLower.contains("reproduction") || nameLower.contains("evolution") -> {
-          zoologySecs += totalSecs
-        }
-        else -> {
-          habitsSecs += totalSecs
-        }
+      when (category) {
+        OnDeviceSubjectClassifier.SubjectCategory.PHYSICS -> physicsSecs += totalSecs
+        OnDeviceSubjectClassifier.SubjectCategory.CHEMISTRY -> chemistrySecs += totalSecs
+        OnDeviceSubjectClassifier.SubjectCategory.BOTANY -> botanySecs += totalSecs
+        OnDeviceSubjectClassifier.SubjectCategory.ZOOLOGY -> zoologySecs += totalSecs
+        OnDeviceSubjectClassifier.SubjectCategory.HABITS_TASKS -> habitsSecs += totalSecs
       }
     }
 
@@ -734,6 +753,31 @@ class HabitViewModel(
       SubjectTimeBreakdown("Zoology", zoologySecs, DateUtils.formatTime(zoologySecs), if (grandTotal > 0) (zoologySecs / denom) * 100f else 0f),
       SubjectTimeBreakdown("Habits & Tasks", habitsSecs, DateUtils.formatTime(habitsSecs), if (grandTotal > 0) (habitsSecs / denom) * 100f else 0f)
     )
+  }.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.WhileSubscribed(5000),
+    initialValue = emptyList()
+  )
+
+  // AI-decided Task Subject Attributions: maps each task to its AI-allocated subject
+  val taskSubjectAttributions: StateFlow<List<TaskSubjectAttribution>> = combine(
+    allTasksFlow,
+    effectiveLogsFlow
+  ) { tasks, logs ->
+    val logsByTask = logs.groupBy { it.taskId }
+    tasks.map { task ->
+      val taskLogs = logsByTask[task.id] ?: emptyList()
+      val totalSecs = taskLogs.sumOf { it.timeSpentSeconds }
+      val category = OnDeviceSubjectClassifier.classify(task.name, task.noteText)
+      TaskSubjectAttribution(
+        taskId = task.id,
+        taskName = task.name,
+        subject = category.displayName,
+        timeSpentSeconds = totalSecs,
+        formattedTime = DateUtils.formatTime(totalSecs),
+        colorHex = category.colorHex
+      )
+    }
   }.stateIn(
     scope = viewModelScope,
     started = SharingStarted.WhileSubscribed(5000),

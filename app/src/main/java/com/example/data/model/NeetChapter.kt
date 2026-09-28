@@ -15,8 +15,47 @@ data class NeetChapter(
   val isExerciseDone: Boolean = false,
   val isArDone: Boolean = false,
   val ncertReadCount: Int = 0,
-  val notes: String = ""
+  val notes: String = "",
+  val customFlags: String = ""
 ) {
+  fun hasCustomFlag(buttonId: String): Boolean {
+    val flags = customFlags.split(",").map { it.trim() }
+    return flags.contains(buttonId) || flags.any { it.startsWith("$buttonId:") }
+  }
+
+  fun getCustomCounter(buttonId: String): Int {
+    val pair = customFlags.split(",").map { it.trim() }.find { it.startsWith("$buttonId:") }
+    return pair?.substringAfter(":")?.toIntOrNull() ?: if (hasCustomFlag(buttonId)) 1 else 0
+  }
+
+  fun toggleCustomFlag(buttonId: String): NeetChapter {
+    val current = customFlags.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+    if (current.contains(buttonId)) {
+      current.remove(buttonId)
+    } else {
+      current.add(buttonId)
+    }
+    return copy(customFlags = current.joinToString(","))
+  }
+
+  fun updateCustomCounter(buttonId: String, delta: Int): NeetChapter {
+    val list = customFlags.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList()
+    val existingIndex = list.indexOfFirst { it.startsWith("$buttonId:") || it == buttonId }
+    val currentCount = if (existingIndex >= 0) {
+      list[existingIndex].substringAfter(":", "1").toIntOrNull() ?: 1
+    } else 0
+    val newCount = (currentCount + delta).coerceAtLeast(0)
+    if (existingIndex >= 0) {
+      if (newCount == 0) {
+        list.removeAt(existingIndex)
+      } else {
+        list[existingIndex] = "$buttonId:$newCount"
+      }
+    } else if (newCount > 0) {
+      list.add("$buttonId:$newCount")
+    }
+    return copy(customFlags = list.joinToString(","))
+  }
   companion object {
     val SUBJECTS = listOf("Botany", "Zoology", "Physics", "Chemistry")
     val DEFAULT_CHAPTERS = listOf(

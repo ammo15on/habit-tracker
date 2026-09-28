@@ -39,6 +39,10 @@ import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Tune
+import com.example.ui.components.EditChapterButtonsDialog
+import com.example.util.ChapterButtonItem
+import com.example.util.ChapterButtonPreferences
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,8 +54,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -106,13 +110,32 @@ fun NeetSectionView(
   onResetTally: (NeetTallyCounter) -> Unit,
   onDeleteTally: (NeetTallyCounter) -> Unit,
   onAddScoreClick: () -> Unit,
-  onDeleteScoreClick: (NeetTestScore) -> Unit
+  onDeleteScoreClick: (NeetTestScore) -> Unit,
+  chapterButtons: List<ChapterButtonItem> = ChapterButtonPreferences.DEFAULT_BUTTONS,
+  onToggleChapterButtonEnabled: (String) -> Unit = {},
+  onAddCustomChapterButton: (String, Long, Boolean) -> Unit = { _, _, _ -> },
+  onRemoveChapterButton: (String) -> Unit = {},
+  onResetChapterButtonsToDefaults: () -> Unit = {},
+  onToggleChapterCustomFlag: (NeetChapter, String) -> Unit = { _, _ -> },
+  onUpdateChapterCustomCounter: (NeetChapter, String, Int) -> Unit = { _, _, _ -> }
 ) {
   var selectedSubTab by remember { mutableStateOf(NeetSubTab.CHAPTERS) }
+  var showEditButtonsDialog by remember { mutableStateOf(false) }
+
+  if (showEditButtonsDialog) {
+    EditChapterButtonsDialog(
+      buttons = chapterButtons,
+      onToggleEnabled = onToggleChapterButtonEnabled,
+      onAddButton = onAddCustomChapterButton,
+      onRemoveButton = onRemoveChapterButton,
+      onResetDefaults = onResetChapterButtonsToDefaults,
+      onDismiss = { showEditButtonsDialog = false }
+    )
+  }
 
   Column(modifier = Modifier.fillMaxSize()) {
     // Inner NEET Sub Navigation Tabs
-    SecondaryTabRow(
+    TabRow(
       selectedTabIndex = selectedSubTab.ordinal,
       modifier = Modifier
         .fillMaxWidth()
@@ -163,6 +186,10 @@ fun NeetSectionView(
       NeetSubTab.CHAPTERS -> {
         NeetChaptersView(
           chapters = chapters,
+          chapterButtons = chapterButtons,
+          onEditButtonsClick = { showEditButtonsDialog = true },
+          onToggleChapterCustomFlag = onToggleChapterCustomFlag,
+          onUpdateChapterCustomCounter = onUpdateChapterCustomCounter,
           onToggleCompleted = onToggleChapterCompleted,
           onTogglePyq = onToggleChapterPyq,
           onIncrementNcert = onIncrementChapterNcert,
@@ -205,6 +232,8 @@ fun NeetSectionView(
 @Composable
 private fun NeetChaptersView(
   chapters: List<NeetChapter>,
+  chapterButtons: List<ChapterButtonItem>,
+  onEditButtonsClick: () -> Unit,
   onToggleCompleted: (NeetChapter) -> Unit,
   onTogglePyq: (NeetChapter) -> Unit,
   onIncrementNcert: (NeetChapter) -> Unit,
@@ -212,6 +241,8 @@ private fun NeetChaptersView(
   onToggleRevision: (NeetChapter) -> Unit,
   onToggleExercise: (NeetChapter) -> Unit,
   onToggleAr: (NeetChapter) -> Unit,
+  onToggleChapterCustomFlag: (NeetChapter, String) -> Unit,
+  onUpdateChapterCustomCounter: (NeetChapter, String, Int) -> Unit,
   onAddChapterClick: () -> Unit,
   onEditChapterClick: (NeetChapter) -> Unit,
   onDeleteChapterClick: (NeetChapter) -> Unit
@@ -263,16 +294,36 @@ private fun NeetChaptersView(
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
           )
 
-          Button(
-            onClick = onAddChapterClick,
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
-            modifier = Modifier.defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
           ) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-            Spacer(modifier = Modifier.width(3.dp))
-            Text("Add Chapter", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            OutlinedButton(
+              onClick = onEditButtonsClick,
+              contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+              shape = RoundedCornerShape(10.dp),
+              modifier = Modifier
+                .defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
+                .testTag("btn_edit_chapter_buttons")
+            ) {
+              Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(13.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Edit Buttons", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            Button(
+              onClick = onAddChapterClick,
+              contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+              shape = RoundedCornerShape(10.dp),
+              colors = ButtonDefaults.buttonColors(containerColor = RatingBestGreen),
+              modifier = Modifier
+                .defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
+                .testTag("btn_add_chapter")
+            ) {
+              Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+              Spacer(modifier = Modifier.width(3.dp))
+              Text("Add Chapter", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
           }
         }
 
@@ -343,6 +394,7 @@ private fun NeetChaptersView(
       items(filteredChapters, key = { it.id }) { chapter ->
         ChapterItemCard(
           chapter = chapter,
+          chapterButtons = chapterButtons,
           onToggleCompleted = { onToggleCompleted(chapter) },
           onTogglePyq = { onTogglePyq(chapter) },
           onIncrementNcert = { onIncrementNcert(chapter) },
@@ -350,6 +402,8 @@ private fun NeetChaptersView(
           onToggleRevision = { onToggleRevision(chapter) },
           onToggleExercise = { onToggleExercise(chapter) },
           onToggleAr = { onToggleAr(chapter) },
+          onToggleCustomFlag = { flagId -> onToggleChapterCustomFlag(chapter, flagId) },
+          onUpdateCustomCounter = { flagId, delta -> onUpdateChapterCustomCounter(chapter, flagId, delta) },
           onEdit = { onEditChapterClick(chapter) },
           onDelete = { onDeleteChapterClick(chapter) }
         )
@@ -362,6 +416,7 @@ private fun NeetChaptersView(
 @Composable
 private fun ChapterItemCard(
   chapter: NeetChapter,
+  chapterButtons: List<ChapterButtonItem>,
   onToggleCompleted: () -> Unit,
   onTogglePyq: () -> Unit,
   onIncrementNcert: () -> Unit,
@@ -369,6 +424,8 @@ private fun ChapterItemCard(
   onToggleRevision: () -> Unit,
   onToggleExercise: () -> Unit,
   onToggleAr: () -> Unit,
+  onToggleCustomFlag: (String) -> Unit,
+  onUpdateCustomCounter: (String, Int) -> Unit,
   onEdit: () -> Unit,
   onDelete: () -> Unit
 ) {
@@ -449,50 +506,151 @@ private fun ChapterItemCard(
 
       Spacer(modifier = Modifier.height(10.dp))
 
-      // 5 Interactive Chips: Completed, NCERT (+1/-1 Counter), PYQ, Exercise, A&R
+      // Dynamic Interactive Chips: Configurable from ChapterButtonPreferences
+      val enabledButtons = chapterButtons.filter { it.isEnabled }
       FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
       ) {
-        // 1. Chapter Completed
-        TickButton(
-          label = if (chapter.isCompleted) "✓ Completed" else "To Complete",
-          isChecked = chapter.isCompleted,
-          activeColor = RatingBestGreen,
-          onClick = onToggleCompleted
-        )
+        enabledButtons.forEach { btn ->
+          when (btn.id) {
+            "completed" -> {
+              TickButton(
+                label = if (chapter.isCompleted) "✓ Completed" else "To Complete",
+                isChecked = chapter.isCompleted,
+                activeColor = RatingBestGreen,
+                onClick = onToggleCompleted
+              )
+            }
+            "ncert" -> {
+              NcertCounterChip(
+                count = chapter.ncertReadCount,
+                onIncrement = onIncrementNcert,
+                onDecrement = onDecrementNcert
+              )
+            }
+            "pyq" -> {
+              TickButton(
+                label = if (chapter.isPyqDone) "✓ PYQ Done" else "PYQ",
+                isChecked = chapter.isPyqDone,
+                activeColor = Color(0xFF2563EB),
+                onClick = onTogglePyq
+              )
+            }
+            "exercise" -> {
+              TickButton(
+                label = if (chapter.isExerciseDone) "✓ Exercise Done" else "Exercise",
+                isChecked = chapter.isExerciseDone,
+                activeColor = Color(0xFF8B5CF6),
+                onClick = onToggleExercise
+              )
+            }
+            "ar" -> {
+              TickButton(
+                label = if (chapter.isArDone) "✓ A&R Done" else "A&R",
+                isChecked = chapter.isArDone,
+                activeColor = Color(0xFFEC4899),
+                onClick = onToggleAr
+              )
+            }
+            else -> {
+              if (btn.isCounter) {
+                CustomCounterChip(
+                  name = btn.name,
+                  count = chapter.getCustomCounter(btn.id),
+                  color = Color(btn.colorHex),
+                  onIncrement = { onUpdateCustomCounter(btn.id, 1) },
+                  onDecrement = { onUpdateCustomCounter(btn.id, -1) }
+                )
+              } else {
+                val isChecked = chapter.hasCustomFlag(btn.id)
+                TickButton(
+                  label = if (isChecked) "✓ ${btn.name}" else btn.name,
+                  isChecked = isChecked,
+                  activeColor = Color(btn.colorHex),
+                  onClick = { onToggleCustomFlag(btn.id) }
+                )
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
 
-        // 2. NCERT Read Counter (+1 / -1 instead of binary complete)
-        NcertCounterChip(
-          count = chapter.ncertReadCount,
-          onIncrement = onIncrementNcert,
-          onDecrement = onDecrementNcert
-        )
+@Composable
+private fun CustomCounterChip(
+  name: String,
+  count: Int,
+  color: Color,
+  onIncrement: () -> Unit,
+  onDecrement: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val isActive = count > 0
 
-        // 3. PYQ Done
-        TickButton(
-          label = if (chapter.isPyqDone) "✓ PYQ Done" else "PYQ",
-          isChecked = chapter.isPyqDone,
-          activeColor = Color(0xFF2563EB),
-          onClick = onTogglePyq
+  Box(
+    modifier = modifier
+      .defaultMinSize(minHeight = 36.dp)
+      .clip(RoundedCornerShape(8.dp))
+      .background(if (isActive) color.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+      .border(
+        width = 1.dp,
+        color = if (isActive) color else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+        shape = RoundedCornerShape(8.dp)
+      )
+      .padding(vertical = 3.dp, horizontal = 4.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+      Box(
+        modifier = Modifier
+          .size(28.dp)
+          .clip(CircleShape)
+          .background(if (count > 0) color.copy(alpha = 0.22f) else Color.Transparent)
+          .clickable(enabled = count > 0) { onDecrement() },
+        contentAlignment = Alignment.Center
+      ) {
+        Text(
+          text = "−",
+          fontSize = 16.sp,
+          fontWeight = FontWeight.Bold,
+          color = if (count > 0) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
         )
+      }
 
-        // 4. Exercise Done
-        TickButton(
-          label = if (chapter.isExerciseDone) "✓ Exercise Done" else "Exercise",
-          isChecked = chapter.isExerciseDone,
-          activeColor = Color(0xFF8B5CF6),
-          onClick = onToggleExercise
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+          .clickable { onIncrement() }
+          .padding(horizontal = 4.dp)
+      ) {
+        if (isActive) {
+          Icon(Icons.Default.Check, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
+          Spacer(modifier = Modifier.width(3.dp))
+        }
+        Text(
+          text = if (count > 0) "$name: ${count}x" else name,
+          fontSize = 12.sp,
+          fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+          color = if (isActive) color else MaterialTheme.colorScheme.onSurface
         )
+      }
 
-        // 5. A&R (Assertion & Reason) Done
-        TickButton(
-          label = if (chapter.isArDone) "✓ A&R Done" else "A&R",
-          isChecked = chapter.isArDone,
-          activeColor = Color(0xFFEC4899),
-          onClick = onToggleAr
-        )
+      Box(
+        modifier = Modifier
+          .size(28.dp)
+          .clip(CircleShape)
+          .background(color.copy(alpha = 0.22f))
+          .clickable { onIncrement() },
+        contentAlignment = Alignment.Center
+      ) {
+        Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = color)
       }
     }
   }
@@ -911,7 +1069,7 @@ private fun NeetTallyCard(
         Spacer(modifier = Modifier.height(6.dp))
         val progress = (counter.count.toFloat() / counter.target).coerceIn(0f, 1f)
         LinearProgressIndicator(
-          progress = { progress },
+          progress = progress,
           modifier = Modifier
             .fillMaxWidth()
             .height(6.dp)

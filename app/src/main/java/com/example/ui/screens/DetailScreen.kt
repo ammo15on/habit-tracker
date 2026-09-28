@@ -57,6 +57,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
@@ -70,6 +72,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -78,7 +81,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -115,8 +117,10 @@ import com.example.ui.DetailTab
 import com.example.ui.HabitViewModel
 import com.example.ui.MonthSummary
 import com.example.ui.SubjectTimeBreakdown
+import com.example.ui.TaskSubjectAttribution
 import com.example.ui.TimelineCycleMode
 import com.example.ui.WeekSummary
+import com.example.util.ChapterButtonItem
 import com.example.ui.components.AddEditChapterDialog
 import com.example.ui.components.AddEditTallyDialog
 import com.example.ui.components.AddNeetScoreDialog
@@ -149,6 +153,8 @@ fun DetailScreen(
   val neetChapters by viewModel.allNeetChapters.collectAsStateWithLifecycle()
   val neetTallyCounters by viewModel.allNeetTallyCounters.collectAsStateWithLifecycle()
   val subjectTimeBreakdown by viewModel.subjectTimeBreakdown.collectAsStateWithLifecycle()
+  val taskSubjectAttributions by viewModel.taskSubjectAttributions.collectAsStateWithLifecycle()
+  val chapterButtons by viewModel.chapterButtons.collectAsStateWithLifecycle()
   val aiChatMessages by viewModel.aiChatMessages.collectAsStateWithLifecycle()
   val isAiLoading by viewModel.isAiLoading.collectAsStateWithLifecycle()
   val aiSuggestions by viewModel.dynamicAiSuggestions.collectAsStateWithLifecycle()
@@ -356,6 +362,13 @@ fun DetailScreen(
             tallyCounters = neetTallyCounters,
             habitTallyList = tallyAnalytics,
             testScores = neetScores,
+            chapterButtons = chapterButtons,
+            onToggleChapterButtonEnabled = { viewModel.toggleChapterButtonEnabled(it) },
+            onAddCustomChapterButton = { name, colorHex, isCounter -> viewModel.addCustomChapterButton(name, colorHex, isCounter) },
+            onRemoveChapterButton = { viewModel.removeChapterButton(it) },
+            onResetChapterButtonsToDefaults = { viewModel.resetChapterButtonsToDefaults() },
+            onToggleChapterCustomFlag = { chapter, btnId -> viewModel.toggleChapterCustomFlag(chapter, btnId) },
+            onUpdateChapterCustomCounter = { chapter, btnId, delta -> viewModel.updateChapterCustomCounter(chapter, btnId, delta) },
             onToggleChapterCompleted = {
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
               viewModel.toggleChapterCompleted(it)
@@ -405,6 +418,7 @@ fun DetailScreen(
             chapters = neetChapters,
             testScores = neetScores,
             subjectTimeBreakdown = subjectTimeBreakdown,
+            taskSubjectAttributions = taskSubjectAttributions,
             days = daysAnalytics,
             chatMessages = aiChatMessages,
             isLoading = isAiLoading,
@@ -594,6 +608,7 @@ private fun AnalyticsSectionView(
   chapters: List<NeetChapter>,
   testScores: List<NeetTestScore>,
   subjectTimeBreakdown: List<SubjectTimeBreakdown>,
+  taskSubjectAttributions: List<TaskSubjectAttribution> = emptyList(),
   days: List<DaySummary>,
   chatMessages: List<AiChatMessage>,
   isLoading: Boolean,
@@ -732,7 +747,7 @@ private fun AnalyticsSectionView(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 LinearProgressIndicator(
-                  progress = { subProgress },
+                  progress = subProgress,
                   modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
@@ -783,6 +798,31 @@ private fun AnalyticsSectionView(
               )
             }
 
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // AI Smart Dedication Banner
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Icon(
+                imageVector = Icons.Default.Psychology,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(15.dp)
+              )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text(
+                text = "On-Device AI categorizes task names into Physics, Chemistry, Botany, Zoology, or Habits & Tasks.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -817,7 +857,7 @@ private fun AnalyticsSectionView(
                   }
 
                   LinearProgressIndicator(
-                    progress = { (sub.percentage / 100f).coerceIn(0f, 1f) },
+                    progress = (sub.percentage / 100f).coerceIn(0f, 1f),
                     modifier = Modifier
                       .fillMaxWidth()
                       .height(6.dp)
@@ -825,6 +865,92 @@ private fun AnalyticsSectionView(
                     color = barColor,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                   )
+                }
+              }
+            }
+
+            // Task-by-task AI Allocation Breakdown
+            if (taskSubjectAttributions.isNotEmpty()) {
+              var showAllTasks by remember { mutableStateOf(false) }
+              Spacer(modifier = Modifier.height(12.dp))
+              Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+              Spacer(modifier = Modifier.height(8.dp))
+
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clickable { showAllTasks = !showAllTasks },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Text(
+                  text = "AI Task Allocations (${taskSubjectAttributions.size})",
+                  style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                  color = MaterialTheme.colorScheme.onSurface
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Text(
+                    text = if (showAllTasks) "Collapse" else "View All",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                  )
+                  Icon(
+                    imageVector = if (showAllTasks) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                  )
+                }
+              }
+
+              Spacer(modifier = Modifier.height(6.dp))
+
+              val displayedTasks = if (showAllTasks) taskSubjectAttributions else taskSubjectAttributions.take(5)
+              Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                displayedTasks.forEach { taskAttr ->
+                  val pillColor = Color(taskAttr.colorHex)
+                  Row(
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .clip(RoundedCornerShape(8.dp))
+                      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                      .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Row(
+                      modifier = Modifier.weight(1f),
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      Box(
+                        modifier = Modifier
+                          .clip(RoundedCornerShape(4.dp))
+                          .background(pillColor.copy(alpha = 0.18f))
+                          .padding(horizontal = 6.dp, vertical = 2.dp)
+                      ) {
+                        Text(
+                          text = taskAttr.subject,
+                          fontSize = 10.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = pillColor
+                        )
+                      }
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text(
+                        text = taskAttr.taskName,
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                      )
+                    }
+
+                    Text(
+                      text = taskAttr.formattedTime,
+                      style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
+                      color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                  }
                 }
               }
             }
