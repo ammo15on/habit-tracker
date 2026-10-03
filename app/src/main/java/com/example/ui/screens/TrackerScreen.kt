@@ -461,7 +461,8 @@ fun TrackerScreen(
               onToggleTimer = { viewModel.toggleTimer(taskState.task.id) },
               onToggleComplete = { viewModel.toggleTaskComplete(taskState.task.id) },
               onEditTask = { taskToEdit = taskState.task },
-              onDeleteTask = { viewModel.deleteTask(taskState.task.id) }
+              onDeleteTask = { viewModel.deleteTask(taskState.task.id) },
+              onMoveToNextDay = { viewModel.moveTaskToNextDay(taskState.task.id) }
             )
           }
 
@@ -558,7 +559,8 @@ fun TrackerScreen(
                   onToggleTimer = { viewModel.toggleTimer(taskState.task.id) },
                   onToggleComplete = { viewModel.toggleTaskComplete(taskState.task.id) },
                   onEditTask = { taskToEdit = taskState.task },
-                  onDeleteTask = { viewModel.deleteTask(taskState.task.id) }
+                  onDeleteTask = { viewModel.deleteTask(taskState.task.id) },
+                  onMoveToNextDay = { viewModel.moveTaskToNextDay(taskState.task.id) }
                 )
               }
             }

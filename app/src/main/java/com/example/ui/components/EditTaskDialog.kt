@@ -185,6 +185,34 @@ fun EditTaskDialog(
           shape = RoundedCornerShape(12.dp)
         )
 
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Quick Action: Move Task to Next Day
+        OutlinedButton(
+          onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            val baseDate = targetDates.firstOrNull() ?: task.targetDate ?: DateUtils.today()
+            val nextDay = DateUtils.getNextDay(baseDate)
+            targetDates = setOf(nextDay)
+          },
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("move_to_next_day_button"),
+          shape = RoundedCornerShape(12.dp),
+          colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+          )
+        ) {
+          Icon(
+            imageVector = Icons.Default.CalendarMonth,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Text("Move Task to Next Day (+1 Day)", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+        }
+
         Spacer(modifier = Modifier.height(14.dp))
 
         // Target Timer input (in minutes)

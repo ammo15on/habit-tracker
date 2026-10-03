@@ -21,6 +21,7 @@ import com.example.util.AppGoal
 import com.example.util.AlarmScheduler
 import com.example.util.ChapterButtonItem
 import com.example.util.ChapterButtonPreferences
+import com.example.util.CalendarSyncUtil
 import com.example.util.OnDeviceSubjectClassifier
 import android.content.Context
 import java.text.SimpleDateFormat
@@ -2154,6 +2155,66 @@ class HabitViewModel(
       val task = repository.allTasks.first().find { it.name.equals(taskName.trim(), ignoreCase = true) }
       if (task != null) {
         repository.updateTask(task.copy(isDefault = false))
+      }
+    }
+  }
+
+  fun syncAllTasksToCalendar(onResult: (Int) -> Unit) {
+    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+      val context = appContext
+      if (context != null) {
+        val tasksList = repository.allTasks.first()
+        val count = CalendarSyncUtil.syncAllTasksToDeviceCalendar(context, tasksList)
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+          onResult(count)
+        }
+      } else {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(0) }
+      }
+    }
+  }
+
+  fun removeAllCalendarSync(onResult: (Int) -> Unit) {
+    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+      val context = appContext
+      if (context != null) {
+        val count = CalendarSyncUtil.removeAllSyncedEventsFromDeviceCalendar(context)
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+          onResult(count)
+        }
+      } else {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(0) }
+      }
+    }
+  }
+
+  fun importCalendarEvents(onResult: (Int) -> Unit) {
+    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+      val context = appContext
+      if (context != null) {
+        val imported = CalendarSyncUtil.importEventsFromDeviceCalendar(context)
+        var count = 0
+        for (t in imported) {
+          repository.insertTask(name = t.name, targetDate = t.targetDate, noteText = t.noteText)
+          count++
+        }
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+          onResult(count)
+        }
+      } else {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(0) }
+      }
+    }
+  }
+
+  fun moveTaskToNextDay(taskId: Long) {
+    viewModelScope.launch {
+      val task = repository.allTasks.first().find { it.id == taskId }
+      if (task != null) {
+        val baseDate = task.targetDate ?: task.targetDates?.split(",")?.firstOrNull() ?: DateUtils.today()
+        val nextDay = DateUtils.getNextDay(baseDate)
+        val updated = task.copy(targetDate = nextDay, targetDates = null)
+        repository.updateTask(updated)
       }
     }
   }

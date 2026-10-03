@@ -31,11 +31,21 @@ object GeminiAiService {
     chatHistory: List<AiChatMessage>
   ): String = withContext(Dispatchers.IO) {
     val apiKey = try {
-      val field = Class.forName("com.example.BuildConfig").getField("GEMINI_API_KEY")
-      field.get(null) as? String ?: ""
+      com.example.BuildConfig.GEMINI_API_KEY
     } catch (_: Exception) {
       try {
-        System.getenv("GEMINI_API_KEY") ?: ""
+        val field = Class.forName("com.example.BuildConfig").getField("GEMINI_API_KEY")
+        field.get(null) as? String ?: ""
+      } catch (_: Exception) {
+        try {
+          System.getenv("GEMINI_API_KEY") ?: ""
+        } catch (_: Exception) {
+          ""
+        }
+      }
+    }.ifBlank {
+      try {
+        System.getProperty("GEMINI_API_KEY") ?: ""
       } catch (_: Exception) {
         ""
       }

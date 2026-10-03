@@ -3,6 +3,7 @@ plugins {
   id("org.jetbrains.kotlin.android")
   id("com.google.devtools.ksp")
   id("org.jetbrains.kotlin.plugin.serialization")
+  alias(libs.plugins.secrets)
 }
 
 android {
@@ -72,6 +73,11 @@ android {
   }
 
   // testOptions { unitTests { isIncludeAndroidResources = true } }
+
+  secrets {
+    propertiesFileName = ".env"
+    defaultPropertiesFileName = ".env.example"
+  }
 
   dependenciesInfo {
     includeInApk = false

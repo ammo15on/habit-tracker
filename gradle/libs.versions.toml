@@ -8,6 +8,10 @@ ksp = "1.9.22-1.0.16"
 serialization = "1.6.0"
 coil = "2.5.0"
 retrofit = "2.9.0"
+secretsGradlePlugin = "2.0.1"
+
+[plugins]
+secrets = { id = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin", version.ref = "secretsGradlePlugin" }
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

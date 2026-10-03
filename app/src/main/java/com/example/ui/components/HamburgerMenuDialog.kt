@@ -120,7 +120,9 @@ enum class HamburgerPage {
   GOAL,
   TASKS,
   PRESETS,
-  DATA
+  DATA,
+  TOUR,
+  CALENDAR_SYNC
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -199,6 +201,17 @@ fun HamburgerMenuDialog(
           }
           HamburgerPage.DATA -> {
             DataFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.TOUR -> {
+            TourFullScreenPage(
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.CALENDAR_SYNC -> {
+            CalendarSyncFullScreenPage(
               viewModel = viewModel,
               onBack = { currentPage = HamburgerPage.MAIN_MENU }
             )
@@ -299,6 +312,24 @@ private fun HamburgerMainMenuScreen(
           subtitle = "Export JSON backup and restore options",
           onClick = { onNavigate(HamburgerPage.DATA) },
           tag = "nav_data_btn"
+        )
+      }
+      item {
+        HamburgerRowCard(
+          icon = Icons.Default.Star,
+          title = "App Tour & How to Use",
+          subtitle = "Interactive guide on tracker, AI analytics & features",
+          onClick = { onNavigate(HamburgerPage.TOUR) },
+          tag = "nav_tour_btn"
+        )
+      }
+      item {
+        HamburgerRowCard(
+          icon = Icons.Default.CalendarToday,
+          title = "Calendar Sync Management",
+          subtitle = "Two-way sync with phone calendar, bulk sync & remove",
+          onClick = { onNavigate(HamburgerPage.CALENDAR_SYNC) },
+          tag = "nav_calendar_sync_btn"
         )
       }
     }
@@ -1273,6 +1304,233 @@ private fun StatPill(label: String, count: Int) {
         fontSize = 10.sp,
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
       )
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TourFullScreenPage(
+  onBack: () -> Unit
+) {
+  Scaffold(
+    topBar = {
+      CenterAlignedTopAppBar(
+        title = { Text("App Tour & Guide", fontWeight = FontWeight.Bold) },
+        navigationIcon = {
+          IconButton(onClick = onBack, modifier = Modifier.testTag("tour_back_btn")) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+          }
+        },
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+      )
+    },
+    containerColor = Color.Transparent
+  ) { padding ->
+    LazyColumn(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(padding)
+        .padding(16.dp),
+      verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+      item {
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
+        ) {
+          Column(modifier = Modifier.padding(16.dp)) {
+            Text("🚀 Welcome to Your Study & Habit OS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(6.dp))
+            Text("This tour guides you through all powerful features designed to help you crush your exams and build unbreakable study habits.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+          }
+        }
+      }
+
+      item {
+        TourStepCard(
+          stepNumber = "1",
+          title = "Daily Tracker & Timer",
+          description = "Check off tasks, log study hours with the built-in timer, add notes, and attach photos of your solved problems or study notes."
+        )
+      }
+
+      item {
+        TourStepCard(
+          stepNumber = "2",
+          title = "3-Dots Edit Task & Move to Next Day",
+          description = "Tap the three dots on any task card to edit its details, delete it, or instantly click 'Move Task to Next Day (+1 Day)' to adjust your schedule on the fly."
+        )
+      }
+
+      item {
+        TourStepCard(
+          stepNumber = "3",
+          title = "NEET & AI Chapters Analytics",
+          description = "Track Physics, Chemistry, Botany, and Zoology chapters, NCERT reading completion, PYQ practice, and mock test scores with automated smart AI attribution."
+        )
+      }
+
+      item {
+        TourStepCard(
+          stepNumber = "4",
+          title = "Two-Way Calendar Sync",
+          description = "Manage your calendar integration in the hamburger menu. One-click sync all your tasks to your phone calendar, or import phone calendar events directly into the app."
+        )
+      }
+
+      item {
+        TourStepCard(
+          stepNumber = "5",
+          title = "Cloud AI Reasoning (Gemini)",
+          description = "Chat with the AI Study Coach for personalized strategies. To enable real-time Cloud AI reasoning, add your GEMINI_API_KEY to AI Studio Secrets!"
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun TourStepCard(stepNumber: String, title: String, description: String) {
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(14.dp),
+    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+  ) {
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(16.dp),
+      verticalAlignment = Alignment.Top
+    ) {
+      Box(
+        modifier = Modifier
+          .size(32.dp)
+          .clip(CircleShape)
+          .background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center
+      ) {
+        Text(stepNumber, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+      }
+      Spacer(modifier = Modifier.width(14.dp))
+      Column(modifier = Modifier.weight(1f)) {
+        Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(description, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f))
+      }
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CalendarSyncFullScreenPage(
+  viewModel: HabitViewModel,
+  onBack: () -> Unit
+) {
+  var statusMessage by remember { mutableStateOf("Manage two-way sync between your app tasks and device phone calendar.") }
+  var isProcessing by remember { mutableStateOf(false) }
+
+  Scaffold(
+    topBar = {
+      CenterAlignedTopAppBar(
+        title = { Text("Calendar Sync Management", fontWeight = FontWeight.Bold) },
+        navigationIcon = {
+          IconButton(onClick = onBack, modifier = Modifier.testTag("calendar_sync_back_btn")) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+          }
+        },
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+      )
+    },
+    containerColor = Color.Transparent
+  ) { padding ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(padding)
+        .padding(16.dp)
+        .verticalScroll(rememberScrollState()),
+      verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+      ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.width(10.dp))
+            Text("Two-Way Calendar Integration", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+          }
+          Spacer(modifier = Modifier.height(8.dp))
+          Text(statusMessage, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+        }
+      }
+
+      // 1. One-Click Sync All to Calendar
+      Button(
+        onClick = {
+          isProcessing = true
+          viewModel.syncAllTasksToCalendar { count ->
+            statusMessage = "Successfully synced $count tasks to phone calendar! ✓"
+            isProcessing = false
+          }
+        },
+        enabled = !isProcessing,
+        modifier = Modifier
+          .fillMaxWidth()
+          .testTag("sync_all_to_calendar_btn"),
+        shape = RoundedCornerShape(14.dp)
+      ) {
+        Icon(Icons.Default.FileUpload, contentDescription = null)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("One-Click Sync All Tasks to Phone Calendar")
+      }
+
+      // 2. One-Click Import Calendar Events to App
+      Button(
+        onClick = {
+          isProcessing = true
+          viewModel.importCalendarEvents { count ->
+            statusMessage = "Successfully imported $count events from phone calendar into app! ✓"
+            isProcessing = false
+          }
+        },
+        enabled = !isProcessing,
+        modifier = Modifier
+          .fillMaxWidth()
+          .testTag("import_calendar_to_app_btn"),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+      ) {
+        Icon(Icons.Default.FileDownload, contentDescription = null)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("One-Click Import Phone Calendar Events to App")
+      }
+
+      // 3. One-Click Remove All Synced Events
+      OutlinedButton(
+        onClick = {
+          isProcessing = true
+          viewModel.removeAllCalendarSync { count ->
+            statusMessage = "Removed $count events from phone calendar. ✓"
+            isProcessing = false
+          }
+        },
+        enabled = !isProcessing,
+        modifier = Modifier
+          .fillMaxWidth()
+          .testTag("remove_calendar_sync_btn"),
+        shape = RoundedCornerShape(14.dp)
+      ) {
+        Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("One-Click Remove All Synced Events from Phone Calendar", color = MaterialTheme.colorScheme.error)
+      }
     }
   }
 }

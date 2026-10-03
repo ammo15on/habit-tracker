@@ -88,4 +88,82 @@ object CalendarSyncUtil {
       return false
     }
   }
+
+  fun syncAllTasksToDeviceCalendar(context: Context, tasks: List<com.example.data.model.HabitTask>): Int {
+    var count = 0
+    for (task in tasks) {
+      val date = task.targetDate ?: task.targetDates?.split(",")?.firstOrNull() ?: DateUtils.today()
+      val success = syncEventToDeviceCalendar(
+        context = context,
+        title = task.name,
+        description = task.noteText.ifBlank { "Study Tracker Task" },
+        startDateStr = date,
+        endDateStr = date,
+        targetTimeMinutes = task.targetTimeMinutes
+      )
+      if (success) count++
+    }
+    return count
+  }
+
+  fun removeAllSyncedEventsFromDeviceCalendar(context: Context): Int {
+    try {
+      val calendarId = getDefaultCalendarId(context)
+      val selection = "${CalendarContract.Events.CALENDAR_ID} = ?"
+      val selectionArgs = arrayOf(calendarId.toString())
+      return context.contentResolver.delete(
+        CalendarContract.Events.CONTENT_URI,
+        selection,
+        selectionArgs
+      )
+    } catch (e: Exception) {
+      e.printStackTrace()
+      return 0
+    }
+  }
+
+  fun importEventsFromDeviceCalendar(context: Context): List<com.example.data.model.HabitTask> {
+    val importedList = mutableListOf<com.example.data.model.HabitTask>()
+    val projection = arrayOf(
+      CalendarContract.Events.TITLE,
+      CalendarContract.Events.DESCRIPTION,
+      CalendarContract.Events.DTSTART,
+      CalendarContract.Events.DTEND
+    )
+    try {
+      val cursor = context.contentResolver.query(
+        CalendarContract.Events.CONTENT_URI,
+        projection,
+        null,
+        null,
+        CalendarContract.Events.DTSTART + " DESC LIMIT 50"
+      )
+      cursor?.use {
+        val titleIdx = it.getColumnIndex(CalendarContract.Events.TITLE)
+        val descIdx = it.getColumnIndex(CalendarContract.Events.DESCRIPTION)
+        val startIdx = it.getColumnIndex(CalendarContract.Events.DTSTART)
+
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+
+        while (it.moveToNext()) {
+          val title = if (titleIdx >= 0) it.getString(titleIdx) ?: "Imported Event" else "Imported Event"
+          val desc = if (descIdx >= 0) it.getString(descIdx) ?: "" else ""
+          val startMillis = if (startIdx >= 0) it.getLong(startIdx) else System.currentTimeMillis()
+          val dateStr = sdf.format(java.util.Date(startMillis))
+
+          importedList.add(
+            com.example.data.model.HabitTask(
+              name = title,
+              targetDate = dateStr,
+              noteText = desc,
+              isDefault = false
+            )
+          )
+        }
+      }
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
+    return importedList
+  }
 }

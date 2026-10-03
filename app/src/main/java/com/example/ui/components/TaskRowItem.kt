@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Pause
@@ -69,6 +70,7 @@ fun TaskRowItem(
   onToggleComplete: () -> Unit,
   onEditTask: () -> Unit,
   onDeleteTask: () -> Unit,
+  onMoveToNextDay: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   val haptic = LocalHapticFeedback.current
@@ -332,6 +334,20 @@ fun TaskRowItem(
                   onClick = {
                     showMenu = false
                     onEditTask()
+                  }
+                )
+                DropdownMenuItem(
+                  text = { Text("Move to Next Day (+1 Day)") },
+                  leadingIcon = {
+                    Icon(
+                      imageVector = Icons.Default.CalendarToday,
+                      contentDescription = null,
+                      tint = MaterialTheme.colorScheme.primary
+                    )
+                  },
+                  onClick = {
+                    showMenu = false
+                    onMoveToNextDay()
                   }
                 )
                 DropdownMenuItem(

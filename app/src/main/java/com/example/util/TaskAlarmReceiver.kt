@@ -46,6 +46,7 @@ class TaskAlarmReceiver : BroadcastReceiver() {
       .setContentTitle("Task Reminder: $taskName")
       .setContentText("Time to focus! Keep your NEET revision and habit streak alive.")
       .setPriority(NotificationCompat.PRIORITY_HIGH)
+      .setCategory(NotificationCompat.CATEGORY_REMINDER)
       .setAutoCancel(true)
       .setContentIntent(pendingIntent)
       .build()
