@@ -17,6 +17,10 @@ object DateUtils {
     return getNextDay(today())
   }
 
+  fun yesterday(): String {
+    return getPreviousDay(today())
+  }
+
   fun getPreviousDay(dateStr: String): String {
     return offsetDay(dateStr, -1)
   }

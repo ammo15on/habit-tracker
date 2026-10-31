@@ -796,10 +796,13 @@ class HabitViewModel(
     .map { entities ->
       val mapped = entities.map { entity ->
         AiChatMessage(
+          id = entity.id,
           role = entity.role,
           text = entity.text,
           timestamp = entity.timestamp,
-          isError = entity.isError
+          isError = entity.isError,
+          modelMode = if (entity.isCloud) "cloud" else "on_device",
+          isPinned = entity.isPinned
         )
       }
       if (mapped.isEmpty()) {
@@ -970,6 +973,26 @@ class HabitViewModel(
     viewModelScope.launch {
       repository.clearAiChatHistory()
       refreshSuggestions()
+    }
+  }
+
+  fun deleteAiChatMessage(id: Long) {
+    viewModelScope.launch {
+      repository.deleteAiChatById(id)
+      refreshSuggestions()
+    }
+  }
+
+  fun deleteAiChatMessages(ids: Set<Long>) {
+    viewModelScope.launch {
+      repository.deleteAiChatsByIds(ids.toList())
+      refreshSuggestions()
+    }
+  }
+
+  fun togglePinAiChatMessage(id: Long, currentPinned: Boolean) {
+    viewModelScope.launch {
+      repository.setAiChatPinned(id, !currentPinned)
     }
   }
 
@@ -1226,6 +1249,15 @@ class HabitViewModel(
           repository.updatePlannedTask(matchedPlan.copy(isCompleted = isDone))
         }
       }
+    }
+  }
+
+  fun toggleTaskCompleteForDate(taskId: Long, date: String) {
+    if (com.example.util.TimerManager.isTimerRunning(taskId, date)) {
+      com.example.util.TimerManager.stopTimer()
+    }
+    viewModelScope.launch {
+      repository.toggleTaskComplete(taskId, date)
     }
   }
 
@@ -2193,10 +2225,17 @@ class HabitViewModel(
       val context = appContext
       if (context != null) {
         val imported = CalendarSyncUtil.importEventsFromDeviceCalendar(context)
+        val existingTasks = repository.allTasks.first()
         var count = 0
         for (t in imported) {
-          repository.insertTask(name = t.name, targetDate = t.targetDate, noteText = t.noteText)
-          count++
+          val alreadyExists = existingTasks.any {
+            it.name.equals(t.name, ignoreCase = true) &&
+              (it.targetDate == t.targetDate || (it.targetDate == null && t.targetDate == null))
+          }
+          if (!alreadyExists) {
+            repository.insertTask(name = t.name, targetDate = t.targetDate, noteText = t.noteText)
+            count++
+          }
         }
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
           onResult(count)

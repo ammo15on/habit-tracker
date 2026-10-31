@@ -1,11 +1,14 @@
 package com.example.util
 
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.provider.CalendarContract
 import java.util.TimeZone
 
 object CalendarSyncUtil {
+
+  const val APP_EVENT_TAG = "[StudyTrackerApp]"
 
   fun getDefaultCalendarId(context: Context): Long {
     val projection = arrayOf(
@@ -72,13 +75,49 @@ object CalendarSyncUtil {
       endCalendar.set(java.util.Calendar.MINUTE, 0)
       val eventEndMillis = endCalendar.timeInMillis + (durationMinutes * 60 * 1000L)
 
+      val fullDescription = if (description.contains(APP_EVENT_TAG)) {
+        description
+      } else if (description.isBlank()) {
+        "Study Tracker Task\n$APP_EVENT_TAG"
+      } else {
+        "$description\n$APP_EVENT_TAG"
+      }
+
       val values = ContentValues().apply {
         put(CalendarContract.Events.DTSTART, eventStartMillis)
         put(CalendarContract.Events.DTEND, eventEndMillis)
         put(CalendarContract.Events.TITLE, title)
-        put(CalendarContract.Events.DESCRIPTION, description)
+        put(CalendarContract.Events.DESCRIPTION, fullDescription)
         put(CalendarContract.Events.CALENDAR_ID, calendarId)
         put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
+      }
+
+      // Deduplicate: check if event with matching title exists on this day in this calendar
+      val dayStartMillis = eventStartMillis - (9 * 60 * 60 * 1000L)
+      val dayEndMillis = dayStartMillis + (24 * 60 * 60 * 1000L)
+
+      val projection = arrayOf(CalendarContract.Events._ID)
+      val selection = "${CalendarContract.Events.CALENDAR_ID} = ? AND ${CalendarContract.Events.TITLE} = ? AND ${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} < ?"
+      val selectionArgs = arrayOf(calendarId.toString(), title, dayStartMillis.toString(), dayEndMillis.toString())
+
+      val cursor = context.contentResolver.query(
+        CalendarContract.Events.CONTENT_URI,
+        projection,
+        selection,
+        selectionArgs,
+        null
+      )
+
+      cursor?.use {
+        if (it.moveToFirst()) {
+          val idCol = it.getColumnIndex(CalendarContract.Events._ID)
+          if (idCol >= 0) {
+            val existingId = it.getLong(idCol)
+            val updateUri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, existingId)
+            val updated = context.contentResolver.update(updateUri, values, null, null)
+            return updated > 0
+          }
+        }
       }
       
       val uri = context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
@@ -109,8 +148,8 @@ object CalendarSyncUtil {
   fun removeAllSyncedEventsFromDeviceCalendar(context: Context): Int {
     try {
       val calendarId = getDefaultCalendarId(context)
-      val selection = "${CalendarContract.Events.CALENDAR_ID} = ?"
-      val selectionArgs = arrayOf(calendarId.toString())
+      val selection = "${CalendarContract.Events.CALENDAR_ID} = ? AND ${CalendarContract.Events.DESCRIPTION} LIKE ?"
+      val selectionArgs = arrayOf(calendarId.toString(), "%$APP_EVENT_TAG%")
       return context.contentResolver.delete(
         CalendarContract.Events.CONTENT_URI,
         selection,
@@ -148,6 +187,12 @@ object CalendarSyncUtil {
         while (it.moveToNext()) {
           val title = if (titleIdx >= 0) it.getString(titleIdx) ?: "Imported Event" else "Imported Event"
           val desc = if (descIdx >= 0) it.getString(descIdx) ?: "" else ""
+
+          // Skip events exported by our app to prevent re-importing duplicates
+          if (desc.contains(APP_EVENT_TAG)) {
+            continue
+          }
+
           val startMillis = if (startIdx >= 0) it.getLong(startIdx) else System.currentTimeMillis()
           val dateStr = sdf.format(java.util.Date(startMillis))
 
@@ -155,7 +200,7 @@ object CalendarSyncUtil {
             com.example.data.model.HabitTask(
               name = title,
               targetDate = dateStr,
-              noteText = desc,
+              noteText = desc.replace(APP_EVENT_TAG, "").trim(),
               isDefault = false
             )
           )

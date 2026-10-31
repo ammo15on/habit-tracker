@@ -277,6 +277,12 @@ class HabitRepository(private val dao: HabitDao) {
 
   suspend fun insertAiChat(chat: com.example.data.model.AiChatEntity): Long = dao.insertAiChat(chat)
 
+  suspend fun deleteAiChatById(id: Long) = dao.deleteAiChatById(id)
+
+  suspend fun deleteAiChatsByIds(ids: List<Long>) = dao.deleteAiChatsByIds(ids)
+
+  suspend fun setAiChatPinned(id: Long, isPinned: Boolean) = dao.setAiChatPinned(id, isPinned)
+
   suspend fun clearAiChatHistory() = dao.clearAiChatHistory()
 
   suspend fun resetAllData() {

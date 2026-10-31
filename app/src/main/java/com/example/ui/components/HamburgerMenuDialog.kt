@@ -62,6 +62,12 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -69,6 +75,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Divider
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -81,6 +89,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import com.example.data.model.HabitTaskLog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -121,7 +130,6 @@ enum class HamburgerPage {
   TASKS,
   PRESETS,
   DATA,
-  TOUR,
   CALENDAR_SYNC
 }
 
@@ -202,11 +210,6 @@ fun HamburgerMenuDialog(
           HamburgerPage.DATA -> {
             DataFullScreenPage(
               viewModel = viewModel,
-              onBack = { currentPage = HamburgerPage.MAIN_MENU }
-            )
-          }
-          HamburgerPage.TOUR -> {
-            TourFullScreenPage(
               onBack = { currentPage = HamburgerPage.MAIN_MENU }
             )
           }
@@ -312,15 +315,6 @@ private fun HamburgerMainMenuScreen(
           subtitle = "Export JSON backup and restore options",
           onClick = { onNavigate(HamburgerPage.DATA) },
           tag = "nav_data_btn"
-        )
-      }
-      item {
-        HamburgerRowCard(
-          icon = Icons.Default.Star,
-          title = "App Tour & How to Use",
-          subtitle = "Interactive guide on tracker, AI analytics & features",
-          onClick = { onNavigate(HamburgerPage.TOUR) },
-          tag = "nav_tour_btn"
         )
       }
       item {
@@ -695,6 +689,19 @@ private fun GoalFullScreenPage(
   }
 }
 
+private enum class TaskHistoryStatusFilter(val label: String) {
+  ALL("All"),
+  COMPLETED("Completed"),
+  NOT_COMPLETED("Not Completed")
+}
+
+private data class HistoryDisplayItem(
+  val task: HabitTask,
+  val date: String,
+  val isCompleted: Boolean,
+  val timeSpentSeconds: Long
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PastTasksFullScreenPage(
@@ -702,13 +709,129 @@ private fun PastTasksFullScreenPage(
   onBack: () -> Unit
 ) {
   val tasks by viewModel.allTasks.collectAsStateWithLifecycle()
+  val logs by viewModel.allLogs.collectAsStateWithLifecycle()
+
+  var searchQuery by remember { mutableStateOf("") }
+  var statusFilter by remember { mutableStateOf(TaskHistoryStatusFilter.ALL) }
+  var selectedDateFilter by remember { mutableStateOf<String?>(null) } // null = All Dates
+
+  val today = DateUtils.today()
+  val yesterday = DateUtils.yesterday()
+
+  // Collect distinct dates from logs and tasks
+  val availableDates = remember(logs, tasks) {
+    val dateSet = mutableSetOf(today, yesterday)
+    logs.forEach { dateSet.add(it.date) }
+    tasks.forEach { task ->
+      task.targetDate?.let { dateSet.add(it) }
+      task.targetDates?.split(",")?.forEach { d ->
+        val trimmed = d.trim()
+        if (trimmed.isNotBlank()) dateSet.add(trimmed)
+      }
+    }
+    dateSet.toList().sortedDescending()
+  }
+
+  // Build entries across tasks and dates
+  val allEntries = remember(tasks, logs, selectedDateFilter) {
+    val result = mutableListOf<HistoryDisplayItem>()
+    val logsByDateAndTask = logs.associateBy { "${it.taskId}_${it.date}" }
+
+    if (selectedDateFilter != null) {
+      val filterDate = selectedDateFilter!!
+      val dayOfWeekIdx = DateUtils.getDayOfWeekIndex(filterDate)
+      for (task in tasks) {
+        val logKey = "${task.id}_$filterDate"
+        val log = logsByDateAndTask[logKey]
+        val isScheduled = task.isScheduledFor(filterDate, dayOfWeekIdx)
+        if (isScheduled || log != null) {
+          result.add(
+            HistoryDisplayItem(
+              task = task,
+              date = filterDate,
+              isCompleted = log?.isCompleted ?: false,
+              timeSpentSeconds = log?.timeSpentSeconds ?: 0L
+            )
+          )
+        }
+      }
+    } else {
+      // All dates: include all recorded logs
+      val seenKeys = mutableSetOf<String>()
+      for (log in logs) {
+        val task = tasks.find { it.id == log.taskId }
+        if (task != null) {
+          val key = "${task.id}_${log.date}"
+          seenKeys.add(key)
+          result.add(
+            HistoryDisplayItem(
+              task = task,
+              date = log.date,
+              isCompleted = log.isCompleted,
+              timeSpentSeconds = log.timeSpentSeconds
+            )
+          )
+        }
+      }
+      // Add tasks scheduled for today that don't have a log yet
+      val todayIdx = DateUtils.getDayOfWeekIndex(today)
+      for (task in tasks) {
+        val key = "${task.id}_$today"
+        if (!seenKeys.contains(key) && task.isScheduledFor(today, todayIdx)) {
+          seenKeys.add(key)
+          result.add(
+            HistoryDisplayItem(
+              task = task,
+              date = today,
+              isCompleted = false,
+              timeSpentSeconds = 0L
+            )
+          )
+        }
+      }
+      // If result is empty, include all tasks
+      if (result.isEmpty()) {
+        for (task in tasks) {
+          result.add(
+            HistoryDisplayItem(
+              task = task,
+              date = task.targetDate ?: today,
+              isCompleted = false,
+              timeSpentSeconds = 0L
+            )
+          )
+        }
+      }
+    }
+    result.sortedWith(compareByDescending<HistoryDisplayItem> { it.date }.thenBy { it.task.name })
+  }
+
+  // Filter by search query and completion status
+  val filteredItems = remember(allEntries, searchQuery, statusFilter) {
+    allEntries.filter { item ->
+      val matchesSearch = if (searchQuery.isBlank()) {
+        true
+      } else {
+        item.task.name.contains(searchQuery, ignoreCase = true) ||
+          item.task.noteText.contains(searchQuery, ignoreCase = true)
+      }
+
+      val matchesStatus = when (statusFilter) {
+        TaskHistoryStatusFilter.ALL -> true
+        TaskHistoryStatusFilter.COMPLETED -> item.isCompleted
+        TaskHistoryStatusFilter.NOT_COMPLETED -> !item.isCompleted
+      }
+
+      matchesSearch && matchesStatus
+    }
+  }
 
   Scaffold(
     topBar = {
       CenterAlignedTopAppBar(
         title = { Text("Habit Tasks & History", fontWeight = FontWeight.Bold) },
         navigationIcon = {
-          IconButton(onClick = onBack) {
+          IconButton(onClick = onBack, modifier = Modifier.testTag("task_history_back_btn")) {
             Icon(Icons.Default.ArrowBack, contentDescription = "Back")
           }
         },
@@ -717,44 +840,345 @@ private fun PastTasksFullScreenPage(
     },
     containerColor = Color.Transparent
   ) { padding ->
-    LazyColumn(
+    Column(
       modifier = Modifier
         .fillMaxSize()
         .padding(padding)
-        .padding(16.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-      if (tasks.isEmpty()) {
-        item {
-          Text("No habit tasks configured yet.", modifier = Modifier.padding(20.dp))
+      // 1. Search Bar
+      OutlinedTextField(
+        value = searchQuery,
+        onValueChange = { searchQuery = it },
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp, vertical = 6.dp)
+          .testTag("history_search_input"),
+        placeholder = { Text("Search task name or notes...", fontSize = 14.sp) },
+        leadingIcon = {
+          Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
+        },
+        trailingIcon = {
+          if (searchQuery.isNotBlank()) {
+            IconButton(onClick = { searchQuery = "" }) {
+              Icon(Icons.Default.Clear, contentDescription = "Clear search")
+            }
+          }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp)
+      )
+
+      // 2. Status Filter Chips (All, Completed, Not Completed)
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        TaskHistoryStatusFilter.values().forEach { filter ->
+          val isSelected = statusFilter == filter
+          FilterChip(
+            selected = isSelected,
+            onClick = { statusFilter = filter },
+            label = {
+              Text(
+                when (filter) {
+                  TaskHistoryStatusFilter.ALL -> "All Tasks"
+                  TaskHistoryStatusFilter.COMPLETED -> "✓ Completed"
+                  TaskHistoryStatusFilter.NOT_COMPLETED -> "⏳ Not Completed"
+                },
+                fontSize = 12.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+              )
+            },
+            colors = FilterChipDefaults.filterChipColors(
+              selectedContainerColor = when (filter) {
+                TaskHistoryStatusFilter.COMPLETED -> Color(0xFF10B981).copy(alpha = 0.25f)
+                TaskHistoryStatusFilter.NOT_COMPLETED -> Color(0xFFF59E0B).copy(alpha = 0.25f)
+                TaskHistoryStatusFilter.ALL -> MaterialTheme.colorScheme.primaryContainer
+              },
+              selectedLabelColor = when (filter) {
+                TaskHistoryStatusFilter.COMPLETED -> Color(0xFF10B981)
+                TaskHistoryStatusFilter.NOT_COMPLETED -> Color(0xFFF59E0B)
+                TaskHistoryStatusFilter.ALL -> MaterialTheme.colorScheme.onPrimaryContainer
+              }
+            ),
+            modifier = Modifier.testTag("filter_status_${filter.name.lowercase()}")
+          )
         }
       }
-      items(tasks, key = { it.id }) { task ->
-        Card(
-          shape = RoundedCornerShape(12.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+
+      // 3. Date Filter Chips (Scrollable)
+      LazyRow(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        item {
+          val isAllSelected = selectedDateFilter == null
+          FilterChip(
+            selected = isAllSelected,
+            onClick = { selectedDateFilter = null },
+            label = { Text("All Dates", fontSize = 12.sp, fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal) },
+            leadingIcon = {
+              Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(14.dp))
+            },
+            modifier = Modifier.testTag("filter_date_all")
+          )
+        }
+
+        items(availableDates) { date ->
+          val isSelected = selectedDateFilter == date
+          val label = when (date) {
+            today -> "Today"
+            yesterday -> "Yesterday"
+            else -> date
+          }
+          FilterChip(
+            selected = isSelected,
+            onClick = { selectedDateFilter = if (isSelected) null else date },
+            label = { Text(label, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+            modifier = Modifier.testTag("filter_date_$date")
+          )
+        }
+      }
+
+      // 4. Results Header & Reset Option
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(
+          "Showing ${filteredItems.size} ${if (filteredItems.size == 1) "task" else "tasks"}",
+          fontSize = 12.sp,
+          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+          fontWeight = FontWeight.Medium
+        )
+        if (searchQuery.isNotBlank() || statusFilter != TaskHistoryStatusFilter.ALL || selectedDateFilter != null) {
+          TextButton(
+            onClick = {
+              searchQuery = ""
+              statusFilter = TaskHistoryStatusFilter.ALL
+              selectedDateFilter = null
+            }
           ) {
-            Column(modifier = Modifier.weight(1f)) {
-              Text(task.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-              Text(
-                if (task.targetTimeMinutes > 0) "Target: ${task.targetTimeMinutes} mins" else "Count-up timer",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-              )
-              if (!task.reminderTime.isNullOrBlank()) {
-                Text("⏰ Alarm: ${task.reminderTime}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+            Text("Reset Filters", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+          }
+        }
+      }
+
+      // 5. Tasks List
+      LazyColumn(
+        modifier = Modifier
+          .fillMaxSize()
+          .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+      ) {
+        if (filteredItems.isEmpty()) {
+          item {
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+              contentAlignment = Alignment.Center
+            ) {
+              Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                  Icons.Default.FilterList,
+                  contentDescription = null,
+                  modifier = Modifier.size(44.dp),
+                  tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                  "No tasks match your filter criteria.",
+                  fontWeight = FontWeight.Medium,
+                  fontSize = 14.sp,
+                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
               }
             }
-            IconButton(onClick = { viewModel.deleteTask(task.id) }) {
-              Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFEF4444))
+          }
+        }
+
+        items(filteredItems, key = { "${it.task.id}_${it.date}" }) { item ->
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            border = BorderStroke(
+              1.dp,
+              if (item.isCompleted) Color(0xFF10B981).copy(alpha = 0.45f) else MaterialTheme.colorScheme.outlineVariant
+            ),
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("history_item_${item.task.id}")
+          ) {
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+            ) {
+              // Top row: Date badge & Status chip
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                // Date badge
+                val dateLabel = when (item.date) {
+                  today -> "Today • ${item.date}"
+                  yesterday -> "Yesterday • ${item.date}"
+                  else -> item.date
+                }
+                Box(
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                  Text(
+                    text = dateLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                  )
+                }
+
+                // Completion status badge
+                Box(
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                      if (item.isCompleted) Color(0xFF10B981).copy(alpha = 0.15f)
+                      else Color(0xFFF59E0B).copy(alpha = 0.15f)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                      imageVector = if (item.isCompleted) Icons.Default.Check else Icons.Default.Schedule,
+                      contentDescription = null,
+                      modifier = Modifier.size(12.dp),
+                      tint = if (item.isCompleted) Color(0xFF10B981) else Color(0xFFF59E0B)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                      text = if (item.isCompleted) "Completed" else "Not Completed",
+                      fontSize = 11.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = if (item.isCompleted) Color(0xFF10B981) else Color(0xFFF59E0B)
+                    )
+                  }
+                }
+              }
+
+              Spacer(modifier = Modifier.height(10.dp))
+
+              // Task Title
+              Text(
+                text = item.task.name,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurface
+              )
+
+              // Metrics: Target vs Logged
+              Spacer(modifier = Modifier.height(6.dp))
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+              ) {
+                val loggedMins = item.timeSpentSeconds / 60
+                val targetMins = item.task.targetTimeMinutes
+                Text(
+                  text = "⏱ Logged: ${loggedMins}m" + if (targetMins > 0) " / Target: ${targetMins}m" else "",
+                  fontSize = 12.sp,
+                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                if (!item.task.reminderTime.isNullOrBlank()) {
+                  Text(
+                    text = "⏰ Alarm: ${item.task.reminderTime}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary
+                  )
+                }
+              }
+
+              // Notes
+              if (item.task.noteText.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                  text = "📝 ${item.task.noteText}",
+                  fontSize = 12.sp,
+                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                  maxLines = 2
+                )
+              }
+
+              // Actions Row
+              Spacer(modifier = Modifier.height(10.dp))
+              Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+              Spacer(modifier = Modifier.height(8.dp))
+
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                // Toggle completion for this specific date
+                OutlinedButton(
+                  onClick = {
+                    viewModel.toggleTaskCompleteForDate(item.task.id, item.date)
+                  },
+                  shape = RoundedCornerShape(8.dp),
+                  colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = if (item.isCompleted) Color(0xFF10B981) else MaterialTheme.colorScheme.primary
+                  )
+                ) {
+                  Icon(
+                    imageVector = if (item.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                  )
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text(
+                    text = if (item.isCompleted) "Completed ✓" else "Mark Done",
+                    fontSize = 12.sp
+                  )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  // Move to Next Day
+                  IconButton(
+                    onClick = { viewModel.moveTaskToNextDay(item.task.id) },
+                    modifier = Modifier.testTag("move_task_next_day_${item.task.id}")
+                  ) {
+                    Icon(
+                      Icons.Default.ArrowForwardIos,
+                      contentDescription = "Move to Next Day",
+                      modifier = Modifier.size(16.dp),
+                      tint = MaterialTheme.colorScheme.primary
+                    )
+                  }
+
+                  // Delete task
+                  IconButton(
+                    onClick = { viewModel.deleteTask(item.task.id) },
+                    modifier = Modifier.testTag("delete_task_${item.task.id}")
+                  ) {
+                    Icon(
+                      Icons.Default.Delete,
+                      contentDescription = "Delete Task",
+                      tint = Color(0xFFEF4444)
+                    )
+                  }
+                }
+              }
             }
           }
         }
@@ -1308,121 +1732,6 @@ private fun StatPill(label: String, count: Int) {
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TourFullScreenPage(
-  onBack: () -> Unit
-) {
-  Scaffold(
-    topBar = {
-      CenterAlignedTopAppBar(
-        title = { Text("App Tour & Guide", fontWeight = FontWeight.Bold) },
-        navigationIcon = {
-          IconButton(onClick = onBack, modifier = Modifier.testTag("tour_back_btn")) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-          }
-        },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-      )
-    },
-    containerColor = Color.Transparent
-  ) { padding ->
-    LazyColumn(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(padding)
-        .padding(16.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-      item {
-        Card(
-          modifier = Modifier.fillMaxWidth(),
-          shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
-        ) {
-          Column(modifier = Modifier.padding(16.dp)) {
-            Text("🚀 Welcome to Your Study & Habit OS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(6.dp))
-            Text("This tour guides you through all powerful features designed to help you crush your exams and build unbreakable study habits.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
-          }
-        }
-      }
-
-      item {
-        TourStepCard(
-          stepNumber = "1",
-          title = "Daily Tracker & Timer",
-          description = "Check off tasks, log study hours with the built-in timer, add notes, and attach photos of your solved problems or study notes."
-        )
-      }
-
-      item {
-        TourStepCard(
-          stepNumber = "2",
-          title = "3-Dots Edit Task & Move to Next Day",
-          description = "Tap the three dots on any task card to edit its details, delete it, or instantly click 'Move Task to Next Day (+1 Day)' to adjust your schedule on the fly."
-        )
-      }
-
-      item {
-        TourStepCard(
-          stepNumber = "3",
-          title = "NEET & AI Chapters Analytics",
-          description = "Track Physics, Chemistry, Botany, and Zoology chapters, NCERT reading completion, PYQ practice, and mock test scores with automated smart AI attribution."
-        )
-      }
-
-      item {
-        TourStepCard(
-          stepNumber = "4",
-          title = "Two-Way Calendar Sync",
-          description = "Manage your calendar integration in the hamburger menu. One-click sync all your tasks to your phone calendar, or import phone calendar events directly into the app."
-        )
-      }
-
-      item {
-        TourStepCard(
-          stepNumber = "5",
-          title = "Cloud AI Reasoning (Gemini)",
-          description = "Chat with the AI Study Coach for personalized strategies. To enable real-time Cloud AI reasoning, add your GEMINI_API_KEY to AI Studio Secrets!"
-        )
-      }
-    }
-  }
-}
-
-@Composable
-private fun TourStepCard(stepNumber: String, title: String, description: String) {
-  Card(
-    modifier = Modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-  ) {
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(16.dp),
-      verticalAlignment = Alignment.Top
-    ) {
-      Box(
-        modifier = Modifier
-          .size(32.dp)
-          .clip(CircleShape)
-          .background(MaterialTheme.colorScheme.primary),
-        contentAlignment = Alignment.Center
-      ) {
-        Text(stepNumber, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-      }
-      Spacer(modifier = Modifier.width(14.dp))
-      Column(modifier = Modifier.weight(1f)) {
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(description, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f))
-      }
-    }
-  }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

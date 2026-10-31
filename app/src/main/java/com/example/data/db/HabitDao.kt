@@ -210,11 +210,20 @@ interface HabitDao {
   suspend fun deleteTaskPresetById(id: Long)
 
   // AI Chat History
-  @Query("SELECT * FROM ai_chat_history ORDER BY timestamp DESC, id DESC")
+  @Query("SELECT * FROM ai_chat_history ORDER BY isPinned DESC, timestamp DESC, id DESC")
   fun getAllAiChats(): Flow<List<com.example.data.model.AiChatEntity>>
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertAiChat(chat: com.example.data.model.AiChatEntity): Long
+
+  @Query("DELETE FROM ai_chat_history WHERE id = :id")
+  suspend fun deleteAiChatById(id: Long)
+
+  @Query("DELETE FROM ai_chat_history WHERE id IN (:ids)")
+  suspend fun deleteAiChatsByIds(ids: List<Long>)
+
+  @Query("UPDATE ai_chat_history SET isPinned = :isPinned WHERE id = :id")
+  suspend fun setAiChatPinned(id: Long, isPinned: Boolean)
 
   @Query("DELETE FROM ai_chat_history")
   suspend fun clearAiChatHistory()

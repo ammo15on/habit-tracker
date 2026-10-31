@@ -22,14 +22,21 @@ class TimerForegroundService : Service() {
 
   override fun onCreate() {
     super.onCreate()
+  }
+
+  private fun acquireWakeLock() {
     try {
-      val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
-      wakeLock = powerManager?.newWakeLock(
-        PowerManager.PARTIAL_WAKE_LOCK,
-        "HabitTracker:TimerWakeLock"
-      )?.apply {
-        setReferenceCounted(false)
-        acquire(3 * 60 * 60 * 1000L) // Safe max timeout of 3 hours
+      if (wakeLock == null) {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        wakeLock = powerManager?.newWakeLock(
+          PowerManager.PARTIAL_WAKE_LOCK,
+          "HabitTracker:TimerWakeLock"
+        )?.apply {
+          setReferenceCounted(false)
+        }
+      }
+      if (wakeLock?.isHeld == false) {
+        wakeLock?.acquire(3 * 60 * 60 * 1000L) // Safe max timeout of 3 hours
       }
     } catch (_: Exception) {}
   }
@@ -48,7 +55,12 @@ class TimerForegroundService : Service() {
       }
       ACTION_PAUSE -> {
         TimerManager.pauseTimer()
-        return START_STICKY
+        releaseWakeLock()
+        try {
+          stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
+        stopSelf()
+        return START_NOT_STICKY
       }
       ACTION_RESUME -> {
         TimerManager.resumeTimer()
@@ -65,10 +77,20 @@ class TimerForegroundService : Service() {
       }
     }
 
+    val isPaused = intent?.getBooleanExtra(EXTRA_IS_PAUSED, false) ?: false
+    if (isPaused) {
+      releaseWakeLock()
+      try {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+      } catch (_: Exception) {}
+      stopSelf()
+      return START_NOT_STICKY
+    }
+
+    acquireWakeLock()
     val taskName = intent?.getStringExtra(EXTRA_TASK_NAME) ?: "Study Task"
     val baseStartEpoch = intent?.getLongExtra(EXTRA_BASE_START_EPOCH, System.currentTimeMillis()) ?: System.currentTimeMillis()
     val elapsedSeconds = intent?.getLongExtra(EXTRA_ELAPSED_SECONDS, 0L) ?: 0L
-    val isPaused = intent?.getBooleanExtra(EXTRA_IS_PAUSED, false) ?: false
 
     createNotificationChannel(this)
     val notification = buildNotification(this, taskName, baseStartEpoch, elapsedSeconds, isPaused)

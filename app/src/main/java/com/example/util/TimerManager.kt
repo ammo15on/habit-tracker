@@ -46,9 +46,11 @@ object TimerManager {
   private const val KEY_START_EPOCH = "key_start_epoch"
   private const val KEY_ACCUMULATED_SECS = "key_accumulated_secs"
 
-  fun init(context: Context, repository: HabitRepository) {
+  fun init(context: Context, repository: HabitRepository? = null) {
     appContext = context.applicationContext
-    repo = repository
+    repo = repository ?: com.example.data.repository.HabitRepository(
+      com.example.data.db.AppDatabase.getDatabase(context).habitDao()
+    )
 
     // Robustly restore active timer state to prevent any time loss upon app restart or process kill
     try {
@@ -79,7 +81,7 @@ object TimerManager {
           startTickerLoop(taskId, taskName, date, startEpoch)
           TimerForegroundService.start(context, taskName, startEpoch, calculatedSeconds, isPaused = false)
         } else {
-          // Restored in paused state
+          // Restored in paused state - do NOT run background foreground service
           _timerState.value = ActiveTimerState(
             taskId = taskId,
             taskName = taskName,
@@ -91,7 +93,8 @@ object TimerManager {
           runningTaskId.value = taskId
           isTimerRunning.value = false
 
-          TimerForegroundService.start(context, taskName, 0L, accumulated, isPaused = true)
+          // Ensure no background service or notification is running
+          TimerForegroundService.stop(context)
         }
       }
     } catch (_: Exception) {}
@@ -121,6 +124,7 @@ object TimerManager {
           }
           apply()
         }
+        com.example.widget.TasksAppWidgetProvider.notifyDataChanged(ctx)
       }
     } catch (_: Exception) {}
   }
@@ -144,18 +148,6 @@ object TimerManager {
     }
   }
 
-  fun toggleTimer(taskId: Long, taskName: String, date: String, currentLoggedSeconds: Long = 0L) {
-    val current = _timerState.value
-    if (current.taskId == taskId && current.date == date) {
-      if (current.isRunning) {
-        pauseTimer()
-      } else {
-        resumeTimer()
-      }
-    } else {
-      startTimer(taskId, taskName, date, currentLoggedSeconds)
-    }
-  }
 
   private fun playFeedbackSound() {
     try {
@@ -297,13 +289,21 @@ object TimerManager {
     }
 
     appContext?.let { ctx ->
-      if (taskId != null) {
-        TimerForegroundService.start(ctx, taskName, 0L, accumulated, isPaused = true)
-      } else {
-        TimerForegroundService.stop(ctx)
-      }
+      // When paused, stop the background foreground service so no service or wakelock stays active
+      TimerForegroundService.stop(ctx)
     }
     playFeedbackSound()
+  }
+
+  fun toggleTimer(taskId: Long, taskName: String = "", date: String = DateUtils.today(), initialSeconds: Long = 0L) {
+    val current = _timerState.value
+    if (current.taskId == taskId && current.isRunning) {
+      pauseTimer()
+    } else if (current.taskId == taskId && !current.isRunning) {
+      resumeTimer()
+    } else {
+      startTimer(taskId, taskName.ifBlank { "Study Task" }, date, initialSeconds)
+    }
   }
 
   fun stopTimer() {

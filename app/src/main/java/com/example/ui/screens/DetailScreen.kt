@@ -65,7 +65,10 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.ViewWeek
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -429,7 +432,10 @@ fun DetailScreen(
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
               viewModel.sendAiQuestion(question, askCloud)
             },
-            onClearChat = { viewModel.clearAiChat() }
+            onClearChat = { viewModel.clearAiChat() },
+            onDeleteChatMessage = { viewModel.deleteAiChatMessage(it) },
+            onDeleteChatMessages = { viewModel.deleteAiChatMessages(it) },
+            onTogglePinChatMessage = { id, pinned -> viewModel.togglePinAiChatMessage(id, pinned) }
           )
         }
       }
@@ -616,11 +622,16 @@ private fun AnalyticsSectionView(
   draftText: String,
   onDraftChange: (String) -> Unit,
   onSendQuestion: (String, Boolean) -> Unit,
-  onClearChat: () -> Unit
+  onClearChat: () -> Unit,
+  onDeleteChatMessage: (Long) -> Unit = {},
+  onDeleteChatMessages: (Set<Long>) -> Unit = {},
+  onTogglePinChatMessage: (Long, Boolean) -> Unit = { _, _ -> }
 ) {
   val haptic = LocalHapticFeedback.current
   var userInputText by remember(draftText) { mutableStateOf(draftText) }
   val listState = rememberLazyListState()
+  var isChatSelectionMode by remember { mutableStateOf(false) }
+  var selectedChatIds by remember { mutableStateOf(setOf<Long>()) }
 
   val totalChapters = chapters.size
   val completedChapters = chapters.count { it.isCompleted }
@@ -975,7 +986,7 @@ private fun AnalyticsSectionView(
             ) {
               Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                  imageVector = Icons.Default.TrendingUp,
+                  imageVector = Icons.Default.DateRange,
                   contentDescription = null,
                   tint = RatingBestGreen,
                   modifier = Modifier.size(18.dp)
@@ -1126,39 +1137,167 @@ private fun AnalyticsSectionView(
         }
       }
 
-      // 6. AI STUDY COACH (Focused, Clean, NO "what to ask AI" suggestion chips!)
+      // 6. AI STUDY COACH (With Select & Delete, Pin chats and answers)
       item(key = "ai_coach_header") {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-              imageVector = Icons.Default.AutoAwesome,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-              text = "AI Study Assistant",
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-              color = MaterialTheme.colorScheme.onSurface
-            )
+        Column(modifier = Modifier.fillMaxWidth()) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+              )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text(
+                text = "AI Study Assistant",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+              )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+              val validMessageIds = chatMessages.filter { it.id > 0 }.map { it.id }.toSet()
+              if (validMessageIds.isNotEmpty()) {
+                IconButton(
+                  onClick = {
+                    isChatSelectionMode = !isChatSelectionMode
+                    if (!isChatSelectionMode) selectedChatIds = emptySet()
+                  },
+                  modifier = Modifier.size(28.dp)
+                ) {
+                  Icon(
+                    imageVector = if (isChatSelectionMode) Icons.Default.Close else Icons.Default.Checklist,
+                    contentDescription = if (isChatSelectionMode) "Close selection" else "Select messages",
+                    tint = if (isChatSelectionMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                  )
+                }
+              }
+
+              if (chatMessages.isNotEmpty() && !isChatSelectionMode) {
+                IconButton(onClick = onClearChat, modifier = Modifier.size(28.dp)) {
+                  Icon(Icons.Default.Refresh, contentDescription = "Clear Chat", modifier = Modifier.size(16.dp))
+                }
+              }
+            }
           }
 
-          if (chatMessages.isNotEmpty()) {
-            IconButton(onClick = onClearChat, modifier = Modifier.size(26.dp)) {
-              Icon(Icons.Default.Refresh, contentDescription = "Clear Chat", modifier = Modifier.size(16.dp))
+          // Selection Toolbar when active
+          if (isChatSelectionMode) {
+            val validMessageIds = chatMessages.filter { it.id > 0 }.map { it.id }.toSet()
+            Spacer(modifier = Modifier.height(6.dp))
+            Card(
+              modifier = Modifier.fillMaxWidth(),
+              shape = RoundedCornerShape(10.dp),
+              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+            ) {
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Text(
+                    text = "${selectedChatIds.size} selected",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                  )
+                  Spacer(modifier = Modifier.width(8.dp))
+                  TextButton(
+                    onClick = {
+                      selectedChatIds = if (selectedChatIds.size == validMessageIds.size) emptySet() else validMessageIds
+                    },
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                  ) {
+                    Text(if (selectedChatIds.size == validMessageIds.size) "Deselect All" else "Select All", fontSize = 11.sp)
+                  }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                  // Pin / Unpin Selected
+                  IconButton(
+                    onClick = {
+                      val anyUnpinned = chatMessages.filter { selectedChatIds.contains(it.id) }.any { !it.isPinned }
+                      selectedChatIds.forEach { id ->
+                        onTogglePinChatMessage(id, !anyUnpinned)
+                      }
+                      isChatSelectionMode = false
+                      selectedChatIds = emptySet()
+                    },
+                    enabled = selectedChatIds.isNotEmpty(),
+                    modifier = Modifier.size(28.dp)
+                  ) {
+                    Icon(
+                      Icons.Default.PushPin,
+                      contentDescription = "Pin Selected",
+                      tint = if (selectedChatIds.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                      modifier = Modifier.size(16.dp)
+                    )
+                  }
+
+                  // Delete Selected
+                  IconButton(
+                    onClick = {
+                      onDeleteChatMessages(selectedChatIds)
+                      isChatSelectionMode = false
+                      selectedChatIds = emptySet()
+                    },
+                    enabled = selectedChatIds.isNotEmpty(),
+                    modifier = Modifier.size(28.dp)
+                  ) {
+                    Icon(
+                      Icons.Default.Delete,
+                      contentDescription = "Delete Selected",
+                      tint = if (selectedChatIds.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                      modifier = Modifier.size(16.dp)
+                    )
+                  }
+                }
+              }
             }
           }
         }
       }
 
       // Chat Messages History
-      items(chatMessages) { message ->
-        ChatMessageBubble(message = message)
+      items(chatMessages, key = { if (it.id > 0) it.id else it.timestamp }) { message ->
+        ChatMessageBubble(
+          message = message,
+          isSelectionMode = isChatSelectionMode,
+          isSelected = selectedChatIds.contains(message.id),
+          onToggleSelect = {
+            if (message.id > 0) {
+              selectedChatIds = if (selectedChatIds.contains(message.id)) {
+                selectedChatIds - message.id
+              } else {
+                selectedChatIds + message.id
+              }
+            }
+          },
+          onTogglePin = {
+            if (message.id > 0) {
+              onTogglePinChatMessage(message.id, message.isPinned)
+            }
+          },
+          onDelete = {
+            if (message.id > 0) {
+              onDeleteChatMessage(message.id)
+            }
+          },
+          onLongClick = {
+            if (message.id > 0) {
+              isChatSelectionMode = true
+              selectedChatIds = selectedChatIds + message.id
+            }
+          }
+        )
       }
 
       // Loading Spinner
@@ -1402,7 +1541,15 @@ private fun AnalyticsSectionView(
 }
 
 @Composable
-private fun ChatMessageBubble(message: AiChatMessage) {
+private fun ChatMessageBubble(
+  message: AiChatMessage,
+  isSelectionMode: Boolean = false,
+  isSelected: Boolean = false,
+  onToggleSelect: () -> Unit = {},
+  onTogglePin: () -> Unit = {},
+  onDelete: () -> Unit = {},
+  onLongClick: () -> Unit = {}
+) {
   val isUser = message.role == "user"
   val formattedTime = remember(message.timestamp) {
     if (message.timestamp == 0L) {
@@ -1418,9 +1565,25 @@ private fun ChatMessageBubble(message: AiChatMessage) {
   }
 
   Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(vertical = 3.dp),
+    horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+    verticalAlignment = Alignment.CenterVertically
   ) {
+    // Checkbox if in selection mode and before non-user bubble or user bubble
+    if (isSelectionMode && !isUser && message.id > 0) {
+      IconButton(onClick = onToggleSelect, modifier = Modifier.size(28.dp)) {
+        Icon(
+          imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+          contentDescription = "Select",
+          tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+          modifier = Modifier.size(20.dp)
+        )
+      }
+      Spacer(modifier = Modifier.width(4.dp))
+    }
+
     if (!isUser) {
       Box(
         modifier = Modifier
@@ -1440,7 +1603,11 @@ private fun ChatMessageBubble(message: AiChatMessage) {
     }
 
     Card(
-      modifier = Modifier.fillMaxWidth(if (isUser) 0.85f else 0.92f),
+      modifier = Modifier
+        .fillMaxWidth(if (isUser) 0.85f else 0.90f)
+        .clickable(enabled = message.id > 0) {
+          if (isSelectionMode) onToggleSelect() else onLongClick()
+        },
       shape = RoundedCornerShape(
         topStart = 16.dp,
         topEnd = 16.dp,
@@ -1448,33 +1615,116 @@ private fun ChatMessageBubble(message: AiChatMessage) {
         bottomEnd = if (isUser) 4.dp else 16.dp
       ),
       colors = CardDefaults.cardColors(
-        containerColor = if (isUser) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        containerColor = when {
+          isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+          message.isPinned -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+          isUser -> MaterialTheme.colorScheme.primary
+          else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        }
       ),
-      border = if (!isUser) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)) else null
+      border = when {
+        isSelected -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        message.isPinned -> BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+        !isUser -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        else -> null
+      }
     ) {
       Column(modifier = Modifier.padding(12.dp)) {
+        if (message.isPinned) {
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 6.dp)
+          ) {
+            Icon(
+              imageVector = Icons.Default.PushPin,
+              contentDescription = "Pinned",
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+              text = "PINNED INSIGHT",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+              color = MaterialTheme.colorScheme.primary
+            )
+          }
+          Divider(
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+            thickness = 0.8.dp,
+            modifier = Modifier.padding(bottom = 6.dp)
+          )
+        }
+
         Text(
           text = message.text,
           style = MaterialTheme.typography.bodyMedium.copy(
             lineHeight = 20.sp,
             fontSize = 13.sp
           ),
-          color = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+          color = if (isUser && !isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
         )
-        if (formattedTime.isNotEmpty()) {
-          Spacer(modifier = Modifier.height(4.dp))
-          Text(
-            text = formattedTime,
-            style = MaterialTheme.typography.labelSmall.copy(
-              fontSize = 9.sp,
-              fontWeight = FontWeight.Normal
-            ),
-            color = if (isUser) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.65f)
-                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier.align(Alignment.End)
-          )
+
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          // Action buttons: Pin & Delete (only for stored messages with id > 0)
+          if (message.id > 0) {
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+              IconButton(
+                onClick = onTogglePin,
+                modifier = Modifier.size(24.dp)
+              ) {
+                Icon(
+                  imageVector = Icons.Default.PushPin,
+                  contentDescription = if (message.isPinned) "Unpin" else "Pin",
+                  tint = if (message.isPinned) MaterialTheme.colorScheme.primary else if (isUser && !isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                  modifier = Modifier.size(14.dp)
+                )
+              }
+              IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(24.dp)
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Delete,
+                  contentDescription = "Delete",
+                  tint = if (isUser && !isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                  modifier = Modifier.size(14.dp)
+                )
+              }
+            }
+          } else {
+            Spacer(modifier = Modifier.width(1.dp))
+          }
+
+          if (formattedTime.isNotEmpty()) {
+            Text(
+              text = formattedTime,
+              style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Normal
+              ),
+              color = if (isUser && !isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.65f)
+                      else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+          }
         }
+      }
+    }
+
+    if (isSelectionMode && isUser && message.id > 0) {
+      Spacer(modifier = Modifier.width(4.dp))
+      IconButton(onClick = onToggleSelect, modifier = Modifier.size(28.dp)) {
+        Icon(
+          imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+          contentDescription = "Select",
+          tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+          modifier = Modifier.size(20.dp)
+        )
       }
     }
   }

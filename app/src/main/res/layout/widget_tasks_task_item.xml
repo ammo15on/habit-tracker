@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_task_item_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="4dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="6dp">
+
+    <!-- In Front: Start / Pause Button without opening app -->
+    <ImageView
+        android:id="@+id/widget_item_play_pause_btn"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="#1E293B"
+        android:contentDescription="Start or Pause Timer"
+        android:padding="7dp"
+        android:src="@drawable/ic_widget_play" />
+
+    <!-- Task Title and Details -->
+    <LinearLayout
+        android:id="@+id/widget_item_click_area"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="6dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_item_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Task Title"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_item_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="⏱ Logged: 0m / Target: 60m"
+            android:textColor="#94A3B8"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Status Badge (Done or Target) -->
+    <TextView
+        android:id="@+id/widget_item_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="#10B981"
+        android:gravity="center"
+        android:paddingStart="6dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="2dp"
+        android:text="✓"
+        android:textColor="#FFFFFF"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+</LinearLayout>
