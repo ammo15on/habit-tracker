@@ -47,6 +47,7 @@ import coil.compose.AsyncImage
 import com.example.ui.HabitViewModel
 import com.example.ui.components.HamburgerMenuDialog
 import com.example.ui.screens.DetailScreen
+import com.example.ui.screens.FullScreenNotesHubDialog
 import com.example.ui.screens.PlanScreen
 import com.example.ui.screens.TrackerScreen
 import com.example.ui.theme.MyApplicationTheme
@@ -95,6 +96,7 @@ class MainActivity : ComponentActivity() {
       val currentUiOpacity by viewModel.selectedUiOpacity.collectAsStateWithLifecycle()
       val currentTextScale by viewModel.selectedTextSizeScale.collectAsStateWithLifecycle()
       val isHamburgerOpen by viewModel.isHamburgerOpen.collectAsStateWithLifecycle()
+      val notesLaunchRequest by viewModel.notesLaunchRequest.collectAsStateWithLifecycle()
 
       var currentTab by remember { mutableStateOf(MainNavigationTab.TRACKER) }
 
@@ -180,6 +182,14 @@ class MainActivity : ComponentActivity() {
                 onTabSelected = { currentTab = it }
               )
             }
+          }
+
+          notesLaunchRequest?.let { req ->
+            FullScreenNotesHubDialog(
+              viewModel = viewModel,
+              launchRequest = req,
+              onDismiss = { viewModel.closeFullScreenNotes() }
+            )
           }
         }
       }

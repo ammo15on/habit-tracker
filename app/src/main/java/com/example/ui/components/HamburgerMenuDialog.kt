@@ -66,8 +66,10 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.core.content.FileProvider
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -180,6 +182,10 @@ fun HamburgerMenuDialog(
           HamburgerPage.MAIN_MENU -> {
             HamburgerMainMenuScreen(
               onNavigate = { currentPage = it },
+              onOpenNotes = {
+                viewModel.openFullScreenNotes()
+                onDismiss()
+              },
               onClose = onDismiss
             )
           }
@@ -229,6 +235,7 @@ fun HamburgerMenuDialog(
 @Composable
 private fun HamburgerMainMenuScreen(
   onNavigate: (HamburgerPage) -> Unit,
+  onOpenNotes: () -> Unit,
   onClose: () -> Unit
 ) {
   Scaffold(
@@ -245,7 +252,7 @@ private fun HamburgerMainMenuScreen(
                 .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
               Text(
-                "v6.3",
+                "v7.0",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -272,6 +279,15 @@ private fun HamburgerMainMenuScreen(
         .padding(horizontal = 16.dp, vertical = 8.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+      item {
+        HamburgerRowCard(
+          icon = Icons.Default.Description,
+          title = "Notes & Study Material",
+          subtitle = "Subject & chapter folders, lists, images & PDFs",
+          onClick = onOpenNotes,
+          tag = "nav_notes_btn"
+        )
+      }
       item {
         HamburgerRowCard(
           icon = Icons.Default.ColorLens,
@@ -312,7 +328,7 @@ private fun HamburgerMainMenuScreen(
         HamburgerRowCard(
           icon = Icons.Default.Settings,
           title = "Data & Database",
-          subtitle = "Export JSON backup and restore options",
+          subtitle = "Full ZIP backup (notes, images, PDFs & progress) and restore",
           onClick = { onNavigate(HamburgerPage.DATA) },
           tag = "nav_data_btn"
         )
@@ -1307,26 +1323,42 @@ private fun DataFullScreenPage(
   val scores by viewModel.allNeetScores.collectAsStateWithLifecycle()
   val presets by viewModel.allTaskPresets.collectAsStateWithLifecycle()
   val events by viewModel.allPlanEvents.collectAsStateWithLifecycle()
+  val notes by viewModel.allNotes.collectAsStateWithLifecycle()
+  val chapters by viewModel.allNeetChapters.collectAsStateWithLifecycle()
+  val totalMediaFiles = remember(notes) { notes.sumOf { it.getAttachments().size } }
 
-  val importFileLauncher = rememberLauncherForActivityResult(
-    contract = ActivityResultContracts.GetContent()
+  val exportZipLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.CreateDocument("application/zip")
   ) { uri: Uri? ->
     if (uri != null) {
       coroutineScope.launch {
         isProcessing = true
         try {
-          val inputStream = context.contentResolver.openInputStream(uri)
-          val jsonString = inputStream?.bufferedReader()?.use { it.readText() } ?: ""
-          if (jsonString.isNotBlank()) {
-            val count = viewModel.importDataFromJson(jsonString)
-            statusMessage = "Successfully imported $count records from file! ✓"
-            isSuccess = true
-          } else {
-            statusMessage = "Selected file is empty."
-            isSuccess = false
-          }
+          viewModel.exportFullBackupZipToUri(context, uri)
+          statusMessage = "Full backup (.zip) with notes, images, PDFs, tasks & progress saved! ✓"
+          isSuccess = true
         } catch (e: Exception) {
-          statusMessage = "Failed to import file: ${e.message}"
+          statusMessage = "Failed to save backup: ${e.message}"
+          isSuccess = false
+        } finally {
+          isProcessing = false
+        }
+      }
+    }
+  }
+
+  val importFileLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.OpenDocument()
+  ) { uri: Uri? ->
+    if (uri != null) {
+      coroutineScope.launch {
+        isProcessing = true
+        try {
+          val result = viewModel.importBackupFromUri(context, uri)
+          statusMessage = "Restored ${result.totalRecordsCount} records & ${result.mediaRestoredCount} media files (images/PDFs)! ✓"
+          isSuccess = true
+        } catch (e: Exception) {
+          statusMessage = "Failed to import backup: ${e.message}"
           isSuccess = false
         } finally {
           isProcessing = false
@@ -1401,15 +1433,22 @@ private fun DataFullScreenPage(
           colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
           border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-          Column(modifier = Modifier.padding(14.dp)) {
+          Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Database Summary", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(10.dp))
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween
             ) {
               StatPill(label = "Habits", count = tasks.size)
               StatPill(label = "Logs", count = logs.size)
+              StatPill(label = "Notes", count = notes.size)
+              StatPill(label = "Media", count = totalMediaFiles)
+            }
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+              StatPill(label = "Chapters", count = chapters.size)
               StatPill(label = "Scores", count = scores.size)
               StatPill(label = "Events", count = events.size)
               StatPill(label = "Presets", count = presets.size)
@@ -1491,36 +1530,55 @@ private fun DataFullScreenPage(
               Text("Export Backup", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
             Text(
-              "Export all study records, logs, scores, chapters, and presets as a standard JSON backup.",
+              "Export everything — notes with images & PDFs, tasks, progress logs, NEET chapters & scores, presets, AI chats & preferences — into a single backup archive.",
               fontSize = 12.sp,
               color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
+
+            Button(
+              onClick = {
+                exportZipLauncher.launch("Habit_Tracker_Full_Backup_${DateUtils.today()}.zip")
+              },
+              enabled = !isProcessing,
+              modifier = Modifier
+                .fillMaxWidth()
+                .testTag("export_full_zip_btn"),
+              shape = RoundedCornerShape(10.dp)
+            ) {
+              Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Save Full Backup (.zip)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
 
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-              Button(
+              OutlinedButton(
                 onClick = {
                   coroutineScope.launch {
+                    isProcessing = true
                     try {
-                      val json = viewModel.exportDataToJson()
-                      val sendIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, json)
-                        putExtra(Intent.EXTRA_TITLE, "Habit_Tracker_Backup.json")
-                        type = "text/plain"
+                      val zipFile = viewModel.exportFullBackupZipToCacheFile(context)
+                      val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
+                      val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/zip"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, "Habit Tracker Full Backup")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                       }
-                      val shareIntent = Intent.createChooser(sendIntent, "Export Habit Tracker Backup")
-                      context.startActivity(shareIntent)
-                      statusMessage = "Backup ready to share / save!"
+                      context.startActivity(Intent.createChooser(sendIntent, "Share Full Backup (.zip)"))
+                      statusMessage = "Full ZIP backup ready to share! ✓"
                       isSuccess = true
                     } catch (e: Exception) {
                       statusMessage = "Export failed: ${e.message}"
                       isSuccess = false
+                    } finally {
+                      isProcessing = false
                     }
                   }
                 },
+                enabled = !isProcessing,
                 modifier = Modifier
                   .weight(1f)
                   .testTag("export_share_btn"),
@@ -1528,7 +1586,7 @@ private fun DataFullScreenPage(
               ) {
                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Share JSON", fontSize = 12.sp)
+                Text("Share .zip", fontSize = 12.sp)
               }
 
               OutlinedButton(
@@ -1579,7 +1637,7 @@ private fun DataFullScreenPage(
               Text("Import & Restore Data", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
             Text(
-              "Restore your habits, timer history, scores, and presets from a clipboard backup or JSON file.",
+              "Restore everything — notes, images, PDFs, tasks, logs, NEET chapters, scores & preferences — from a .zip backup, .json file, or clipboard.",
               fontSize = 12.sp,
               color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
@@ -1589,6 +1647,22 @@ private fun DataFullScreenPage(
               horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
               Button(
+                onClick = {
+                  importFileLauncher.launch(arrayOf("application/zip", "application/json", "*/*"))
+                },
+                enabled = !isProcessing,
+                modifier = Modifier
+                  .weight(1f)
+                  .testTag("import_file_btn"),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                shape = RoundedCornerShape(10.dp)
+              ) {
+                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Import .zip / .json", fontSize = 12.sp, color = Color.White)
+              }
+
+              OutlinedButton(
                 onClick = {
                   coroutineScope.launch {
                     isProcessing = true
@@ -1618,27 +1692,11 @@ private fun DataFullScreenPage(
                 modifier = Modifier
                   .weight(1f)
                   .testTag("import_paste_btn"),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                 shape = RoundedCornerShape(10.dp)
               ) {
                 Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Paste & Restore", fontSize = 12.sp, color = Color.White)
-              }
-
-              OutlinedButton(
-                onClick = {
-                  importFileLauncher.launch("*/*")
-                },
-                enabled = !isProcessing,
-                modifier = Modifier
-                  .weight(1f)
-                  .testTag("import_file_btn"),
-                shape = RoundedCornerShape(10.dp)
-              ) {
-                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Select File", fontSize = 12.sp)
+                Text("Paste JSON", fontSize = 12.sp)
               }
             }
 

@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.NeetChapter
 import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
+import com.example.data.model.NoteEntity
 import com.example.ui.TaskTallyItem
 import com.example.ui.components.NeetProgressWidgetCard
 import com.example.ui.theme.RatingBestGreen
@@ -117,7 +118,9 @@ fun NeetSectionView(
   onRemoveChapterButton: (String) -> Unit = {},
   onResetChapterButtonsToDefaults: () -> Unit = {},
   onToggleChapterCustomFlag: (NeetChapter, String) -> Unit = { _, _ -> },
-  onUpdateChapterCustomCounter: (NeetChapter, String, Int) -> Unit = { _, _, _ -> }
+  onUpdateChapterCustomCounter: (NeetChapter, String, Int) -> Unit = { _, _, _ -> },
+  allNotes: List<NoteEntity> = emptyList(),
+  onOpenChapterNotes: (NeetChapter) -> Unit = {}
 ) {
   var selectedSubTab by remember { mutableStateOf(NeetSubTab.CHAPTERS) }
   var showEditButtonsDialog by remember { mutableStateOf(false) }
@@ -199,7 +202,9 @@ fun NeetSectionView(
           onToggleAr = onToggleChapterAr,
           onAddChapterClick = onAddChapterClick,
           onEditChapterClick = onEditChapterClick,
-          onDeleteChapterClick = onDeleteChapterClick
+          onDeleteChapterClick = onDeleteChapterClick,
+          allNotes = allNotes,
+          onOpenChapterNotes = onOpenChapterNotes
         )
       }
       NeetSubTab.TALLY -> {
@@ -245,7 +250,9 @@ private fun NeetChaptersView(
   onUpdateChapterCustomCounter: (NeetChapter, String, Int) -> Unit,
   onAddChapterClick: () -> Unit,
   onEditChapterClick: (NeetChapter) -> Unit,
-  onDeleteChapterClick: (NeetChapter) -> Unit
+  onDeleteChapterClick: (NeetChapter) -> Unit,
+  allNotes: List<NoteEntity> = emptyList(),
+  onOpenChapterNotes: (NeetChapter) -> Unit = {}
 ) {
   var selectedSubjectFilter by remember { mutableStateOf("All") }
   var selectedStatusFilter by remember { mutableStateOf("All") }
@@ -392,8 +399,15 @@ private fun NeetChaptersView(
       }
     } else {
       items(filteredChapters, key = { it.id }) { chapter ->
+        val chapterNotes = remember(allNotes, chapter.id, chapter.subject, chapter.name) {
+          allNotes.filter { n ->
+            n.chapterId == chapter.id ||
+              (n.subject.equals(chapter.subject, ignoreCase = true) && n.chapterName.equals(chapter.name, ignoreCase = true))
+          }
+        }
         ChapterItemCard(
           chapter = chapter,
+          chapterNotes = chapterNotes,
           chapterButtons = chapterButtons,
           onToggleCompleted = { onToggleCompleted(chapter) },
           onTogglePyq = { onTogglePyq(chapter) },
@@ -404,6 +418,7 @@ private fun NeetChaptersView(
           onToggleAr = { onToggleAr(chapter) },
           onToggleCustomFlag = { flagId -> onToggleChapterCustomFlag(chapter, flagId) },
           onUpdateCustomCounter = { flagId, delta -> onUpdateChapterCustomCounter(chapter, flagId, delta) },
+          onOpenNotes = { onOpenChapterNotes(chapter) },
           onEdit = { onEditChapterClick(chapter) },
           onDelete = { onDeleteChapterClick(chapter) }
         )
@@ -416,6 +431,7 @@ private fun NeetChaptersView(
 @Composable
 private fun ChapterItemCard(
   chapter: NeetChapter,
+  chapterNotes: List<NoteEntity> = emptyList(),
   chapterButtons: List<ChapterButtonItem>,
   onToggleCompleted: () -> Unit,
   onTogglePyq: () -> Unit,
@@ -426,6 +442,7 @@ private fun ChapterItemCard(
   onToggleAr: () -> Unit,
   onToggleCustomFlag: (String) -> Unit,
   onUpdateCustomCounter: (String, Int) -> Unit,
+  onOpenNotes: () -> Unit = {},
   onEdit: () -> Unit,
   onDelete: () -> Unit
 ) {
@@ -486,13 +503,54 @@ private fun ChapterItemCard(
 
       Spacer(modifier = Modifier.height(4.dp))
 
-      // Chapter Title (clickable to edit)
-      Text(
-        text = chapter.name,
-        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.clickable { onEdit() }
-      )
+      // Chapter Title (tapping chapter name opens synced Chapter Notes page)
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(8.dp))
+          .clickable { onOpenNotes() }
+          .padding(vertical = 2.dp)
+          .testTag("chapter_name_btn_${chapter.id}"),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(
+          text = chapter.name,
+          style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+          color = MaterialTheme.colorScheme.onSurface,
+          modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        val attachmentCount = chapterNotes.sumOf { it.getAttachments().size }
+        Box(
+          modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+              if (chapterNotes.isNotEmpty() || chapter.notes.isNotBlank()) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+              } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+              }
+            )
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+        ) {
+          Text(
+            text = when {
+              chapterNotes.isNotEmpty() && attachmentCount > 0 -> "Notes (${chapterNotes.size}) • $attachmentCount file"
+              chapterNotes.isNotEmpty() -> "Notes (${chapterNotes.size})"
+              chapter.notes.isNotBlank() -> "View Notes"
+              else -> "+ Notes"
+            },
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (chapterNotes.isNotEmpty() || chapter.notes.isNotBlank()) {
+              MaterialTheme.colorScheme.primary
+            } else {
+              MaterialTheme.colorScheme.onSurfaceVariant
+            }
+          )
+        }
+      }
 
       if (chapter.notes.isNotBlank()) {
         Spacer(modifier = Modifier.height(3.dp))
@@ -500,7 +558,8 @@ private fun ChapterItemCard(
           text = chapter.notes,
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
-          maxLines = 2
+          maxLines = 2,
+          modifier = Modifier.clickable { onOpenNotes() }
         )
       }
 

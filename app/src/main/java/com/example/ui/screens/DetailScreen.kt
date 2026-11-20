@@ -154,6 +154,7 @@ fun DetailScreen(
   val tallyAnalytics by viewModel.taskTallyAnalytics.collectAsStateWithLifecycle()
   val neetScores by viewModel.allNeetScores.collectAsStateWithLifecycle()
   val neetChapters by viewModel.allNeetChapters.collectAsStateWithLifecycle()
+  val allNotes by viewModel.allNotes.collectAsStateWithLifecycle()
   val neetTallyCounters by viewModel.allNeetTallyCounters.collectAsStateWithLifecycle()
   val subjectTimeBreakdown by viewModel.subjectTimeBreakdown.collectAsStateWithLifecycle()
   val taskSubjectAttributions by viewModel.taskSubjectAttributions.collectAsStateWithLifecycle()
@@ -412,7 +413,15 @@ fun DetailScreen(
             onResetTally = { viewModel.resetNeetTally(it) },
             onDeleteTally = { viewModel.deleteNeetTallyCounter(it) },
             onAddScoreClick = { showAddNeetDialog = true },
-            onDeleteScoreClick = { viewModel.deleteNeetScore(it) }
+            onDeleteScoreClick = { viewModel.deleteNeetScore(it) },
+            allNotes = allNotes,
+            onOpenChapterNotes = { ch ->
+              viewModel.openFullScreenNotes(
+                subject = ch.subject,
+                chapterId = ch.id,
+                chapterName = ch.name
+              )
+            }
           )
         }
 

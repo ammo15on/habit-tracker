@@ -9,21 +9,30 @@ import com.example.data.model.HabitTaskLog
 import com.example.data.model.NeetChapter
 import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
+import com.example.data.model.NoteEntity
 import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
 import com.example.data.model.TaskPreset
 import com.example.data.repository.HabitRepository
 import com.example.ui.theme.AppThemeColor
-import com.example.util.DateUtils
-import com.example.util.ThemePreferences
-import com.example.util.GoalPreferences
-import com.example.util.AppGoal
 import com.example.util.AlarmScheduler
+import com.example.util.AppGoal
+import com.example.util.BackupArchiveManager
+import com.example.util.BackupImportResult
+import com.example.util.BackupPayload
+import com.example.util.CalendarSyncUtil
 import com.example.util.ChapterButtonItem
 import com.example.util.ChapterButtonPreferences
-import com.example.util.CalendarSyncUtil
+import com.example.util.DateUtils
+import com.example.util.GoalPreferences
+import com.example.util.NoteFolderPreferences
+import com.example.util.NoteMediaUtils
 import com.example.util.OnDeviceSubjectClassifier
+import com.example.util.ThemePreferences
 import android.content.Context
+import android.net.Uri
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -95,6 +104,33 @@ class HabitViewModel(
 
   fun openHamburger() = openHamburgerMenu()
   fun closeHamburger() = closeHamburgerMenu()
+
+  // Full-Screen Notes Overlay request (can open root Notes Hub or directly to a NEET Chapter folder)
+  data class NotesLaunchRequest(
+    val initialSubject: String? = null,
+    val initialChapterId: Long? = null,
+    val initialChapterName: String? = null
+  )
+
+  private val _notesLaunchRequest = MutableStateFlow<NotesLaunchRequest?>(null)
+  val notesLaunchRequest: StateFlow<NotesLaunchRequest?> = _notesLaunchRequest.asStateFlow()
+
+  fun openFullScreenNotes(
+    subject: String? = null,
+    chapterId: Long? = null,
+    chapterName: String? = null
+  ) {
+    isHamburgerMenuOpen.value = false
+    _notesLaunchRequest.value = NotesLaunchRequest(
+      initialSubject = subject,
+      initialChapterId = chapterId,
+      initialChapterName = chapterName
+    )
+  }
+
+  fun closeFullScreenNotes() {
+    _notesLaunchRequest.value = null
+  }
 
   fun setSelectedDate(date: String) {
     selectedDate.value = date
@@ -294,6 +330,16 @@ class HabitViewModel(
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
   val allNeetTallyCounters: StateFlow<List<NeetTallyCounter>> = repository.allNeetTallyCounters
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+  val allNotes: StateFlow<List<NoteEntity>> = repository.allNotes
+    .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+  val allAiChats = repository.allAiChats
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+  private val noteFolderPreferences: NoteFolderPreferences? = appContext?.let { NoteFolderPreferences(it) }
+  val customNoteSubjects: StateFlow<List<String>> =
+    noteFolderPreferences?.customSubjects ?: MutableStateFlow(emptyList<String>()).asStateFlow()
+  val customNoteSubfolders: StateFlow<Map<String, List<String>>> =
+    noteFolderPreferences?.customSubfolders ?: MutableStateFlow(emptyMap<String, List<String>>()).asStateFlow()
 
   init {
     // Initialize TimerManager with context and repository to restore any active session robustly
@@ -325,7 +371,9 @@ class HabitViewModel(
       if (existingCounters.isEmpty()) {
         repository.insertAllNeetTallyCounters(NeetTallyCounter.DEFAULT_COUNTERS)
       }
+      repository.syncLegacyChapterNotesToNotesTable()
       notifyNeetWidgetUpdated()
+      notifyTasksWidgetUpdated()
     }
 
     viewModelScope.launch {
@@ -333,11 +381,55 @@ class HabitViewModel(
         notifyNeetWidgetUpdated()
       }
     }
+
+    viewModelScope.launch {
+      combine(repository.allTasks, repository.allLogs) { tasks, logs -> tasks.size to logs.count { it.isCompleted } }
+        .collect {
+          notifyTasksWidgetUpdated()
+        }
+    }
   }
 
   private fun notifyNeetWidgetUpdated() {
     appContext?.let { ctx ->
-      com.example.widget.NeetProgressAppWidgetProvider.updateAllWidgets(ctx)
+      com.example.widget.NeetProgressAppWidgetProvider.notifyDataChanged(ctx)
+    }
+  }
+
+  private fun notifyTasksWidgetUpdated() {
+    appContext?.let { ctx ->
+      com.example.widget.TasksAppWidgetProvider.notifyDataChanged(ctx)
+    }
+  }
+
+  // Notes Hub & Two-Way NEET Chapter Sync operations
+  fun addCustomSubjectFolder(subjectName: String) {
+    noteFolderPreferences?.addCustomSubject(subjectName)
+  }
+
+  fun addCustomChapterSubfolder(subjectName: String, subfolderName: String) {
+    noteFolderPreferences?.addCustomSubfolder(subjectName, subfolderName)
+  }
+
+  fun saveNote(note: NoteEntity, onSaved: (Long) -> Unit = {}) {
+    viewModelScope.launch {
+      if (note.subject.isNotBlank() && NeetChapter.SUBJECTS.none { it.equals(note.subject, ignoreCase = true) }) {
+        noteFolderPreferences?.addCustomSubject(note.subject)
+      }
+      if (note.subject.isNotBlank() && note.chapterName.isNotBlank() && note.chapterId == null) {
+        noteFolderPreferences?.addCustomSubfolder(note.subject, note.chapterName)
+      }
+      val id = repository.saveNoteWithChapterSync(note)
+      onSaved(id)
+    }
+  }
+
+  fun deleteNote(note: NoteEntity) {
+    viewModelScope.launch {
+      note.getAttachments().forEach { att ->
+        NoteMediaUtils.deleteMediaFileIfLocal(att.filePath)
+      }
+      repository.deleteNoteWithChapterSync(note)
     }
   }
 
@@ -1791,367 +1883,157 @@ class HabitViewModel(
     }
   }
 
-  // Data Export & Import (Pure Android JSON)
+  // Full Data Export & Import (All DB tables + Notes + Images + PDFs + Preferences)
+  private suspend fun buildFullBackupPayload(): BackupPayload {
+    val themeObj = themePreferences?.let { tp ->
+      org.json.JSONObject().apply {
+        put("customColorHex", tp.customColorHex.value)
+        put("customFontColorHex", tp.customFontColorHex.value)
+        put("uiOpacity", tp.uiOpacity.value.toDouble())
+        put("textSizeScale", tp.textSizeScale.value.toDouble())
+        put("autoCalendarSync", tp.autoCalendarSync.value)
+      }
+    }
+    val goalObj = goalPreferences?.let { gp ->
+      val g = gp.goal.value
+      org.json.JSONObject().apply {
+        put("title", g.title)
+        put("examDate", g.examDate)
+        put("dailyStudyHoursTarget", g.dailyStudyHoursTarget)
+        put("motivationQuote", g.motivationQuote)
+      }
+    }
+
+    val chapterBtnsJson = chapterButtonPreferences?.let { cbp ->
+      val arr = org.json.JSONArray()
+      cbp.buttons.value.forEach { btn ->
+        arr.put(org.json.JSONObject().apply {
+          put("id", btn.id)
+          put("name", btn.name)
+          put("colorHex", btn.colorHex)
+          put("isBuiltIn", btn.isBuiltIn)
+          put("isEnabled", btn.isEnabled)
+          put("isCounter", btn.isCounter)
+        })
+      }
+      arr.toString()
+    }
+
+    return BackupPayload(
+      tasks = repository.allTasks.first(),
+      logs = repository.allLogs.first(),
+      ratings = repository.allRatings.first(),
+      scores = repository.allNeetScores.first(),
+      plannedTasks = repository.allPlannedTasks.first(),
+      events = repository.allPlanEvents.first(),
+      presets = repository.allTaskPresets.first(),
+      chapters = repository.allNeetChapters.first(),
+      counters = repository.allNeetTallyCounters.first(),
+      notes = repository.allNotes.first(),
+      aiChats = repository.allAiChats.first(),
+      customSubjects = noteFolderPreferences?.customSubjects?.value ?: emptyList(),
+      customSubfolders = noteFolderPreferences?.customSubfolders?.value ?: emptyMap(),
+      themePrefs = themeObj,
+      goalPrefs = goalObj,
+      chapterButtonsJson = chapterBtnsJson
+    )
+  }
+
   suspend fun exportDataToJson(): String {
-    val root = org.json.JSONObject()
-
-    val tasks = repository.allTasks.first()
-    val tasksArray = org.json.JSONArray()
-    tasks.forEach { t ->
-      val obj = org.json.JSONObject().apply {
-        put("id", t.id)
-        put("name", t.name)
-        put("targetDate", t.targetDate ?: "")
-        put("repeatDaysMask", t.repeatDaysMask)
-        put("targetTimeMinutes", t.targetTimeMinutes)
-        put("isDefault", t.isDefault)
-        put("isStarred", t.isStarred)
-        put("targetDates", t.targetDates ?: "")
-        put("startDate", t.startDate ?: "")
-        put("endDate", t.endDate ?: "")
-        put("noteText", t.noteText)
-      }
-      tasksArray.put(obj)
-    }
-    root.put("tasks", tasksArray)
-
-    val logs = repository.allLogs.first()
-    val logsArray = org.json.JSONArray()
-    logs.forEach { l ->
-      val obj = org.json.JSONObject().apply {
-        put("id", l.id)
-        put("taskId", l.taskId)
-        put("date", l.date)
-        put("timeSpentSeconds", l.timeSpentSeconds)
-        put("isCompleted", l.isCompleted)
-      }
-      logsArray.put(obj)
-    }
-    root.put("logs", logsArray)
-
-    val ratings = repository.allRatings.first()
-    val ratingsArray = org.json.JSONArray()
-    ratings.forEach { r ->
-      val obj = org.json.JSONObject().apply {
-        put("date", r.date)
-        put("rating", r.rating)
-      }
-      ratingsArray.put(obj)
-    }
-    root.put("ratings", ratingsArray)
-
-    val scores = repository.allNeetScores.first()
-    val scoresArray = org.json.JSONArray()
-    scores.forEach { s ->
-      val obj = org.json.JSONObject().apply {
-        put("id", s.id)
-        put("testName", s.testName)
-        put("date", s.date)
-        put("physicsScore", s.physicsScore)
-        put("chemistryScore", s.chemistryScore)
-        put("botanyScore", s.botanyScore)
-        put("zoologyScore", s.zoologyScore)
-        put("maxPhysics", s.maxPhysics)
-        put("maxChemistry", s.maxChemistry)
-        put("maxBotany", s.maxBotany)
-        put("maxZoology", s.maxZoology)
-        put("timestamp", s.timestamp)
-      }
-      scoresArray.put(obj)
-    }
-    root.put("scores", scoresArray)
-
-    val planned = repository.allPlannedTasks.first()
-    val plannedArray = org.json.JSONArray()
-    planned.forEach { p ->
-      val obj = org.json.JSONObject().apply {
-        put("id", p.id)
-        put("title", p.title)
-        put("date", p.date)
-        put("targetTimeMinutes", p.targetTimeMinutes)
-        put("notes", p.notes)
-        put("isStarred", p.isStarred)
-        put("isArchived", p.isArchived)
-        put("isCompleted", p.isCompleted)
-      }
-      plannedArray.put(obj)
-    }
-    root.put("plannedTasks", plannedArray)
-
-    val events = repository.allPlanEvents.first()
-    val eventsArray = org.json.JSONArray()
-    events.forEach { e ->
-      val obj = org.json.JSONObject().apply {
-        put("id", e.id)
-        put("title", e.title)
-        put("startDate", e.startDate)
-        put("endDate", e.endDate)
-        put("taskTitle", e.taskTitle)
-        put("taskTargetMinutes", e.taskTargetMinutes)
-        put("notes", e.notes)
-        put("subtasksJson", e.subtasksJson)
-      }
-      eventsArray.put(obj)
-    }
-    root.put("events", eventsArray)
-
-    val presets = repository.allTaskPresets.first()
-    val presetsArray = org.json.JSONArray()
-    presets.forEach { p ->
-      val obj = org.json.JSONObject().apply {
-        put("id", p.id)
-        put("name", p.name)
-        put("targetTimeMinutes", p.targetTimeMinutes)
-        put("noteText", p.noteText)
-        put("noteImageUri", p.noteImageUri ?: "")
-      }
-      presetsArray.put(obj)
-    }
-    root.put("presets", presetsArray)
-
-    val chapters = repository.allNeetChapters.first()
-    val chaptersArray = org.json.JSONArray()
-    chapters.forEach { c ->
-      val obj = org.json.JSONObject().apply {
-        put("id", c.id)
-        put("name", c.name)
-        put("subject", c.subject)
-        put("isCompleted", c.isCompleted)
-        put("isPyqDone", c.isPyqDone)
-        put("isRevisionDone", c.isRevisionDone)
-        put("isExerciseDone", c.isExerciseDone)
-        put("isArDone", c.isArDone)
-        put("ncertReadCount", c.ncertReadCount)
-        put("notes", c.notes)
-      }
-      chaptersArray.put(obj)
-    }
-    root.put("chapters", chaptersArray)
-
-    val counters = repository.allNeetTallyCounters.first()
-    val countersArray = org.json.JSONArray()
-    counters.forEach { c ->
-      val obj = org.json.JSONObject().apply {
-        put("id", c.id)
-        put("title", c.title)
-        put("count", c.count)
-        put("target", c.target)
-        put("unit", c.unit)
-      }
-      countersArray.put(obj)
-    }
-    root.put("counters", countersArray)
-
-    return root.toString(2)
+    val payload = buildFullBackupPayload()
+    return BackupArchiveManager.serializePayloadToJson(payload)
   }
 
   suspend fun exportAllDataToJson(): String = exportDataToJson()
 
-  suspend fun importDataFromJson(jsonString: String): Int {
-    val root = org.json.JSONObject(jsonString)
-    var importedCount = 0
-
-    val tasksList = mutableListOf<HabitTask>()
-    if (root.has("tasks")) {
-      val arr = root.getJSONArray("tasks")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        tasksList.add(
-          HabitTask(
-            id = o.optLong("id", 0L),
-            name = o.optString("name", ""),
-            targetDate = o.optString("targetDate", "").takeIf { it.isNotBlank() },
-            repeatDaysMask = o.optInt("repeatDaysMask", 0),
-            targetTimeMinutes = o.optInt("targetTimeMinutes", 0),
-            isDefault = o.optBoolean("isDefault", false),
-            isStarred = o.optBoolean("isStarred", false),
-            targetDates = o.optString("targetDates", "").takeIf { it.isNotBlank() },
-            startDate = o.optString("startDate", "").takeIf { it.isNotBlank() },
-            endDate = o.optString("endDate", "").takeIf { it.isNotBlank() },
-            noteText = o.optString("noteText", "")
-          )
-        )
-      }
-      importedCount += tasksList.size
+  suspend fun exportFullBackupZipToUri(context: Context, destUri: Uri) {
+    val payload = buildFullBackupPayload()
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      context.contentResolver.openOutputStream(destUri)?.use { os ->
+        BackupArchiveManager.exportPayloadToZipStream(payload, os, context)
+      } ?: throw IllegalStateException("Unable to open destination file for export")
     }
+  }
 
-    val logsList = mutableListOf<HabitTaskLog>()
-    if (root.has("logs")) {
-      val arr = root.getJSONArray("logs")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        logsList.add(
-          HabitTaskLog(
-            id = o.optLong("id", 0L),
-            taskId = o.optLong("taskId", 0L),
-            date = o.optString("date", ""),
-            timeSpentSeconds = o.optLong("timeSpentSeconds", 0L),
-            isCompleted = o.optBoolean("isCompleted", false)
-          )
-        )
+  suspend fun exportFullBackupZipToCacheFile(context: Context): File {
+    val payload = buildFullBackupPayload()
+    return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+      val file = File(exportDir, "Habit_Tracker_Full_Backup_${DateUtils.today()}.zip")
+      FileOutputStream(file).use { fos ->
+        BackupArchiveManager.exportPayloadToZipStream(payload, fos, context)
       }
-      importedCount += logsList.size
+      file
     }
+  }
 
-    val ratingsList = mutableListOf<DayRating>()
-    if (root.has("ratings")) {
-      val arr = root.getJSONArray("ratings")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        ratingsList.add(
-          DayRating(
-            date = o.optString("date", ""),
-            rating = o.optString("rating", "")
-          )
-        )
-      }
-      importedCount += ratingsList.size
-    }
-
-    val scoresList = mutableListOf<NeetTestScore>()
-    if (root.has("scores")) {
-      val arr = root.getJSONArray("scores")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        scoresList.add(
-          NeetTestScore(
-            id = o.optLong("id", 0L),
-            testName = o.optString("testName", ""),
-            date = o.optString("date", ""),
-            physicsScore = o.optInt("physicsScore", 0),
-            chemistryScore = o.optInt("chemistryScore", 0),
-            botanyScore = o.optInt("botanyScore", 0),
-            zoologyScore = o.optInt("zoologyScore", 0),
-            maxPhysics = o.optInt("maxPhysics", 180),
-            maxChemistry = o.optInt("maxChemistry", 180),
-            maxBotany = o.optInt("maxBotany", 180),
-            maxZoology = o.optInt("maxZoology", 180),
-            timestamp = o.optLong("timestamp", System.currentTimeMillis())
-          )
-        )
-      }
-      importedCount += scoresList.size
-    }
-
-    val plannedList = mutableListOf<PlannedTask>()
-    if (root.has("plannedTasks")) {
-      val arr = root.getJSONArray("plannedTasks")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        plannedList.add(
-          PlannedTask(
-            id = o.optLong("id", 0L),
-            title = o.optString("title", ""),
-            date = o.optString("date", ""),
-            targetTimeMinutes = o.optInt("targetTimeMinutes", 0),
-            notes = o.optString("notes", ""),
-            isStarred = o.optBoolean("isStarred", false),
-            isArchived = o.optBoolean("isArchived", false),
-            isCompleted = o.optBoolean("isCompleted", false)
-          )
-        )
-      }
-      importedCount += plannedList.size
-    }
-
-    val eventsList = mutableListOf<com.example.data.model.PlanEvent>()
-    if (root.has("events")) {
-      val arr = root.getJSONArray("events")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        eventsList.add(
-          com.example.data.model.PlanEvent(
-            id = o.optLong("id", 0L),
-            title = o.optString("title", ""),
-            startDate = o.optString("startDate", ""),
-            endDate = o.optString("endDate", ""),
-            taskTitle = o.optString("taskTitle", ""),
-            taskTargetMinutes = o.optInt("taskTargetMinutes", 0),
-            notes = o.optString("notes", ""),
-            subtasksJson = o.optString("subtasksJson", "[]")
-          )
-        )
-      }
-      importedCount += eventsList.size
-    }
-
-    val presetsList = mutableListOf<TaskPreset>()
-    if (root.has("presets")) {
-      val arr = root.getJSONArray("presets")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        presetsList.add(
-          TaskPreset(
-            id = o.optLong("id", 0L),
-            name = o.optString("name", ""),
-            targetTimeMinutes = o.optInt("targetTimeMinutes", 0),
-            noteText = o.optString("noteText", ""),
-            noteImageUri = o.optString("noteImageUri", "").takeIf { it.isNotBlank() }
-          )
-        )
-      }
-      importedCount += presetsList.size
-    }
-
-    val chaptersList = mutableListOf<NeetChapter>()
-    if (root.has("chapters")) {
-      val arr = root.getJSONArray("chapters")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        chaptersList.add(
-          NeetChapter(
-            id = o.optLong("id", 0L),
-            name = o.optString("name", o.optString("chapterName", "")),
-            subject = o.optString("subject", "Physics"),
-            isCompleted = o.optBoolean("isCompleted", o.optBoolean("theoryCompleted", false)),
-            isPyqDone = o.optBoolean("isPyqDone", o.optBoolean("pyqsSolved", false)),
-            isRevisionDone = o.optBoolean("isRevisionDone", false),
-            isExerciseDone = o.optBoolean("isExerciseDone", false),
-            isArDone = o.optBoolean("isArDone", false),
-            ncertReadCount = o.optInt("ncertReadCount", if (o.optBoolean("isRevisionDone", false)) 1 else 0),
-            notes = o.optString("notes", "")
-          )
-        )
-      }
-      importedCount += chaptersList.size
-    }
-
-    val countersList = mutableListOf<NeetTallyCounter>()
-    if (root.has("counters")) {
-      val arr = root.getJSONArray("counters")
-      for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
-        countersList.add(
-          NeetTallyCounter(
-            id = o.optLong("id", 0L),
-            title = o.optString("title", o.optString("name", "")),
-            count = o.optInt("count", 0),
-            target = o.optInt("target", o.optInt("targetCount", 0)),
-            unit = o.optString("unit", "times")
-          )
-        )
-      }
-      importedCount += countersList.size
-    }
-
+  private suspend fun applyImportedPayload(result: BackupImportResult) {
+    val p = result.payload
     repository.importData(
-      tasks = tasksList,
-      logs = logsList,
-      ratings = ratingsList,
-      scores = scoresList,
-      plannedTasks = plannedList,
-      events = eventsList,
-      chapters = chaptersList,
-      counters = countersList,
-      presets = presetsList
+      tasks = p.tasks,
+      logs = p.logs,
+      ratings = p.ratings,
+      scores = p.scores,
+      plannedTasks = p.plannedTasks,
+      events = p.events,
+      chapters = p.chapters,
+      counters = p.counters,
+      presets = p.presets,
+      notes = p.notes,
+      aiChats = p.aiChats
     )
+    repository.syncLegacyChapterNotesToNotesTable()
 
-    return importedCount
+    if (p.customSubjects.isNotEmpty() || p.customSubfolders.isNotEmpty()) {
+      noteFolderPreferences?.importFolders(p.customSubjects, p.customSubfolders)
+    }
+
+    p.themePrefs?.let { tp ->
+      tp.optString("customColorHex", "").takeIf { it.isNotBlank() }?.let { setCustomColorHex(it) }
+      tp.optString("customFontColorHex", "").takeIf { it.isNotBlank() }?.let { setCustomFontColorHex(it) }
+      if (tp.has("uiOpacity")) setUiOpacity(tp.optDouble("uiOpacity", 0.85).toFloat())
+      if (tp.has("textSizeScale")) setTextSizeScale(tp.optDouble("textSizeScale", 1.0).toFloat())
+      if (tp.has("autoCalendarSync")) setAutoCalendarSyncEnabled(tp.optBoolean("autoCalendarSync", false))
+    }
+
+    p.goalPrefs?.let { gp ->
+      updateGoal(
+        AppGoal(
+          title = gp.optString("title", "NEET 2026 Target: 680+ Score"),
+          examDate = gp.optString("examDate", "2026-05-03"),
+          dailyStudyHoursTarget = gp.optInt("dailyStudyHoursTarget", 10),
+          motivationQuote = gp.optString("motivationQuote", "Every single formula and NCERT line matters. Stay relentless.")
+        )
+      )
+    }
+
+    notifyNeetWidgetUpdated()
+    notifyTasksWidgetUpdated()
+  }
+
+  suspend fun importBackupFromUri(context: Context, uri: Uri): BackupImportResult {
+    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      val mediaDir = NoteMediaUtils.getMediaDir(context)
+      context.contentResolver.openInputStream(uri)?.use { ins ->
+        BackupArchiveManager.importFromStream(ins, mediaDir)
+      } ?: throw IllegalStateException("Unable to read selected backup file")
+    }
+    applyImportedPayload(result)
+    return result
+  }
+
+  suspend fun importDataFromJson(jsonString: String): Int {
+    val payload = BackupArchiveManager.parsePayloadFromJson(jsonString)
+    val result = BackupImportResult(payload = payload, mediaRestoredCount = 0)
+    applyImportedPayload(result)
+    return result.totalRecordsCount
   }
 
   fun resetAllData() {
     viewModelScope.launch {
       repository.resetAllData()
+      notifyNeetWidgetUpdated()
+      notifyTasksWidgetUpdated()
     }
   }
 

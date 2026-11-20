@@ -1,12 +1,14 @@
 package com.example.data.repository
 
 import com.example.data.db.HabitDao
+import com.example.data.model.AiChatEntity
 import com.example.data.model.DayRating
 import com.example.data.model.HabitTask
 import com.example.data.model.HabitTaskLog
 import com.example.data.model.NeetChapter
 import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
+import com.example.data.model.NoteEntity
 import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
 import com.example.data.model.RatingType
@@ -25,7 +27,8 @@ class HabitRepository(private val dao: HabitDao) {
   val allPlannedTasks: Flow<List<PlannedTask>> = dao.getAllPlannedTasks()
   val allNeetChapters: Flow<List<NeetChapter>> = dao.getAllNeetChapters()
   val allNeetTallyCounters: Flow<List<NeetTallyCounter>> = dao.getAllNeetTallyCounters()
-  val allPlanEvents: Flow<List<com.example.data.model.PlanEvent>> = dao.getAllPlanEvents()
+  val allPlanEvents: Flow<List<PlanEvent>> = dao.getAllPlanEvents()
+  val allNotes: Flow<List<NoteEntity>> = dao.getAllNotes()
 
   fun getLogsForDate(date: String): Flow<List<HabitTaskLog>> = dao.getLogsForDate(date)
 
@@ -130,7 +133,6 @@ class HabitRepository(private val dao: HabitDao) {
   suspend fun setDayRating(date: String, ratingType: RatingType) {
     val existing = dao.getDayRatingSync(date)
     if (existing != null && existing.rating == ratingType.name) {
-      // If tapping the already selected rating, toggle it off/clear it
       dao.deleteRating(date)
     } else {
       val rating = DayRating(date = date, rating = ratingType.name)
@@ -153,15 +155,149 @@ class HabitRepository(private val dao: HabitDao) {
   suspend fun deletePlannedTaskById(id: Long) = dao.deletePlannedTaskById(id)
 
   // NEET Chapter operations
-  suspend fun insertNeetChapter(chapter: NeetChapter): Long = dao.insertNeetChapter(chapter)
+  suspend fun insertNeetChapter(chapter: NeetChapter): Long {
+    val id = dao.insertNeetChapter(chapter)
+    if (chapter.notes.isNotBlank()) {
+      syncChapterNotesFieldToNoteEntity(chapter.copy(id = id))
+    }
+    return id
+  }
 
   suspend fun insertAllNeetChapters(chapters: List<NeetChapter>) = dao.insertAllNeetChapters(chapters)
 
-  suspend fun updateNeetChapter(chapter: NeetChapter) = dao.updateNeetChapter(chapter)
+  suspend fun updateNeetChapter(chapter: NeetChapter) {
+    val previous = dao.getNeetChapterByIdSync(chapter.id)
+    dao.updateNeetChapter(chapter)
+    if (previous != null && previous.notes != chapter.notes) {
+      syncChapterNotesFieldToNoteEntity(chapter)
+    }
+  }
 
   suspend fun deleteNeetChapter(chapter: NeetChapter) = dao.deleteNeetChapter(chapter)
 
   suspend fun deleteNeetChapterById(id: Long) = dao.deleteNeetChapterById(id)
+
+  // Notes + Two-Way Chapter Sync
+  suspend fun saveNoteWithChapterSync(note: NoteEntity): Long {
+    val now = System.currentTimeMillis()
+    val linkedChapter = when {
+      note.chapterId != null -> dao.getNeetChapterByIdSync(note.chapterId)
+      note.subject.isNotBlank() && note.chapterName.isNotBlank() ->
+        dao.getNeetChapterByNameSync(note.subject.trim(), note.chapterName.trim())
+      else -> null
+    }
+
+    val normalized = note.copy(
+      title = note.title.trim(),
+      subject = linkedChapter?.subject ?: note.subject.trim(),
+      chapterName = linkedChapter?.name ?: note.chapterName.trim(),
+      chapterId = linkedChapter?.id ?: note.chapterId,
+      createdAt = if (note.id == 0L) now else note.createdAt,
+      updatedAt = now
+    )
+
+    val savedId = if (normalized.id == 0L) {
+      dao.insertNote(normalized)
+    } else {
+      dao.updateNote(normalized)
+      normalized.id
+    }
+
+    if (linkedChapter != null) {
+      refreshChapterNotesSummary(linkedChapter)
+    }
+    return savedId
+  }
+
+  suspend fun deleteNoteWithChapterSync(note: NoteEntity) {
+    val linkedChapter = when {
+      note.chapterId != null -> dao.getNeetChapterByIdSync(note.chapterId)
+      note.subject.isNotBlank() && note.chapterName.isNotBlank() ->
+        dao.getNeetChapterByNameSync(note.subject, note.chapterName)
+      else -> null
+    }
+    dao.deleteNote(note)
+    if (linkedChapter != null) {
+      refreshChapterNotesSummary(linkedChapter)
+    }
+  }
+
+  suspend fun syncLegacyChapterNotesToNotesTable() {
+    val chapters = dao.getAllNeetChaptersSync()
+    for (chapter in chapters) {
+      if (chapter.notes.isNotBlank()) {
+        val existingNotes = dao.getNotesForChapterSync(chapter.id, chapter.subject, chapter.name)
+        if (existingNotes.isEmpty()) {
+          dao.insertNote(
+            NoteEntity(
+              title = "${chapter.name} Notes",
+              content = chapter.notes,
+              subject = chapter.subject,
+              chapterName = chapter.name,
+              chapterId = chapter.id,
+              createdAt = System.currentTimeMillis(),
+              updatedAt = System.currentTimeMillis()
+            )
+          )
+        }
+      }
+    }
+  }
+
+  private suspend fun syncChapterNotesFieldToNoteEntity(chapter: NeetChapter) {
+    val existingNotes = dao.getNotesForChapterSync(chapter.id, chapter.subject, chapter.name)
+    val now = System.currentTimeMillis()
+    if (existingNotes.isEmpty()) {
+      if (chapter.notes.isNotBlank()) {
+        dao.insertNote(
+          NoteEntity(
+            title = "${chapter.name} Notes",
+            content = chapter.notes,
+            subject = chapter.subject,
+            chapterName = chapter.name,
+            chapterId = chapter.id,
+            createdAt = now,
+            updatedAt = now
+          )
+        )
+      }
+    } else if (existingNotes.size == 1 && chapter.notes.isNotBlank()) {
+      dao.updateNote(
+        existingNotes.first().copy(
+          content = chapter.notes,
+          chapterId = chapter.id,
+          updatedAt = now
+        )
+      )
+    }
+  }
+
+  private suspend fun refreshChapterNotesSummary(chapter: NeetChapter) {
+    val notes = dao.getNotesForChapterSync(chapter.id, chapter.subject, chapter.name)
+    val summary = notes.joinToString("\n") { n ->
+      val body = n.content.trim()
+      val title = n.title.trim()
+      val attachments = n.getAttachments()
+      val mediaTag = if (attachments.isNotEmpty()) {
+        val imgs = attachments.count { it.type == NoteEntity.TYPE_IMAGE }
+        val pdfs = attachments.count { it.type == NoteEntity.TYPE_PDF }
+        listOfNotNull(
+          if (imgs > 0) "${imgs} img" else null,
+          if (pdfs > 0) "${pdfs} PDF" else null
+        ).joinToString(", ")
+      } else ""
+      when {
+        body.isNotBlank() -> body
+        title.isNotBlank() && mediaTag.isNotBlank() -> "$title ($mediaTag)"
+        title.isNotBlank() -> title
+        mediaTag.isNotBlank() -> "Attachments: $mediaTag"
+        else -> ""
+      }
+    }.trim()
+    if (summary != chapter.notes) {
+      dao.updateNeetChapter(chapter.copy(notes = summary))
+    }
+  }
 
   // NEET Tally Counter operations
   suspend fun insertNeetTallyCounter(counter: NeetTallyCounter): Long = dao.insertNeetTallyCounter(counter)
@@ -175,9 +311,8 @@ class HabitRepository(private val dao: HabitDao) {
   suspend fun deleteNeetTallyCounterById(id: Long) = dao.deleteNeetTallyCounterById(id)
 
   // Plan Event operations
-  suspend fun insertPlanEvent(event: com.example.data.model.PlanEvent): Long {
+  suspend fun insertPlanEvent(event: PlanEvent): Long {
     val eventId = dao.insertPlanEvent(event)
-    // Synchronize event task to habit_tasks so it appears seamlessly in tracker view during event dates
     val eventTask = HabitTask(
       name = event.taskTitle.ifBlank { event.title },
       startDate = event.startDate,
@@ -190,7 +325,7 @@ class HabitRepository(private val dao: HabitDao) {
     return eventId
   }
 
-  suspend fun updatePlanEvent(event: com.example.data.model.PlanEvent) {
+  suspend fun updatePlanEvent(event: PlanEvent) {
     dao.updatePlanEvent(event)
     val existingTask = dao.getTaskByEventId(event.id)
     if (existingTask != null) {
@@ -215,7 +350,7 @@ class HabitRepository(private val dao: HabitDao) {
     }
   }
 
-  suspend fun deletePlanEvent(event: com.example.data.model.PlanEvent) {
+  suspend fun deletePlanEvent(event: PlanEvent) {
     dao.deletePlanEvent(event)
     dao.deleteTaskByEventId(event.id)
   }
@@ -256,10 +391,12 @@ class HabitRepository(private val dao: HabitDao) {
     ratings: List<DayRating>,
     scores: List<NeetTestScore>,
     plannedTasks: List<PlannedTask>,
-    events: List<com.example.data.model.PlanEvent>,
+    events: List<PlanEvent>,
     chapters: List<NeetChapter>,
     counters: List<NeetTallyCounter>,
-    presets: List<TaskPreset> = emptyList()
+    presets: List<TaskPreset> = emptyList(),
+    notes: List<NoteEntity> = emptyList(),
+    aiChats: List<AiChatEntity> = emptyList()
   ) {
     if (tasks.isNotEmpty()) dao.insertAllTasks(tasks)
     if (logs.isNotEmpty()) dao.insertAllLogs(logs)
@@ -270,12 +407,14 @@ class HabitRepository(private val dao: HabitDao) {
     if (chapters.isNotEmpty()) dao.insertAllNeetChapters(chapters)
     if (counters.isNotEmpty()) dao.insertAllNeetTallyCounters(counters)
     if (presets.isNotEmpty()) dao.insertAllTaskPresets(presets)
+    if (notes.isNotEmpty()) dao.insertAllNotes(notes)
+    if (aiChats.isNotEmpty()) dao.insertAllAiChats(aiChats)
   }
 
   // AI Chat History
-  val allAiChats: Flow<List<com.example.data.model.AiChatEntity>> = dao.getAllAiChats()
+  val allAiChats: Flow<List<AiChatEntity>> = dao.getAllAiChats()
 
-  suspend fun insertAiChat(chat: com.example.data.model.AiChatEntity): Long = dao.insertAiChat(chat)
+  suspend fun insertAiChat(chat: AiChatEntity): Long = dao.insertAiChat(chat)
 
   suspend fun deleteAiChatById(id: Long) = dao.deleteAiChatById(id)
 
@@ -292,5 +431,6 @@ class HabitRepository(private val dao: HabitDao) {
     dao.clearAllScores()
     dao.clearAllPlannedTasks()
     dao.clearAllPlanEvents()
+    dao.clearAllNotes()
   }
 }

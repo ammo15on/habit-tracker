@@ -14,8 +14,8 @@ android {
     applicationId = "com.aistudio.habittracker.uqxvp"
     minSdk = 24
     targetSdk = 34
-    versionCode = 13
-    versionName = "6.5.2"
+    versionCode = 14
+    versionName = "7.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -72,7 +72,11 @@ android {
     kotlinCompilerExtensionVersion = "1.5.8"
   }
 
-  // testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+    }
+  }
 
   secrets {
     propertiesFileName = ".env"
@@ -105,6 +109,11 @@ dependencies {
   implementation(libs.retrofit.converter.gson)
 
   debugImplementation(libs.androidx.ui.tooling)
+
+  testImplementation("junit:junit:4.13.2")
+  testImplementation("org.robolectric:robolectric:4.11.1")
+  testImplementation("androidx.test:core:1.5.0")
+  testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 
   ksp(libs.room.compiler)
 }

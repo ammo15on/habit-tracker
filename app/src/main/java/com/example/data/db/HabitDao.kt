@@ -12,6 +12,7 @@ import com.example.data.model.HabitTaskLog
 import com.example.data.model.NeetChapter
 import com.example.data.model.NeetTallyCounter
 import com.example.data.model.NeetTestScore
+import com.example.data.model.NoteEntity
 import com.example.data.model.PlanEvent
 import com.example.data.model.PlannedTask
 import com.example.data.model.TaskPreset
@@ -22,6 +23,9 @@ interface HabitDao {
   // Tasks
   @Query("SELECT * FROM habit_tasks WHERE isArchived = 0 ORDER BY id ASC")
   fun getAllTasks(): Flow<List<HabitTask>>
+
+  @Query("SELECT * FROM habit_tasks WHERE isArchived = 0 ORDER BY id ASC")
+  fun getAllTasksDirect(): List<HabitTask>
 
   @Query("SELECT * FROM habit_tasks WHERE isDefault = 1 AND isArchived = 0 ORDER BY id ASC")
   fun getDefaultTasks(): Flow<List<HabitTask>>
@@ -53,6 +57,9 @@ interface HabitDao {
 
   @Query("SELECT * FROM habit_task_logs")
   fun getAllLogs(): Flow<List<HabitTaskLog>>
+
+  @Query("SELECT * FROM habit_task_logs")
+  fun getAllLogsDirect(): List<HabitTaskLog>
 
   @Query("SELECT * FROM habit_task_logs WHERE date BETWEEN :startDate AND :endDate")
   fun getLogsBetweenDates(startDate: String, endDate: String): Flow<List<HabitTaskLog>>
@@ -108,6 +115,9 @@ interface HabitDao {
   // NEET Chapters
   @Query("SELECT * FROM neet_chapters ORDER BY id ASC")
   fun getAllNeetChapters(): Flow<List<NeetChapter>>
+
+  @Query("SELECT * FROM neet_chapters ORDER BY id ASC")
+  fun getAllNeetChaptersDirect(): List<NeetChapter>
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertNeetChapter(chapter: NeetChapter): Long
@@ -216,6 +226,9 @@ interface HabitDao {
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertAiChat(chat: com.example.data.model.AiChatEntity): Long
 
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllAiChats(chats: List<com.example.data.model.AiChatEntity>)
+
   @Query("DELETE FROM ai_chat_history WHERE id = :id")
   suspend fun deleteAiChatById(id: Long)
 
@@ -227,6 +240,46 @@ interface HabitDao {
 
   @Query("DELETE FROM ai_chat_history")
   suspend fun clearAiChatHistory()
+
+  // Notes
+  @Query("SELECT * FROM notes ORDER BY updatedAt DESC, id DESC")
+  fun getAllNotes(): Flow<List<NoteEntity>>
+
+  @Query("SELECT * FROM notes ORDER BY updatedAt DESC, id DESC")
+  suspend fun getAllNotesSync(): List<NoteEntity>
+
+  @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
+  suspend fun getNoteById(id: Long): NoteEntity?
+
+  @Query("SELECT * FROM notes WHERE chapterId = :chapterId OR (LOWER(subject) = LOWER(:subject) AND LOWER(chapterName) = LOWER(:chapterName)) ORDER BY updatedAt DESC, id DESC")
+  suspend fun getNotesForChapterSync(chapterId: Long, subject: String, chapterName: String): List<NoteEntity>
+
+  @Query("SELECT * FROM neet_chapters WHERE id = :id LIMIT 1")
+  suspend fun getNeetChapterByIdSync(id: Long): NeetChapter?
+
+  @Query("SELECT * FROM neet_chapters WHERE LOWER(subject) = LOWER(:subject) AND LOWER(name) = LOWER(:name) LIMIT 1")
+  suspend fun getNeetChapterByNameSync(subject: String, name: String): NeetChapter?
+
+  @Query("SELECT * FROM neet_chapters ORDER BY id ASC")
+  suspend fun getAllNeetChaptersSync(): List<NeetChapter>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertNote(note: NoteEntity): Long
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAllNotes(notes: List<NoteEntity>)
+
+  @Update
+  suspend fun updateNote(note: NoteEntity)
+
+  @Delete
+  suspend fun deleteNote(note: NoteEntity)
+
+  @Query("DELETE FROM notes WHERE id = :id")
+  suspend fun deleteNoteById(id: Long)
+
+  @Query("DELETE FROM notes")
+  suspend fun clearAllNotes()
 
   @Query("DELETE FROM habit_tasks")
   suspend fun clearAllTasks()

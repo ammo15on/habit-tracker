@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">Habit Tracker</string>
+    <string name="widget_tasks_description">Daily study tasks and logged time tracker widget</string>
+    <string name="widget_neet_description">NEET chapters, PYQ, and NCERT revision progress widget</string>
+    <string name="notes_hub_title">Notes &amp; Study Material</string>
+    <string name="notes_normal_folder">Normal Notes</string>
+    <string name="notes_subjects_title">Subject Folders</string>
+    <string name="export_full_backup">Save Full Backup (.zip)</string>
+    <string name="share_full_backup">Share Backup (.zip)</string>
+    <string name="import_full_backup">Import Backup (.zip / .json)</string>
 </resources>
