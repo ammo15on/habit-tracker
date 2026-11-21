@@ -1,13 +1,15 @@
-# Habit & Study Tracker (Android) - v6.5.2
+# Habit & Study Tracker (Android) - v7.1 Successor
 
-A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widget, progressive AI study coaching, and productivity analytics.
+A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widgets, progressive AI study coaching, voice assistant commands, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v6.5.2 & Version History)
+## 📱 Pre-Built APKs (v7.1 Successor & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v6.5.2 Latest Release (Exercise & A&R Toggles, NCERT Read Counter)**: [`apk/habit-tracker-v6.5.2.apk`](apk/habit-tracker-v6.5.2.apk)
+- **v7.1 Latest Successor Release (Voice Assistant, Upgraded NEET Widget Overview & Natural Scrolling)**: [`apk/habit-tracker-v7.1.apk`](apk/habit-tracker-v7.1.apk)
+- **v7.0 Release**: [`apk/habit-tracker-v7.0.apk`](apk/habit-tracker-v7.0.apk)
+- **v6.5.2 Release**: [`apk/habit-tracker-v6.5.2.apk`](apk/habit-tracker-v6.5.2.apk)
 - **v6.5 Release**: [`apk/habit-tracker-v6.5.apk`](apk/habit-tracker-v6.5.apk)
 - **v6.2 Release**: [`apk/habit-tracker-v6.2.apk`](apk/habit-tracker-v6.2.apk)
 - **v6.1 Release**: [`apk/habit-tracker-v6.1.apk`](apk/habit-tracker-v6.1.apk)
@@ -22,21 +24,23 @@ The compiled Android application packages are available directly in the reposito
 - **Release APK Output**: `app/build/outputs/apk/release/app-release.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `6.5.2` (Version Code 13)
+- **Version**: `7.1` (Version Code 15)
 
 ---
 
-## 🚀 Release v6.5.2 - Interactive Exercise & A&R Toggles, NCERT Read Counter (+1 / -1) & DB Migration v13
+## 🚀 Release v7.1 Successor - Voice Assistant, Upgraded NEET Widget Overview, Full Hamburger Notes Hub & Natural Scrolling
 
-### 1. Interactive Exercise & Assertion-Reason (A&R) Toggles
-- **Parity with PYQ**: Exercise (`✓ Exercise Done` / `Exercise`) and Assertion & Reason (`✓ A&R Done` / `A&R`) are now interactive checkmark toggles with dedicated color accents and instant status persistence, matching PYQ behavior.
-- **Database Schema v13**: Added non-destructive schema migrations for `isExerciseDone` and `isArDone` across all NEET chapters.
-- **Status Filter Chips**: NEET chapter lists include direct filters for **Exercise Done** and **A&R Done** alongside Completed and PYQ filters.
+### 1. Voice Assistant & Speech Command Pop-up
+- **Mic FAB Button**: Added a small mic button just below the main task button on the task tracker screen.
+- **Voice Commands**: Supports natural voice utterances to create tasks for today/specified dates, create notes within chapter subfolders, and mark exercise, PYQ, NCERT reading, and DPP done/undone.
+- **Live Transcription & Undo**: Displays live transcription text output of actions completed with an immediate "Undo" option for each executed action.
 
-### 2. Interactive NCERT Read Counter (+1 / −1)
-- **Step-by-Step Counter**: Replaced binary completion for NCERT reading with an interactive **+1 / −1 counter** (`✓ NCERT: 1x`, `2x`, `3x`, etc.).
-- **Touch-Friendly Controls**: Tap **+** (or the chip label) to increment reading cycles, or **−** to decrement.
-- **Dialog Integration**: Added the counter controls into the Add/Edit Chapter dialog so reading iterations can be viewed and edited with full fidelity.
+### 2. Upgraded NEET Progress Overview Widget
+- **Full Analytics Parity**: The home screen app widget (`widget_neet_progress.xml`) now fully mirrors the NEET progress overview card from analytics, featuring Chapters, NCERT Read, PYQ Done, Exercise Done, A&R Done, overall percentage, and subject mini-breakdown counts.
+
+### 3. Hamburger Notes Hub & Natural Scrolling
+- **Full-Screen Notes & Sync**: Hamburger menu opens full-screen notes with subject folders and chapter subfolders, supporting rich text (bullet points, serial numbers), images, PDFs, and two-way sync with NEET chapter views.
+- **Natural Scrolling**: Optimized scrolling behavior across all screens and lists for a smooth user experience.
 
 ---
 

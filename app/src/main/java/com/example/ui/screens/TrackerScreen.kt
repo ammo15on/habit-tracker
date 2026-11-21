@@ -41,10 +41,12 @@ import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Today
 import com.example.ui.components.GoalDialog
+import com.example.ui.components.VoiceCommandPopupDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -117,6 +119,7 @@ fun TrackerScreen(
   var totalDragX by remember { mutableFloatStateOf(0f) }
   var expandedEventIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
   var isCompletedExpanded by remember { mutableStateOf(false) }
+  var showVoiceDialog by remember { mutableStateOf(false) }
 
   val isToday = (selectedDate == DateUtils.today())
   val prevDay = DateUtils.getPreviousDay(selectedDate)
@@ -426,19 +429,6 @@ fun TrackerScreen(
                   )
                 }
               }
-
-              OutlinedButton(
-                onClick = { showAddDialog = true },
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                  .defaultMinSize(minWidth = 1.dp, minHeight = 32.dp)
-                  .testTag("add_task_text_button")
-              ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(3.dp))
-                Text("Add", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-              }
             }
           }
         }
@@ -568,39 +558,69 @@ fun TrackerScreen(
         }
       }
 
-      // Floating Action: Add Task (+) Button
-      // Tap opens Add Task dialog; Tap and Hold opens Presets dialog to add as task!
-      Surface(
+      // Floating Action Buttons column: Add Task (+) and Mic button below it
+      Column(
         modifier = Modifier
           .align(Alignment.BottomEnd)
-          .padding(end = 20.dp, bottom = 16.dp)
-          .size(56.dp)
-          .clip(CircleShape)
-          .combinedClickable(
-            onClick = {
-              haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-              showAddDialog = true
-            },
-            onLongClick = {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              showPresetsDialog = true
-            }
-          )
-          .testTag("fab_add_task"),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shadowElevation = 6.dp,
-        tonalElevation = 6.dp
+          .padding(end = 20.dp, bottom = 16.dp),
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
       ) {
-        Box(contentAlignment = Alignment.Center) {
+        // Mic button for voice commands
+        SmallFloatingActionButton(
+          onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            showVoiceDialog = true
+          },
+          containerColor = MaterialTheme.colorScheme.secondaryContainer,
+          contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+          modifier = Modifier.testTag("fab_voice_command")
+        ) {
           Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = "Add Task (Hold for Presets)",
-            modifier = Modifier.size(28.dp)
+            imageVector = Icons.Default.Mic,
+            contentDescription = "Voice Commands",
+            modifier = Modifier.size(20.dp)
           )
         }
+
+        // Add Task FAB
+        Surface(
+          modifier = Modifier
+            .size(56.dp)
+            .clip(CircleShape)
+            .combinedClickable(
+              onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                showAddDialog = true
+              },
+              onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                showPresetsDialog = true
+              }
+            )
+            .testTag("fab_add_task"),
+          shape = CircleShape,
+          color = MaterialTheme.colorScheme.primary,
+          contentColor = MaterialTheme.colorScheme.onPrimary,
+          shadowElevation = 6.dp,
+          tonalElevation = 6.dp
+        ) {
+          Box(contentAlignment = Alignment.Center) {
+            Icon(
+              imageVector = Icons.Default.Add,
+              contentDescription = "Add Task (Hold for Presets)",
+              modifier = Modifier.size(28.dp)
+            )
+          }
+        }
       }
+    }
+
+    if (showVoiceDialog) {
+      VoiceCommandPopupDialog(
+        viewModel = viewModel,
+        onDismiss = { showVoiceDialog = false }
+      )
     }
 
     // 4. Rate this day: small and bottom of UI without background box, just above tracker, plan, and analytics

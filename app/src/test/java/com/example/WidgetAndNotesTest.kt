@@ -120,7 +120,7 @@ class WidgetAndNotesTest {
     assertEquals("1 / 2", populatedInflated.findViewById<TextView>(R.id.widget_chapters_count).text.toString())
     assertEquals("2 / 2", populatedInflated.findViewById<TextView>(R.id.widget_pyq_count).text.toString())
     assertEquals("1 / 2", populatedInflated.findViewById<TextView>(R.id.widget_ncert_count).text.toString())
-    assertEquals("66%", populatedInflated.findViewById<TextView>(R.id.widget_overall_percent).text.toString())
+    assertEquals("40%", populatedInflated.findViewById<TextView>(R.id.widget_overall_percent).text.toString())
   }
 
   @Test
