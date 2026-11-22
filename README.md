@@ -1,13 +1,14 @@
-# Habit & Study Tracker (Android) - v7.1 Successor
+# Habit & Study Tracker (Android) - v7.2
 
-A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widgets, progressive AI study coaching, voice assistant commands, and productivity analytics.
+A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widgets, progressive AI study coaching, robust voice assistant commands with date parsing, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v7.1 Successor & Version History)
+## 📱 Pre-Built APKs (v7.2 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v7.1 Latest Successor Release (Voice Assistant, Upgraded NEET Widget Overview & Natural Scrolling)**: [`apk/habit-tracker-v7.1.apk`](apk/habit-tracker-v7.1.apk)
+- **v7.2 Latest Release (Robust Voice/Text Command Date Parsing & Speech Recognition Intent)**: [`apk/habit-tracker-v7.2.apk`](apk/habit-tracker-v7.2.apk)
+- **v7.1 Release**: [`apk/habit-tracker-v7.1.apk`](apk/habit-tracker-v7.1.apk)
 - **v7.0 Release**: [`apk/habit-tracker-v7.0.apk`](apk/habit-tracker-v7.0.apk)
 - **v6.5.2 Release**: [`apk/habit-tracker-v6.5.2.apk`](apk/habit-tracker-v6.5.2.apk)
 - **v6.5 Release**: [`apk/habit-tracker-v6.5.apk`](apk/habit-tracker-v6.5.apk)
@@ -24,23 +25,18 @@ The compiled Android application packages are available directly in the reposito
 - **Release APK Output**: `app/build/outputs/apk/release/app-release.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `7.1` (Version Code 15)
+- **Version**: `7.2` (Version Code 16)
 
 ---
 
-## 🚀 Release v7.1 Successor - Voice Assistant, Upgraded NEET Widget Overview, Full Hamburger Notes Hub & Natural Scrolling
+## 🚀 Release v7.2 - Robust Date Parsing, Speech Recognition Intent & Action Execution
 
-### 1. Voice Assistant & Speech Command Pop-up
-- **Mic FAB Button**: Added a small mic button just below the main task button on the task tracker screen.
-- **Voice Commands**: Supports natural voice utterances to create tasks for today/specified dates, create notes within chapter subfolders, and mark exercise, PYQ, NCERT reading, and DPP done/undone.
-- **Live Transcription & Undo**: Displays live transcription text output of actions completed with an immediate "Undo" option for each executed action.
+### 1. Robust Specified Date Task Creation
+- **Natural Date Extraction**: Enhanced command interpreter to accurately parse specified dates (e.g., *"create task on 3 January named physics practice"*) and schedule tasks directly for the exact date in the Room database and calendar planner.
 
-### 2. Upgraded NEET Progress Overview Widget
-- **Full Analytics Parity**: The home screen app widget (`widget_neet_progress.xml`) now fully mirrors the NEET progress overview card from analytics, featuring Chapters, NCERT Read, PYQ Done, Exercise Done, A&R Done, overall percentage, and subject mini-breakdown counts.
-
-### 3. Hamburger Notes Hub & Natural Scrolling
-- **Full-Screen Notes & Sync**: Hamburger menu opens full-screen notes with subject folders and chapter subfolders, supporting rich text (bullet points, serial numbers), images, PDFs, and two-way sync with NEET chapter views.
-- **Natural Scrolling**: Optimized scrolling behavior across all screens and lists for a smooth user experience.
+### 2. Speech Recognition Intent & Text Input
+- **Mic Listening Integration**: Tapping the microphone button now launches Android's native `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` to listen to voice commands and transcribe them in real time.
+- **Dual Text/Voice Mode**: Full text input box for typing commands with instant execution, live action feedback, and "Undo" support.
 
 ---
 
