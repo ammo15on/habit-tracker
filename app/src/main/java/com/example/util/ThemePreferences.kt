@@ -34,6 +34,18 @@ class ThemePreferences(context: Context) {
   private val _autoCalendarSync = MutableStateFlow(loadAutoCalendarSync())
   val autoCalendarSync: StateFlow<Boolean> = _autoCalendarSync.asStateFlow()
 
+  private val _isWakeWordEnabled = MutableStateFlow(loadWakeWordEnabled())
+  val isWakeWordEnabled: StateFlow<Boolean> = _isWakeWordEnabled.asStateFlow()
+
+  private val _isAutoListenEnabled = MutableStateFlow(loadAutoListenEnabled())
+  val isAutoListenEnabled: StateFlow<Boolean> = _isAutoListenEnabled.asStateFlow()
+
+  private val _requireConfirmationForDeletion = MutableStateFlow(loadRequireConfirmation())
+  val requireConfirmationForDeletion: StateFlow<Boolean> = _requireConfirmationForDeletion.asStateFlow()
+
+  private val _speechLanguage = MutableStateFlow(loadSpeechLanguage())
+  val speechLanguage: StateFlow<String> = _speechLanguage.asStateFlow()
+
   private fun loadCustomColorHex(): String {
     return prefs.getString(KEY_CUSTOM_UI_HEX, "#3B82F6") ?: "#3B82F6"
   }
@@ -64,6 +76,22 @@ class ThemePreferences(context: Context) {
 
   private fun loadAutoCalendarSync(): Boolean {
     return prefs.getBoolean(KEY_AUTO_CALENDAR_SYNC, false)
+  }
+
+  private fun loadWakeWordEnabled(): Boolean {
+    return prefs.getBoolean(KEY_WAKE_WORD_ENABLED, false)
+  }
+
+  private fun loadAutoListenEnabled(): Boolean {
+    return prefs.getBoolean(KEY_AUTO_LISTEN_ENABLED, false)
+  }
+
+  private fun loadRequireConfirmation(): Boolean {
+    return prefs.getBoolean(KEY_REQUIRE_CONFIRMATION, true)
+  }
+
+  private fun loadSpeechLanguage(): String {
+    return prefs.getString(KEY_SPEECH_LANG, "en-US") ?: "en-US"
   }
 
   fun setCustomColorHex(hex: String) {
@@ -108,6 +136,26 @@ class ThemePreferences(context: Context) {
     _autoCalendarSync.value = enabled
   }
 
+  fun setWakeWordEnabled(enabled: Boolean) {
+    prefs.edit().putBoolean(KEY_WAKE_WORD_ENABLED, enabled).apply()
+    _isWakeWordEnabled.value = enabled
+  }
+
+  fun setAutoListenEnabled(enabled: Boolean) {
+    prefs.edit().putBoolean(KEY_AUTO_LISTEN_ENABLED, enabled).apply()
+    _isAutoListenEnabled.value = enabled
+  }
+
+  fun setRequireConfirmationForDeletion(enabled: Boolean) {
+    prefs.edit().putBoolean(KEY_REQUIRE_CONFIRMATION, enabled).apply()
+    _requireConfirmationForDeletion.value = enabled
+  }
+
+  fun setSpeechLanguage(lang: String) {
+    prefs.edit().putString(KEY_SPEECH_LANG, lang).apply()
+    _speechLanguage.value = lang
+  }
+
   companion object {
     private const val KEY_CUSTOM_UI_HEX = "key_custom_ui_hex"
     private const val KEY_CUSTOM_FONT_HEX = "key_custom_font_hex"
@@ -117,5 +165,9 @@ class ThemePreferences(context: Context) {
     private const val KEY_AI_CHAT_DRAFT = "key_ai_chat_draft"
     private const val KEY_AI_MODE = "key_ai_execution_mode"
     private const val KEY_AUTO_CALENDAR_SYNC = "key_auto_calendar_sync"
+    private const val KEY_WAKE_WORD_ENABLED = "key_wake_word_enabled"
+    private const val KEY_AUTO_LISTEN_ENABLED = "key_auto_listen_enabled"
+    private const val KEY_REQUIRE_CONFIRMATION = "key_require_confirmation"
+    private const val KEY_SPEECH_LANG = "key_speech_lang"
   }
 }

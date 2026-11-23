@@ -1,13 +1,14 @@
-# Habit & Study Tracker (Android) - v7.2
+# Habit & Study Tracker (Android) - v7.3
 
-A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widgets, progressive AI study coaching, robust voice assistant commands with date parsing, and productivity analytics.
+A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widgets, progressive AI study coaching, comprehensive voice assistant commands with hamburger voice settings, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v7.2 & Version History)
+## 📱 Pre-Built APKs (v7.3 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v7.2 Latest Release (Robust Voice/Text Command Date Parsing & Speech Recognition Intent)**: [`apk/habit-tracker-v7.2.apk`](apk/habit-tracker-v7.2.apk)
+- **v7.3 Latest Release (Auto-Trigger Voice Listening, Hamburger Voice Settings & Full Command Suite)**: [`apk/habit-tracker-v7.3.apk`](apk/habit-tracker-v7.3.apk)
+- **v7.2 Release**: [`apk/habit-tracker-v7.2.apk`](apk/habit-tracker-v7.2.apk)
 - **v7.1 Release**: [`apk/habit-tracker-v7.1.apk`](apk/habit-tracker-v7.1.apk)
 - **v7.0 Release**: [`apk/habit-tracker-v7.0.apk`](apk/habit-tracker-v7.0.apk)
 - **v6.5.2 Release**: [`apk/habit-tracker-v6.5.2.apk`](apk/habit-tracker-v6.5.2.apk)
@@ -25,18 +26,24 @@ The compiled Android application packages are available directly in the reposito
 - **Release APK Output**: `app/build/outputs/apk/release/app-release.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `7.2` (Version Code 16)
+- **Version**: `7.3` (Version Code 17)
 
 ---
 
-## 🚀 Release v7.2 - Robust Date Parsing, Speech Recognition Intent & Action Execution
+## 🚀 Release v7.3 - Auto-Trigger Voice Listening, Hamburger Voice Settings & Complete Voice Command Suite
 
-### 1. Robust Specified Date Task Creation
-- **Natural Date Extraction**: Enhanced command interpreter to accurately parse specified dates (e.g., *"create task on 3 January named physics practice"*) and schedule tasks directly for the exact date in the Room database and calendar planner.
+### 1. Hamburger Voice Settings & Triggers Hub
+- **Dedicated Settings Page**: Added a new **Voice Settings & Triggers** section in the Hamburger menu (`Settings & Hub`).
+- **Configurable Preferences**: Toggle wake-word detection, auto-listen on app startup, and confirmation rules before destructive actions (e.g. deleting tasks).
 
-### 2. Speech Recognition Intent & Text Input
-- **Mic Listening Integration**: Tapping the microphone button now launches Android's native `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` to listen to voice commands and transcribe them in real time.
-- **Dual Text/Voice Mode**: Full text input box for typing commands with instant execution, live action feedback, and "Undo" support.
+### 2. Immediate Auto-Trigger Voice Assistant
+- **Instant Listening**: Tapping the external microphone button on the tracker screen immediately opens the modern Material 3 voice popup and automatically starts speech recognition listening without requiring secondary taps.
+- **Modern Redesign**: Frosted glass gradient card, pulsing mic indicator, live transcription display, text input field, completed action logs with Undo, and quick-action chips.
+
+### 3. Complete Private Voice Command Suite
+- **Tasks & Timers**: Create dated tasks for today or specified dates and control task timers (start, pause, resume, stop).
+- **Study Activity Completion**: Mark chapters, subjects, exercises, Assertion-Reason (A&R) sections, DPPs, and NCERT reading as completed/undone.
+- **Notes & Smart Commands**: Create chapter-wise notes and execute smart commands (delete tasks with confirmation checks, check today's progress, view pending tasks, and check study time).
 
 ---
 

@@ -227,6 +227,16 @@ class HabitViewModel(
     }
   }
 
+  val isWakeWordEnabled: StateFlow<Boolean> = themePreferences?.isWakeWordEnabled ?: MutableStateFlow(false)
+  val isAutoListenEnabled: StateFlow<Boolean> = themePreferences?.isAutoListenEnabled ?: MutableStateFlow(false)
+  val requireConfirmationForDeletion: StateFlow<Boolean> = themePreferences?.requireConfirmationForDeletion ?: MutableStateFlow(true)
+  val speechLanguage: StateFlow<String> = themePreferences?.speechLanguage ?: MutableStateFlow("en-US")
+
+  fun setWakeWordEnabled(enabled: Boolean) { themePreferences?.setWakeWordEnabled(enabled) }
+  fun setAutoListenEnabled(enabled: Boolean) { themePreferences?.setAutoListenEnabled(enabled) }
+  fun setRequireConfirmationForDeletion(enabled: Boolean) { themePreferences?.setRequireConfirmationForDeletion(enabled) }
+  fun setSpeechLanguage(lang: String) { themePreferences?.setSpeechLanguage(lang) }
+
   fun setUiOpacity(opacity: Float) {
     if (themePreferences != null) {
       themePreferences.setUiOpacity(opacity)

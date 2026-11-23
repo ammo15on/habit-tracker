@@ -62,6 +62,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Schedule
@@ -132,7 +133,8 @@ enum class HamburgerPage {
   TASKS,
   PRESETS,
   DATA,
-  CALENDAR_SYNC
+  CALENDAR_SYNC,
+  VOICE_SETTINGS
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -221,6 +223,12 @@ fun HamburgerMenuDialog(
           }
           HamburgerPage.CALENDAR_SYNC -> {
             CalendarSyncFullScreenPage(
+              viewModel = viewModel,
+              onBack = { currentPage = HamburgerPage.MAIN_MENU }
+            )
+          }
+          HamburgerPage.VOICE_SETTINGS -> {
+            VoiceSettingsFullScreenPage(
               viewModel = viewModel,
               onBack = { currentPage = HamburgerPage.MAIN_MENU }
             )
@@ -340,6 +348,15 @@ private fun HamburgerMainMenuScreen(
           subtitle = "Two-way sync with phone calendar, bulk sync & remove",
           onClick = { onNavigate(HamburgerPage.CALENDAR_SYNC) },
           tag = "nav_calendar_sync_btn"
+        )
+      }
+      item {
+        HamburgerRowCard(
+          icon = Icons.Default.Mic,
+          title = "Voice Settings & Triggers",
+          subtitle = "Wake-word trigger, auto-listen, speech language & confirmation rules",
+          onClick = { onNavigate(HamburgerPage.VOICE_SETTINGS) },
+          tag = "nav_voice_settings_btn"
         )
       }
     }
@@ -1897,6 +1914,105 @@ private fun CalendarSyncFullScreenPage(
         Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
         Spacer(modifier = Modifier.width(8.dp))
         Text("One-Click Remove All Synced Events from Phone Calendar", color = MaterialTheme.colorScheme.error)
+      }
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VoiceSettingsFullScreenPage(
+  viewModel: HabitViewModel,
+  onBack: () -> Unit
+) {
+  val wakeWordEnabled by viewModel.isWakeWordEnabled.collectAsStateWithLifecycle()
+  val autoListenEnabled by viewModel.isAutoListenEnabled.collectAsStateWithLifecycle()
+  val confirmDeletion by viewModel.requireConfirmationForDeletion.collectAsStateWithLifecycle()
+
+  Scaffold(
+    topBar = {
+      CenterAlignedTopAppBar(
+        title = { Text("Voice Settings & Triggers", fontWeight = FontWeight.Bold) },
+        navigationIcon = {
+          IconButton(onClick = onBack) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+          }
+        },
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+      )
+    },
+    containerColor = Color.Transparent
+  ) { padding ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(padding)
+        .padding(16.dp)
+        .verticalScroll(rememberScrollState()),
+      verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+      ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          Text("Trigger & Listening Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+          
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+              Text("Wake-Word Detection", fontWeight = FontWeight.SemiBold)
+              Text("Enable background hands-free activation trigger", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            androidx.compose.material3.Switch(
+              checked = wakeWordEnabled,
+              onCheckedChange = { viewModel.setWakeWordEnabled(it) }
+            )
+          }
+
+          Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+              Text("Auto-Listen on Startup", fontWeight = FontWeight.SemiBold)
+              Text("Automatically open voice assistant listening prompt when tracker opens", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            androidx.compose.material3.Switch(
+              checked = autoListenEnabled,
+              onCheckedChange = { viewModel.setAutoListenEnabled(it) }
+            )
+          }
+
+          Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+              Text("Confirm Before Destructive Actions", fontWeight = FontWeight.SemiBold)
+              Text("Ask for confirmation before deleting tasks or chapters by voice", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            androidx.compose.material3.Switch(
+              checked = confirmDeletion,
+              onCheckedChange = { viewModel.setRequireConfirmationForDeletion(it) }
+            )
+          }
+        }
+      }
+
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+      ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          Text("Supported Voice Commands Guide", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+          Text("• Create Task: \"Create a task for today named Semiconductor\" or \"Create task on 3 January named Physics Practice\"", style = MaterialTheme.typography.bodySmall)
+          Text("• Task Timer: \"Start timer for Semiconductor\", \"Pause timer\", \"Resume timer\", \"Stop timer\"", style = MaterialTheme.typography.bodySmall)
+          Text("• Mark Complete: \"Mark exercise done for Cell Cycle\", \"Mark assertion reason done\", \"Mark chapter completed\"", style = MaterialTheme.typography.bodySmall)
+          Text("• Create Notes: \"Create a note in Morphology to remember floral formula\"", style = MaterialTheme.typography.bodySmall)
+          Text("• Smart Commands: \"Delete task Semiconductor\", \"Check today's progress\", \"View pending tasks\", \"Check study time\"", style = MaterialTheme.typography.bodySmall)
+        }
       }
     }
   }
