@@ -1,13 +1,14 @@
-# Habit & Study Tracker (Android) - v7.3
+# Habit & Study Tracker (Android) - v7.4
 
-A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widgets, progressive AI study coaching, comprehensive voice assistant commands with hamburger voice settings, and productivity analytics.
+A modern, offline-first Android application built with **Kotlin** and **Jetpack Compose (Material Design 3)** for daily habit tracking, NEET preparation schedules, interactive time tracking, syllabus completion, home screen widgets, progressive AI study coaching, robust voice assistant intent parsing, and productivity analytics.
 
 ---
 
-## 📱 Pre-Built APKs (v7.3 & Version History)
+## 📱 Pre-Built APKs (v7.4 & Version History)
 
 The compiled Android application packages are available directly in the repository, preserving all historical releases:
-- **v7.3 Latest Release (Auto-Trigger Voice Listening, Hamburger Voice Settings & Full Command Suite)**: [`apk/habit-tracker-v7.3.apk`](apk/habit-tracker-v7.3.apk)
+- **v7.4 Latest Release (Enhanced Natural Language Intent Parsing, Task Deletion & Detailed Voice Progress)**: [`apk/habit-tracker-v7.4.apk`](apk/habit-tracker-v7.4.apk)
+- **v7.3 Release**: [`apk/habit-tracker-v7.3.apk`](apk/habit-tracker-v7.3.apk)
 - **v7.2 Release**: [`apk/habit-tracker-v7.2.apk`](apk/habit-tracker-v7.2.apk)
 - **v7.1 Release**: [`apk/habit-tracker-v7.1.apk`](apk/habit-tracker-v7.1.apk)
 - **v7.0 Release**: [`apk/habit-tracker-v7.0.apk`](apk/habit-tracker-v7.0.apk)
@@ -26,24 +27,18 @@ The compiled Android application packages are available directly in the reposito
 - **Release APK Output**: `app/build/outputs/apk/release/app-release.apk`
 - **Compatibility**: Android 8.0+ (API level 24+)
 - **Architecture**: Universal APK
-- **Version**: `7.3` (Version Code 17)
+- **Version**: `7.4` (Version Code 18)
 
 ---
 
-## 🚀 Release v7.3 - Auto-Trigger Voice Listening, Hamburger Voice Settings & Complete Voice Command Suite
+## 🚀 Release v7.4 - Enhanced Natural Language Understanding, Task Deletion & Detailed Voice Progress Stats
 
-### 1. Hamburger Voice Settings & Triggers Hub
-- **Dedicated Settings Page**: Added a new **Voice Settings & Triggers** section in the Hamburger menu (`Settings & Hub`).
-- **Configurable Preferences**: Toggle wake-word detection, auto-listen on app startup, and confirmation rules before destructive actions (e.g. deleting tasks).
+### 1. Robust Task Deletion & Chapter Matching
+- **Cross-Scope Task Resolution**: Voice assistant now searches both scheduled day tasks and all database tasks for reliable task deletion with confirmation rules.
+- **Fuzzy Chapter Matching**: Advanced substring and case-insensitive matching across all 79 NEET chapters for marking chapters, PYQs, Exercises, and Assertion-Reason (A&R) sections complete/undone.
 
-### 2. Immediate Auto-Trigger Voice Assistant
-- **Instant Listening**: Tapping the external microphone button on the tracker screen immediately opens the modern Material 3 voice popup and automatically starts speech recognition listening without requiring secondary taps.
-- **Modern Redesign**: Frosted glass gradient card, pulsing mic indicator, live transcription display, text input field, completed action logs with Undo, and quick-action chips.
-
-### 3. Complete Private Voice Command Suite
-- **Tasks & Timers**: Create dated tasks for today or specified dates and control task timers (start, pause, resume, stop).
-- **Study Activity Completion**: Mark chapters, subjects, exercises, Assertion-Reason (A&R) sections, DPPs, and NCERT reading as completed/undone.
-- **Notes & Smart Commands**: Create chapter-wise notes and execute smart commands (delete tasks with confirmation checks, check today's progress, view pending tasks, and check study time).
+### 2. Comprehensive Voice Progress Reporting
+- **Detailed Stats Query**: Asking *"Check today's progress"* via voice or text now reports exact counts for tasks, total chapters completed, PYQs solved, A&R done, and exercises finished.
 
 ---
 

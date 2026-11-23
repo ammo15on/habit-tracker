@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.model.HabitTask
 import com.example.data.model.NoteEntity
 import com.example.ui.HabitViewModel
 import com.example.util.DateUtils
@@ -40,7 +41,8 @@ fun VoiceCommandPopupDialog(
 ) {
   val context = LocalContext.current
   val chapters by viewModel.allNeetChapters.collectAsStateWithLifecycle()
-  val tasks by viewModel.tasksForSelectedDate.collectAsStateWithLifecycle()
+  val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
+  val tasksForDate by viewModel.tasksForSelectedDate.collectAsStateWithLifecycle()
   val requireConfirmation by viewModel.requireConfirmationForDeletion.collectAsStateWithLifecycle()
   val totalTimeSeconds by viewModel.totalTimeTodaySeconds.collectAsStateWithLifecycle()
 
@@ -49,7 +51,8 @@ fun VoiceCommandPopupDialog(
   var isListening by remember { mutableStateOf(true) }
   var executedActions by remember { mutableStateOf<List<ExecutedVoiceAction>>(emptyList()) }
   var lastActionSummary by remember { mutableStateOf<String?>(null) }
-  var pendingDeletionTaskName by remember { mutableStateOf<String?>(null) }
+  var pendingDeletionTaskId by remember { mutableStateOf<Long?>(null) }
+  var pendingDeletionTaskTitle by remember { mutableStateOf<String?>(null) }
 
   // Pulsing animation for listening mic icon
   val infiniteTransition = rememberInfiniteTransition(label = "micPulse")
@@ -98,53 +101,60 @@ fun VoiceCommandPopupDialog(
     var successMessage: String? = null
     var undoAction: (() -> Unit)? = null
 
-    if (pendingDeletionTaskName != null) {
-      if (text.contains("yes") || text.contains("confirm") || text.contains("ok")) {
-        val taskToDelete = tasks.find { it.task.name.lowercase().contains(pendingDeletionTaskName!!) }
-        if (taskToDelete != null) {
-          viewModel.deleteTask(taskToDelete.task.id)
-          successMessage = "Deleted task '${taskToDelete.task.name}'"
-        } else {
-          successMessage = "Task not found for deletion."
-        }
+    // 1. Confirmation handling for destructive actions
+    if (pendingDeletionTaskId != null) {
+      if (text.contains("yes") || text.contains("confirm") || text.contains("ok") || text.contains("sure")) {
+        val taskId = pendingDeletionTaskId!!
+        val title = pendingDeletionTaskTitle ?: "Task"
+        viewModel.deleteTask(taskId)
+        successMessage = "Deleted task '$title'"
       } else {
         successMessage = "Deletion cancelled."
       }
-      pendingDeletionTaskName = null
+      pendingDeletionTaskId = null
+      pendingDeletionTaskTitle = null
       if (successMessage != null) {
-        executedActions = executedActions + ExecutedVoiceAction(successMessage!!, null)
+        executedActions = executedActions + ExecutedVoiceAction(successMessage, null)
         lastActionSummary = "Executed: $successMessage"
         inputQuery = ""
       }
       return
     }
 
-    if (text.contains("start timer") || text.contains("begin timer")) {
-      val targetTaskName = text.substringAfter("timer for").substringAfter("timer").trim()
-      val matchedTask = tasks.find { it.task.name.lowercase().contains(targetTaskName) }
+    // 2. Task Timer Commands
+    if (text.contains("start timer") || text.contains("begin timer") || text.contains("start study")) {
+      val targetTaskName = text.substringAfter("timer for").substringAfter("timer").substringAfter("study for").trim()
+      val matchedTask = tasksForDate.find { it.task.name.lowercase().contains(targetTaskName) }
+        ?: allTasks.find { it.name.lowercase().contains(targetTaskName) }
       if (matchedTask != null) {
-        viewModel.toggleTimer(matchedTask.task.id)
-        successMessage = "Started timer for '${matchedTask.task.name}'"
-      } else if (tasks.isNotEmpty()) {
-        viewModel.toggleTimer(tasks.first().task.id)
-        successMessage = "Started timer for '${tasks.first().task.name}'"
+        val taskId = if (matchedTask is com.example.ui.TaskItemUiState) matchedTask.task.id else (matchedTask as HabitTask).id
+        val taskName = if (matchedTask is com.example.ui.TaskItemUiState) matchedTask.task.name else (matchedTask as HabitTask).name
+        viewModel.toggleTimer(taskId)
+        successMessage = "Started timer for '$taskName'"
+      } else if (tasksForDate.isNotEmpty()) {
+        viewModel.toggleTimer(tasksForDate.first().task.id)
+        successMessage = "Started timer for '${tasksForDate.first().task.name}'"
       } else {
-        successMessage = "No active tasks found to start timer."
+        successMessage = "No matching task found to start timer."
       }
     } else if (text.contains("pause timer")) {
       viewModel.pauseTimer()
-      successMessage = "Paused active timer."
+      successMessage = "Paused active task timer."
     } else if (text.contains("resume timer")) {
       viewModel.resumeTimer()
-      successMessage = "Resumed active timer."
+      successMessage = "Resumed active task timer."
     } else if (text.contains("stop timer") || text.contains("finish timer")) {
       viewModel.stopActiveTimer()
-      successMessage = "Stopped and saved active timer."
-    } else if (text.contains("task") || text.contains("create task") || text.contains("add task")) {
+      successMessage = "Stopped and saved task timer session."
+    }
+    // 3. Create Tasks
+    else if (text.contains("task") || text.contains("create task") || text.contains("add task")) {
       val name = if (text.contains("named")) {
-        text.substringAfter("named").substringBefore(" on ").trim()
+        text.substringAfter("named").substringBefore(" on ").substringBefore(" for ").trim()
+      } else if (text.contains("for today")) {
+        text.substringAfter("for today").substringAfter("named").trim()
       } else {
-        text.substringAfter("task").substringBefore(" on ").trim().ifBlank { "Study Task" }
+        text.substringAfter("task").substringBefore(" on ").substringBefore(" for ").trim().ifBlank { "Study Task" }
       }
       val targetDate = parseDate(text)
       viewModel.addTask(
@@ -153,7 +163,9 @@ fun VoiceCommandPopupDialog(
         targetTimeMinutes = 30
       )
       successMessage = "Created task '${name.replaceFirstChar { it.uppercase() }}' for $targetDate"
-    } else if (text.contains("note") || text.contains("add something") || text.contains("create a note")) {
+    }
+    // 4. Create Notes
+    else if (text.contains("note") || text.contains("add something") || text.contains("create a note")) {
       val chapterPart = text.substringAfter("in").substringBefore(" to ").substringBefore("remember").trim()
       val contentPart = if (text.contains("to ")) text.substringAfter("to ").trim()
                         else if (text.contains("remember ")) text.substringAfter("remember ").trim()
@@ -173,19 +185,21 @@ fun VoiceCommandPopupDialog(
       viewModel.saveNote(note)
       successMessage = "Added note in '$chapterNameStr': $contentPart"
       undoAction = { viewModel.deleteNote(note) }
-    } else if (text.contains("mark") || text.contains("done") || text.contains("undone")) {
-      val isDone = !text.contains("undone")
+    }
+    // 5. Mark Complete / Undone (Chapters, Subjects, PYQ, Exercise, Assertion-Reason, DPP, NCERT)
+    else if (text.contains("mark") || text.contains("complete") || text.contains("done") || text.contains("undone") || text.contains("uncomplete")) {
+      val isDone = !text.contains("undone") && !text.contains("uncomplete")
       val type = when {
         text.contains("pyq") -> "PYQ"
         text.contains("exercise") -> "Exercise"
-        text.contains("assertion") || text.contains("a&r") -> "Assertion-Reason"
+        text.contains("assertion") || text.contains("a&r") || text.contains("reason") -> "Assertion-Reason"
         text.contains("dpp") -> "DPP"
         text.contains("ncert") -> "NCERT"
         else -> "Chapter"
       }
 
-      val chapterQuery = text.substringAfter("for").substringAfter("in").trim()
-      val matchedChapter = chapters.find { it.name.lowercase().contains(chapterQuery) }
+      val chapterQuery = text.substringAfter("for").substringAfter("in").substringAfter("chapter").trim()
+      val matchedChapter = chapters.find { it.name.lowercase().contains(chapterQuery) || chapterQuery.contains(it.name.lowercase()) }
 
       if (matchedChapter != null) {
         val updated = when (type) {
@@ -196,43 +210,59 @@ fun VoiceCommandPopupDialog(
           else -> matchedChapter.copy(isCompleted = isDone)
         }
         viewModel.updateNeetChapter(updated)
-        successMessage = "Marked $type ${if (isDone) "done" else "undone"} for ${matchedChapter.name}"
+        successMessage = "Marked $type ${if (isDone) "completed" else "undone"} for ${matchedChapter.name}"
         undoAction = { viewModel.updateNeetChapter(matchedChapter) }
       } else {
-        successMessage = "Matched chapter not found for: $chapterQuery"
+        successMessage = "Chapter matching '$chapterQuery' not found. Please specify exact chapter name."
       }
-    } else if (text.contains("delete task") || text.contains("remove task")) {
-      val taskNameQuery = text.substringAfter("delete task").substringAfter("remove task").trim()
-      val matchedTask = tasks.find { it.task.name.lowercase().contains(taskNameQuery) }
+    }
+    // 6. Delete Task
+    else if (text.contains("delete task") || text.contains("remove task") || text.contains("delete")) {
+      val taskNameQuery = text.substringAfter("delete task").substringAfter("remove task").substringAfter("delete").trim()
+      val matchedTask = tasksForDate.find { it.task.name.lowercase().contains(taskNameQuery) }
+        ?: allTasks.find { it.name.lowercase().contains(taskNameQuery) }
+
       if (matchedTask != null) {
+        val taskId = if (matchedTask is com.example.ui.TaskItemUiState) matchedTask.task.id else (matchedTask as HabitTask).id
+        val taskTitle = if (matchedTask is com.example.ui.TaskItemUiState) matchedTask.task.name else (matchedTask as HabitTask).name
+
         if (requireConfirmation) {
-          pendingDeletionTaskName = taskNameQuery
-          successMessage = "Are you sure you want to delete '${matchedTask.task.name}'? Say 'Yes' to confirm."
+          pendingDeletionTaskId = taskId
+          pendingDeletionTaskTitle = taskTitle
+          successMessage = "Delete '$taskTitle'? Say 'Yes' to confirm."
         } else {
-          viewModel.deleteTask(matchedTask.task.id)
-          successMessage = "Deleted task '${matchedTask.task.name}'"
+          viewModel.deleteTask(taskId)
+          successMessage = "Deleted task '$taskTitle'"
         }
       } else {
-        successMessage = "Task not found: $taskNameQuery"
+        successMessage = "Task matching '$taskNameQuery' not found."
       }
-    } else if (text.contains("progress") || text.contains("today's progress")) {
-      val completed = tasks.count { it.isCompleted }
-      val total = tasks.size
-      successMessage = "Today's Progress: $completed / $total tasks completed."
+    }
+    // 7. Smart Commands & Detailed Voice Progress Stats
+    else if (text.contains("progress") || text.contains("status") || text.contains("summary") || text.contains("how am i doing")) {
+      val completedTasks = tasksForDate.count { it.isCompleted }
+      val totalTasks = tasksForDate.size
+      val totalChaptersCount = chapters.size
+      val completedChapters = chapters.count { it.isCompleted }
+      val pyqDone = chapters.count { it.isPyqDone }
+      val arDone = chapters.count { it.isArDone }
+      val exerciseDone = chapters.count { it.isExerciseDone }
+
+      successMessage = "Progress: Tasks $completedTasks/$totalTasks | Chapters $completedChapters/$totalChaptersCount | PYQ $pyqDone | A&R $arDone | Ex $exerciseDone"
     } else if (text.contains("pending") || text.contains("todo")) {
-      val pending = tasks.filter { !it.isCompleted }.map { it.task.name }
-      successMessage = "Pending tasks (${pending.size}): ${pending.take(3).joinToString(", ")}"
+      val pending = tasksForDate.filter { !it.isCompleted }.map { it.task.name }
+      successMessage = "Pending tasks (${pending.size}): ${if (pending.isEmpty()) "None! All done." else pending.joinToString(", ")}"
     } else if (text.contains("study time") || text.contains("time studied")) {
       val mins = totalTimeSeconds / 60
-      successMessage = "Total study time today: $mins minutes."
+      successMessage = "Total study time recorded today: $mins minutes."
     } else {
       val date = parseDate(text)
       viewModel.addTask(rawText.replaceFirstChar { it.uppercase() }, targetDates = setOf(date))
-      successMessage = "Created task: ${rawText} for $date"
+      successMessage = "Created task: '${rawText.replaceFirstChar { it.uppercase() }}' for $date"
     }
 
     if (successMessage != null) {
-      executedActions = executedActions + ExecutedVoiceAction(successMessage!!, undoAction)
+      executedActions = executedActions + ExecutedVoiceAction(successMessage, undoAction)
       lastActionSummary = "Executed: $successMessage"
       inputQuery = ""
     }
@@ -257,7 +287,6 @@ fun VoiceCommandPopupDialog(
     }
   }
 
-  // Automatically trigger voice listening immediately upon opening dialog!
   LaunchedEffect(Unit) {
     try {
       val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -366,7 +395,7 @@ fun VoiceCommandPopupDialog(
           OutlinedTextField(
             value = inputQuery,
             onValueChange = { inputQuery = it },
-            placeholder = { Text("Type command (e.g. Semiconductor task)") },
+            placeholder = { Text("Type command (e.g. create task for today named Physics)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             trailingIcon = {
@@ -444,20 +473,20 @@ fun VoiceCommandPopupDialog(
               Text("Listen Again", fontSize = 10.sp)
             }
             Button(
-              onClick = { executeCommand("Create task for today named Semiconductor") },
+              onClick = { executeCommand("Check today's progress") },
               modifier = Modifier.weight(1f),
               contentPadding = PaddingValues(2.dp),
               colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
-              Text("Semiconductor", fontSize = 10.sp)
+              Text("Progress", fontSize = 10.sp)
             }
             Button(
-              onClick = { executeCommand("Check today's progress") },
+              onClick = { executeCommand("View pending tasks") },
               modifier = Modifier.weight(1f),
               contentPadding = PaddingValues(2.dp),
               colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
             ) {
-              Text("Progress", fontSize = 10.sp)
+              Text("Pending", fontSize = 10.sp)
             }
           }
         }

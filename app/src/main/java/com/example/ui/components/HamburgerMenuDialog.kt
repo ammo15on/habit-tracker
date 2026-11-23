@@ -2007,11 +2007,11 @@ private fun VoiceSettingsFullScreenPage(
       ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
           Text("Supported Voice Commands Guide", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-          Text("• Create Task: \"Create a task for today named Semiconductor\" or \"Create task on 3 January named Physics Practice\"", style = MaterialTheme.typography.bodySmall)
-          Text("• Task Timer: \"Start timer for Semiconductor\", \"Pause timer\", \"Resume timer\", \"Stop timer\"", style = MaterialTheme.typography.bodySmall)
-          Text("• Mark Complete: \"Mark exercise done for Cell Cycle\", \"Mark assertion reason done\", \"Mark chapter completed\"", style = MaterialTheme.typography.bodySmall)
+          Text("• Create Task: \"Create a task for today named Physics\" or \"Create task on 3 January named Chemistry\"", style = MaterialTheme.typography.bodySmall)
+          Text("• Task Timers: \"Start timer for Physics\", \"Pause timer\", \"Resume timer\", \"Stop timer\"", style = MaterialTheme.typography.bodySmall)
+          Text("• Mark Study Activity: \"Mark chapter completed for Cell\", \"Mark pyq done for Kinematics\", \"Mark exercise done for Optics\", \"Mark assertion reason done for Genetics\"", style = MaterialTheme.typography.bodySmall)
           Text("• Create Notes: \"Create a note in Morphology to remember floral formula\"", style = MaterialTheme.typography.bodySmall)
-          Text("• Smart Commands: \"Delete task Semiconductor\", \"Check today's progress\", \"View pending tasks\", \"Check study time\"", style = MaterialTheme.typography.bodySmall)
+          Text("• Delete & Smart Stats: \"Delete task Physics\" (prompts confirmation), \"Check today's progress\" (reports chapters, PYQ, A&R, exercise & task counts), \"View pending tasks\", \"Check study time\"", style = MaterialTheme.typography.bodySmall)
         }
       }
     }
